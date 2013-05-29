@@ -3,19 +3,19 @@
 #include "consts.hpp"
 #include "SM.hpp"
 #include "fmssm_oneloop.hpp"
-#include "fmssmn_lattice_mz_constraint.hpp"
+#include "fmssm_lattice_numerical_mz_constraint.hpp"
 
 
 using namespace std;
 
 
-Fmssmn_mz_constraint_::Fmssmn_mz_constraint_() :
+Fmssm_mz_constraint_n_::Fmssm_mz_constraint_n_() :
     fix_scale_to_mz(mZ),
     gcs(),
     ycs()
 {}
 
-Fmssmn_mz_constraint::Fmssmn_mz_constraint(double tanBeta) :
+Fmssm_mz_constraint_n::Fmssm_mz_constraint_n(double tanBeta) :
     CompoundConstraint<Lattice>::CompoundConstraint
     ({&fix_scale_to_mz, &gcs, &ycs})
 {

@@ -7,8 +7,8 @@
 #include "fmssm_lattice.hpp"
 #include "lattice_initial_guesser.hpp"
 #include "fmssm_lattice_mx_constraint.hpp"
-#include "fmssm_lattice_msusy_constraint.hpp"
-#include "fmssm_lattice_mz_constraint.hpp"
+#include "fmssm_lattice_numerical_msusy_constraint.hpp"
+#include "fmssm_lattice_numerical_mz_constraint.hpp"
 // #include "fmssm_lattice_convergence_tester.hpp"
 // #include "two_scale_running_precision.hpp"
 #include "lattice_solver.hpp"
@@ -43,8 +43,8 @@ class Fmssm_initial_guesser : public Initial_guesser<Lattice> {
 public:
     Fmssm_initial_guesser
     (double mxGuess_, double mu_ini, double b_ini,
-     Fmssm_mz_constraint& mzc_,
-     Fmssm_msusy_constraint& msc_,
+     Fmssm_mz_constraint_n& mzc_,
+     Fmssm_msusy_constraint_n& msc_,
      Fmssm_mx_constraint& mxc_) :
 	mxGuess(mxGuess_),
 	mu(mu_ini),
@@ -131,8 +131,8 @@ private:
     double mxGuess;            ///< guessed GUT scale
     Real mu;
     Real b;
-    Fmssm_mz_constraint& mzc;
-    Fmssm_msusy_constraint& msc;
+    Fmssm_mz_constraint_n& mzc;
+    Fmssm_msusy_constraint_n& msc;
     Fmssm_mx_constraint& mxc;
 };
 
@@ -156,8 +156,8 @@ int main(int argc, char *argv[])
 
    Fmssm<Lattice> fmssm;
 
-   Fmssm_mz_constraint fmssm_mz_constraint(pp.tanBeta);
-   Fmssm_msusy_constraint fmssm_msusy_constraint(pp.tanBeta);
+   Fmssm_mz_constraint_n fmssm_mz_constraint(pp.tanBeta);
+   Fmssm_msusy_constraint_n fmssm_msusy_constraint(pp.tanBeta);
    Fmssm_cmssm_constraint fmssm_cmssm_constraint(pp.m0, pp.m12, pp.a0);
    // Fmssm_convergence_tester fmssm_convergence_tester(1.0e-4);
 

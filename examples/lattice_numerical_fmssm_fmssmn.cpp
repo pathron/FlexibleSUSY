@@ -5,10 +5,11 @@
 #include "mssm_parameter_point.hpp"
 #include "fmssm_oneloop.hpp"
 #include "fmssm_lattice.hpp"
-#include "fmssm_lattice_msusy_constraint.hpp"
-#include "fmssm_lattice_mz_constraint.hpp"
+#include "fmssm_lattice_numerical_msusy_constraint.hpp"
+#include "fmssm_lattice_numerical_mz_constraint.hpp"
 #include "fmssmn_lattice.hpp"
 #include "fmssmn_lattice_mx_constraint.hpp"
+#include "fmssm_fmssmn_lattice_numerical_matchings.hpp"
 // #include "fmssmn_lattice_convergence_tester.hpp"
 // #include "two_scale_running_precision.hpp"
 #include "lattice_initial_guesser.hpp"
@@ -20,106 +21,12 @@
 using namespace std;
 
 
-#define fortran_fmssm_fmssmn_mc(name)					\
-									\
-extern "C" void name##_							\
-(const Real& scale0, const Real *w, const Real *x, const int& i,	\
- Real *row, Real *rhs);
-
-fortran_fmssm_fmssmn_mc(fmssm_fmssmn_gauge_couplings)
-fortran_fmssm_fmssmn_mc(fmssm_fmssmn_yukawas)
-fortran_fmssm_fmssmn_mc(fmssm_fmssmn_mu_b)
-fortran_fmssm_fmssmn_mc(fmssm_fmssmn_gaugino_masses)
-fortran_fmssm_fmssmn_mc(fmssm_fmssmn_higgs_masses)
-fortran_fmssm_fmssmn_mc(fmssm_fmssmn_sfermion_masses)
-fortran_fmssm_fmssmn_mc(fmssm_fmssmn_trilinears)
-
-class Fmssm_fmssmn_gauge_couplings : public ForeignMatching {
-public:
-    Fmssm_fmssmn_gauge_couplings() : ForeignMatching(3) {}
-    void operator()() {
-	for (size_t i = 0; i < 3; i++) {
-	    fmssm_fmssmn_gauge_couplings_
-	    (f->scl0,nullptr,nullptr,i,&row[0],&rhs);
-	    copy_row(i);
-	}
-    }
-};
-
-class Fmssm_fmssmn_yukawas : public ForeignMatching {
-public:
-    Fmssm_fmssmn_yukawas() : ForeignMatching(54) {}
-    void operator()() {
-	for (size_t i = 0; i < 54; i++) {
-	    fmssm_fmssmn_yukawas_(f->scl0,nullptr,nullptr,i,&row[0],&rhs);
-	    copy_row(i);
-	}
-    }
-};
-
-class Fmssm_fmssmn_mu_b : public ForeignMatching {
-public:
-    Fmssm_fmssmn_mu_b() : ForeignMatching(4) {}
-    void operator()() {
-	for (size_t i = 0; i < 4; i++) {
-	    fmssm_fmssmn_mu_b_(f->scl0,nullptr,nullptr,i,&row[0],&rhs);
-	    copy_row(i);
-	}
-    }
-};
-
-class Fmssm_fmssmn_gaugino_masses : public ForeignMatching {
-public:
-    Fmssm_fmssmn_gaugino_masses() : ForeignMatching(6) {}
-    void operator()() {
-	for (size_t i = 0; i < 6; i++) {
-	    fmssm_fmssmn_gaugino_masses_
-	    (f->scl0,nullptr,nullptr,i,&row[0],&rhs);
-	    copy_row(i);
-	}
-    }
-};
-
-class Fmssm_fmssmn_higgs_masses : public ForeignMatching {
-public:
-    Fmssm_fmssmn_higgs_masses() : ForeignMatching(2) {}
-    void operator()() {
-	for (size_t i = 0; i < 2; i++) {
-	    fmssm_fmssmn_higgs_masses_(f->scl0,nullptr,nullptr,i,&row[0],&rhs);
-	    copy_row(i);
-	}
-    }
-};
-
-class Fmssm_fmssmn_sfermion_masses : public ForeignMatching {
-public:
-    Fmssm_fmssmn_sfermion_masses() : ForeignMatching(45) {}
-    void operator()() {
-	for (size_t i = 0; i < 45; i++) {
-	    fmssm_fmssmn_sfermion_masses_
-	    (f->scl0,nullptr,nullptr,i,&row[0],&rhs);
-	    copy_row(i);
-	}
-    }
-};
-
-class Fmssm_fmssmn_trilinears : public ForeignMatching {
-public:
-    Fmssm_fmssmn_trilinears() : ForeignMatching(54) {}
-    void operator()() {
-	for (size_t i = 0; i < 54; i++) {
-	    fmssm_fmssmn_trilinears_(f->scl0,nullptr,nullptr,i,&row[0],&rhs);
-	    copy_row(i);
-	}
-    }
-};
-
 class Fmssm_fmssmn_initial_guesser : public Initial_guesser<Lattice> {
 public:
     Fmssm_fmssmn_initial_guesser
     (double mxGuess_, double mu_ini, double b_ini,
-     Fmssm_mz_constraint& mzc_,
-     Fmssm_msusy_constraint& msc_, double mu_match_,
+     Fmssm_mz_constraint_n& mzc_,
+     Fmssm_msusy_constraint_n& msc_, double mu_match_,
      Fmssmn_mx_constraint& mxc_) :
 	mxGuess(mxGuess_),
 	mu(mu_ini),
@@ -216,8 +123,8 @@ private:
     double mxGuess;            ///< guessed GUT scale
     Real mu;
     Real b;
-    Fmssm_mz_constraint& mzc;
-    Fmssm_msusy_constraint& msc;
+    Fmssm_mz_constraint_n& mzc;
+    Fmssm_msusy_constraint_n& msc;
     Real mu_match;
     Fmssmn_mx_constraint& mxc;
 };
@@ -255,8 +162,8 @@ int main(int argc, char *argv[])
 
    Fmssm<Lattice> fmssm;
 
-   Fmssm_mz_constraint fmssm_mz_constraint(pp.tanBeta);
-   Fmssm_msusy_constraint fmssm_msusy_constraint(pp.tanBeta);
+   Fmssm_mz_constraint_n fmssm_mz_constraint(pp.tanBeta);
+   Fmssm_msusy_constraint_n fmssm_msusy_constraint(pp.tanBeta);
    // Fmssm_convergence_tester fmssm_convergence_tester(1.0e-4);
 
    std::vector<Constraint<Lattice>*> fmssm_constraints;
@@ -269,13 +176,13 @@ int main(int argc, char *argv[])
    Fixed_t set_scale(matching_scale);
    SingleSiteInterTheoryConstraint set_matching_scale(&set_scale, 1);
    Match_t match_t;
-   Fmssm_fmssmn_gauge_couplings fmssm_fmssmn_gauge_couplings;
-   Fmssm_fmssmn_yukawas fmssm_fmssmn_yukawas;
-   Fmssm_fmssmn_mu_b fmssm_fmssmn_mu_b;
-   Fmssm_fmssmn_gaugino_masses fmssm_fmssmn_gaugino_masses;
-   Fmssm_fmssmn_higgs_masses fmssm_fmssmn_higgs_masses;
-   Fmssm_fmssmn_sfermion_masses fmssm_fmssmn_sfermion_masses;
-   Fmssm_fmssmn_trilinears fmssm_fmssmn_trilinears;
+   Fmssm_fmssmn_gauge_couplings_n fmssm_fmssmn_gauge_couplings;
+   Fmssm_fmssmn_yukawas_n fmssm_fmssmn_yukawas;
+   Fmssm_fmssmn_mu_b_n fmssm_fmssmn_mu_b;
+   Fmssm_fmssmn_gaugino_masses_n fmssm_fmssmn_gaugino_masses;
+   Fmssm_fmssmn_higgs_masses_n fmssm_fmssmn_higgs_masses;
+   Fmssm_fmssmn_sfermion_masses_n fmssm_fmssmn_sfermion_masses;
+   Fmssm_fmssmn_trilinears_n fmssm_fmssmn_trilinears;
    CompoundMatching<Lattice> fmssm_fmssmn_matching({
 	   &set_matching_scale,
 	   &match_t,

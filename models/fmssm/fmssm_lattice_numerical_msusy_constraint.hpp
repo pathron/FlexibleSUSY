@@ -16,27 +16,28 @@
 // <http://www.gnu.org/licenses/>.
 // ====================================================================
 
-#ifndef FMSSMN_LATTICE_MX_CONSTRAINT_H
-#define FMSSMN_LATTICE_MX_CONSTRAINT_H
+#ifndef fmssm_lattice_numerical_msusy_constraint_hpp
+#define fmssm_lattice_numerical_msusy_constraint_hpp
+
 
 #include "lattice_compound_constraint.hpp"
-#include "fmssmn_lattice_constraints.hpp"
+#include "fmssm_lattice_numerical_constraints.hpp"
 
-struct Fmssmn_mx_constraint_ {
-    Fmssmn_mx_constraint_();
-    Fmssmn_constraint_on_mx mxc;
-    Fmssmn_constraint_on_yn ync;
-    Fmssmn_constraint_on_higgs_masses mhc;
-    Fmssmn_constraint_on_gaugino_masses mgc;
-    Fmssmn_constraint_on_sfermion_masses mfc;
-    Fmssmn_constraint_on_trilinears tfc;
+
+// auxiliary class for initializing own members before the base class
+// see http://www.boost.org/doc/libs/1_53_0/libs/utility/base_from_member.html
+struct Fmssm_msusy_constraint_n_ {
+    Fmssm_msusy_constraint_n_();
+    Fmssm_constraint_on_ms_n msc;
+    Fmssm_constraint_on_ewsb_n ewsb;
 };
 
-class Fmssmn_mx_constraint :
-    public Fmssmn_mx_constraint_,
+class Fmssm_msusy_constraint_n :
+    public Fmssm_msusy_constraint_n_,
     public CompoundConstraint<Lattice> {
 public:
-    Fmssmn_mx_constraint();
+    Fmssm_msusy_constraint_n(double tanBeta);
 };
 
-#endif // FMSSMN_LATTICE_MX_CONSTRAINT_H
+
+#endif // fmssm_lattice_numerical_msusy_constraint_hpp

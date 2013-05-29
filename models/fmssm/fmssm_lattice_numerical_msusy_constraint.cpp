@@ -1,13 +1,13 @@
 #include "consts.hpp"
-#include "fmssmn_lattice_msusy_constraint.hpp"
+#include "fmssm_lattice_numerical_msusy_constraint.hpp"
 
 
-Fmssmn_msusy_constraint_::Fmssmn_msusy_constraint_() :
+Fmssm_msusy_constraint_n_::Fmssm_msusy_constraint_n_() :
     msc(),
     ewsb()
 {}
 
-Fmssmn_msusy_constraint::Fmssmn_msusy_constraint(double tanBeta) :
+Fmssm_msusy_constraint_n::Fmssm_msusy_constraint_n(double tanBeta) :
     CompoundConstraint<Lattice>::CompoundConstraint({&msc, &ewsb})
 {
     Real beta = atan(tanBeta);
