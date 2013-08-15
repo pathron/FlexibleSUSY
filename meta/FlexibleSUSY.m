@@ -1,10 +1,10 @@
 
 BeginPackage["FlexibleSUSY`", {"SARAH`", "AnomalousDimension`", "BetaFunction`", "TextFormatting`", "CConversion`", "TreeMasses`", "EWSB`", "Traces`", "SelfEnergies`", "Phases`", "LoopMasses`", "WriteOut`", "Constraint`", "ThresholdCorrections`", "ConvergenceTester`"}];
 
-Print["*****************************************************"];
+Print["***********************************************************"];
 Print["FlexibleSUSY ", Get[FileNameJoin[{Global`$flexiblesusyConfigDir,"version"}]]];
-Print["by P. Athron, J. Park, D. Stöckinger, A. Voigt, 2013"];
-Print["*****************************************************"];
+Print["by P. Athron, Jae-hyeon Park, D. Stöckinger, A. Voigt, 2013"];
+Print["***********************************************************"];
 Print[""];
 
 MakeFlexibleSUSY::usage="";
