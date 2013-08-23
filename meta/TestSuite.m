@@ -2,6 +2,7 @@
 BeginPackage["TestSuite`"];
 
 TestEquality::usage="tests equality of two expressions";
+TestMatch::usage="tests if the pattern form matches expr";
 TestCPPCode::usage="tests a C/C++ code snippet for an expected
 result";
 PrintTestSummary::usage="prints test summary";
@@ -14,7 +15,7 @@ numberOfPassedTests := 0;
 
 GetNumberOfFailedTests[] := numberOfFailedTests;
 
-TestEquality[val_, expr_, msg_:""] := 
+TestEquality[val_, expr_, msg_:""] :=
     If[val =!= expr,
        numberOfFailedTests++;
        Print["Error: expressions are not equal: ",
@@ -22,6 +23,16 @@ TestEquality[val_, expr_, msg_:""] :=
        Return[False];,
        numberOfPassedTests++;
        Return[True];
+      ];
+
+TestMatch[expr_, form_, msg_:""] :=
+    If[MatchQ[expr, form],
+       numberOfPassedTests++;
+       Return[True];,
+       numberOfFailedTests++;
+       Print["Error: expression ", InputForm[expr],
+	     " does not match pattern ", InputForm[form]];
+       Return[False];
       ];
 
 TestCPPCode[{preface_String, expr_String}, value_String, type_String, expected_String] :=
