@@ -72,7 +72,8 @@ RelevantTermList[couplingPattern_, term_] := {};
 RedundancyList[couplingPattern_, terms_] := Module[{
 	firstTerm = FirstTerm[terms],
 	indexedCoupling,
-	solutions
+	solutions,
+	s
     },
     indexedCoupling = IndexedCoupling[couplingPattern, firstTerm];
     solutions =
@@ -85,7 +86,8 @@ RedundancyList[couplingPattern_, terms_] := Module[{
 HermiticityConditions[couplingPattern_, terms_] := Module[{
 	firstTerm = FirstTerm[terms],
 	indexedCoupling,
-	solutions
+	solutions,
+	s
     },
     indexedCoupling = IndexedCoupling[couplingPattern, firstTerm];
     solutions =
@@ -117,9 +119,12 @@ IndexPermutationRuleLists[couplingPattern_, term_] := Module[{
     (Thread[Flatten[indexLists] -> Flatten[#]])& /@ Permutations[indexLists]
 ];
 
-IndexCollections[couplingPattern_, term_] :=
+IndexCollections[couplingPattern_, term_] := Module[{
+	i
+    },
     SingleCase[term, _[i:{___,#,___}] :> i, {0, Infinity}]& /@
-    List@@IndexedCoupling[couplingPattern, term];
+    List@@IndexedCoupling[couplingPattern, term]
+];
 
 FirstTerm[terms_Plus] := First[terms];
 
@@ -131,6 +136,9 @@ SelfDependent[solution_, couplingPattern_] :=
 
 DependsOn[couplingPattern_, exp_] :=
     Cases[exp, couplingPattern, {0, Infinity}] =!= {};
+
+CouplingPattern[indexedCoupling_] :=
+    indexedCoupling /. Alternatives@@indexedCoupling -> _;
 
 IndexedCoupling[pattern_, term_] := SingleCase[term, pattern, {0, Infinity}];
 
