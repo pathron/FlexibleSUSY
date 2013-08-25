@@ -999,3 +999,9 @@ MakeFlexibleSUSY[OptionsPattern[]] :=
 End[];
 
 EndPackage[];
+
+(*
+	Local Variables:
+	coding: utf-8
+	End:
+*)
