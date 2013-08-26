@@ -39,13 +39,12 @@ Module[{
     Parametrize[Head[coupling], dimensions, redundancies]
 ];
 
-ParametrizeSuperpotentialCoupling[coupling_, superpotential_] :=
+ParametrizeSuperpotentialCoupling[coupling_?HasIndicesQ, superpotential_] :=
     ParametrizeSuperpotentialCoupling[
-	coupling, superpotential, SARAH`getDimParameters[Head[coupling]]];
+	coupling, superpotential, CouplingDimensions[Head[coupling]]];
 
 ParametrizeSuperpotentialCoupling[coupling_, _] :=
-    ParametrizeCoupling[coupling] /;
-	SARAH`getDimParameters[Head[coupling]] === {};
+    ParametrizeCoupling[coupling];
 
 ParametrizeSusyBreakingCoupling[coupling_, lagSoft_, dimensions_] := Module[{
 	couplingPattern = CouplingPattern[coupling],
@@ -61,13 +60,11 @@ ParametrizeSusyBreakingCoupling[coupling_, lagSoft_, dimensions_] := Module[{
     Parametrize[Head[coupling], dimensions, Join[redundancies, hermiticity]]
 ];
 
-ParametrizeSusyBreakingCoupling[coupling_, lagSoft_] :=
+ParametrizeSusyBreakingCoupling[coupling_?HasIndicesQ, lagSoft_] :=
     ParametrizeSusyBreakingCoupling[
-	coupling, lagSoft, SARAH`getDimParameters[Head[coupling]]];
+	coupling, lagSoft, CouplingDimensions[Head[coupling]]];
 
-ParametrizeSusyBreakingCoupling[coupling_, _] :=
-    ParametrizeCoupling[coupling] /;
-	SARAH`getDimParameters[Head[coupling]] === {};
+ParametrizeSusyBreakingCoupling[coupling_, _] := ParametrizeCoupling[coupling];
 
 ParametrizeCoupling[coupling_] := Re[coupling] /; LatticeRealQ[coupling];
 
@@ -137,6 +134,25 @@ RealVariables[parametrizedIndexedCoupling_] :=
     Variables[parametrizedIndexedCoupling];
 
 LatticeRealQ[z_] := MemberQ[SARAH`realVar, z];
+
+HasIndicesQ[couplingHead_[__]] :=
+    CouplingDimensions[couplingHead] =!= Undefined &&
+    CouplingDimensions[couplingHead] =!= {};
+
+HasIndicesQ[_] := False;
+
+(* SARAH`getDimParameters[T] === {3, 3} *)
+
+DownValues[CouplingDimensions] = DownValues[SARAH`getDimParameters] /.
+    SARAH`getDimParameters -> CouplingDimensions;
+
+CouplingDimensions[couplingHead_] := Module[{
+	dims,
+	dimensionsList
+    },
+    dimensionsList = Cases[SARAH`parameters, {couplingHead, _, dims_} -> dims];
+    If[dimensionsList === {}, Undefined, First[dimensionsList]]
+];
 
 End[] (* `Private` *)
 
