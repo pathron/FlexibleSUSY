@@ -110,7 +110,8 @@ HermiticityConditions[couplingPattern_, terms_] := Module[{
 	   SelfDependent[Last[#], couplingPattern]&]
 ];
 
-EnforceCommonIndices[couplingPattern : _[__], terms_Plus] := Module[{
+EnforceCommonIndices[couplingPattern : _[__] ? HasBlankQ, terms_Plus] :=
+Module[{
 	indexLists = IndexCollections[couplingPattern, FirstTerm[terms]]
     },
     (# /. Thread[Flatten@IndexCollections[couplingPattern, #] ->
@@ -156,6 +157,10 @@ CouplingPattern[indexedCoupling : couplingHead_[__]] :=
 CouplingPattern[coupling_] := coupling;
 
 IndexedCoupling[pattern_, term_] := SingleCase[term, pattern, {0, Infinity}];
+
+HasBlankQ[pattern_] :=
+    Cases[pattern, _Blank | _BlankSequence | _BlankNullSequence,
+	  {0, Infinity}, Heads -> True] =!= {};
 
 SingleCase[args__] := Module[{
 	cases = Cases[args]
