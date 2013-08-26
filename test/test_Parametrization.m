@@ -40,7 +40,8 @@ randomizeIndices[term_] := Module[{
     term /. Thread[indices -> Module@@{indices, indices}]
 ];
 
-convertedSoft = ConvertSarahTerms[Soft, {mu2[__], mq2[__], T[L1][__]}];
+convertedSoft = ConvertSarahTerms[
+    Soft, {MassG, mHd2, B[\[Mu]], mu2[__], mq2[__], T[Yd][__], T[L1][__]}];
 
 mu2Terms1 = RelevantTerms[mu2[__], convertedSoft];
 mu2Terms2 = randomizeIndices[mu2Terms1];
@@ -108,6 +109,48 @@ parTL1 = Parametrization`Private`Parametrize[T[L1], {3, 3, 3}, redundanciesTL1];
 
 TestEquality[Length[Parametrization`Private`RealVariables[naiveTL1]], 3 3 3 2];
 TestEquality[Length[Parametrization`Private`RealVariables[parTL1]], 3 3 2];
+
+Print["testing ParametrizeSusyBreakingCoupling[] ..."]
+
+ComplexMatrix[name_, rows_, cols_] :=
+    Table[Re[name[i,j]] + I Im[name[i,j]], {i, rows}, {j, cols}];
+
+HermitianMatrix[name_, size_] := Table[
+    Which[i < j, Re[name[i,j]] + I Im[name[i,j]],
+	  i > j, Re[name[j,i]] - I Im[name[j,i]],
+	  True , Re[name[i,j]]], {i, size}, {j, size}];
+
+L1couplings[name_, size_] := Table[
+    Which[i < j,   Re[name[i,j,k]] + I Im[name[i,j,k]],
+	  i > j, - Re[name[j,i,k]] - I Im[name[j,i,k]],
+	  True , 0], {i, size}, {j, size}, {k, size}];
+
+TestEquality[ParametrizeSusyBreakingCoupling[MassG, convertedSoft],
+	     I Im[MassG] + Re[MassG]];
+TestEquality[ParametrizeSusyBreakingCoupling[mHd2, convertedSoft],
+	     Re[mHd2]];
+TestEquality[ParametrizeSusyBreakingCoupling[B[\[Mu]], convertedSoft],
+	     I Im[B[\[Mu]]] + Re[B[\[Mu]]]];
+TestEquality[ParametrizeSusyBreakingCoupling[mu2[i1, i2], convertedSoft],
+	     HermitianMatrix[mu2, 3]];
+TestEquality[ParametrizeSusyBreakingCoupling[mq2[i1, i2], convertedSoft],
+	     HermitianMatrix[mq2, 3]];
+TestEquality[ParametrizeSusyBreakingCoupling[T[Yd][i1, i2], convertedSoft],
+	     ComplexMatrix[T[Yd], 3, 3]];
+TestEquality[ParametrizeSusyBreakingCoupling[T[L1][i1, i2, i3], convertedSoft],
+	     L1couplings[T[L1], 3]];
+
+Print["testing ParametrizeSuperpotentialCoupling[] ..."]
+
+convertedW = ConvertSarahTerms[
+    Superpotential, {\[Mu], Yd[__], T[L1][__]}];
+
+TestEquality[ParametrizeSuperpotentialCoupling[\[Mu], convertedW],
+	     I Im[\[Mu]] + Re[\[Mu]]];
+TestEquality[ParametrizeSuperpotentialCoupling[Yd[i1, i2], convertedW],
+	     ComplexMatrix[Yd, 3, 3]];
+TestEquality[ParametrizeSuperpotentialCoupling[L1[i1, i2, i3], convertedW],
+	     L1couplings[L1, 3]];
 
 DeleteDirectory[$sarahOutputDir, DeleteContents -> True];
 
