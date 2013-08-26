@@ -86,6 +86,7 @@ Realize[couplingHead_, dimensions_] := Module[{
     Table @@ Prepend[loopArgs, Re[entry] + I Im[entry]]
 ];
 
+(*
 ReduceParameters[parametrizedIndexedCoupling_, redundancies_] := Module[{
 	realVariables = RealVariables[parametrizedIndexedCoupling],
 	equations = Cases[Flatten[UnrollIndexedRule[
@@ -105,11 +106,24 @@ ReduceParameters[parametrizedIndexedCoupling_, redundancies_] := Module[{
     parametrizedIndexedCoupling /. reductionRules
 ];
 
-ReduceParameters[parametrizedIndexedCoupling_, {}] :=
-    parametrizedIndexedCoupling;
-
 PositionOfFirstNonzero[{z___?PossibleZeroQ, x_ /; !PossibleZeroQ[x], ___}] :=
     Length[{z}] + 1;
+*)
+
+ReduceParameters[parametrizedIndexedCoupling_, redundancies_] := Module[{
+	realVariables = RealVariables[parametrizedIndexedCoupling],
+	equations = Flatten[UnrollIndexedRule[
+	    #, Dimensions[parametrizedIndexedCoupling]]& /@
+	    redundancies] /. Rule :> Equal,
+	reductionRules
+    },
+    reductionRules = Reduce[equations, realVariables] /.
+	And -> List /. Equal -> Rule;
+    parametrizedIndexedCoupling /. reductionRules
+];
+
+ReduceParameters[parametrizedIndexedCoupling_, {}] :=
+    parametrizedIndexedCoupling;
 
 UnrollIndexedRule[rule:(indexedCoupling_ -> rhs_), dimensions_] := Module[{
 	rulesOnParts = ((# /@ rule)& /@ {Re, Im}),
