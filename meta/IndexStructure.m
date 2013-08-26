@@ -33,12 +33,8 @@ Begin["`Private`"]
 
 conj := Susyno`LieGroups`conj;
 
-(* remove hermiticity rule defined in TreeMasses.m *)
-
 DownValues[cnj] = DownValues[Susyno`LieGroups`conj] /. conj -> cnj;
 UpValues  [cnj] = UpValues  [Susyno`LieGroups`conj] /. conj -> cnj;
-
-cnj[m_[a_,b_]] =. /; MemberQ[SARAH`ListSoftBreakingScalarMasses, m];
 
 Re[cnj[z_]] ^:=  Re[z];
 Im[cnj[z_]] ^:= -Im[z];
