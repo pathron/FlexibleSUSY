@@ -988,9 +988,12 @@ MakeFlexibleSUSY[OptionsPattern[]] :=
                            diagonalizationPrecision];
 
            Print["Creating user example spectrum generator program ..."];
-           runInputFile = "run.cpp.in";
-           If[FlexibleSUSY`OnlyLowEnergyFlexibleSUSY, runInputFile = "run_low_scale_model.cpp.in";];
-           WriteUserExample[{{FileNameJoin[{Global`$flexiblesusyTemplateDir, runInputFile}],
+           spectrumGeneratorInputFile = "spectrum_generator.hpp.in";
+           If[FlexibleSUSY`OnlyLowEnergyFlexibleSUSY,
+              spectrumGeneratorInputFile = "low_scale_spectrum_generator.hpp.in";];
+           WriteUserExample[{{FileNameJoin[{Global`$flexiblesusyTemplateDir, spectrumGeneratorInputFile}],
+                              FileNameJoin[{Global`$flexiblesusyOutputDir, FlexibleSUSY`FSModelName <> "_spectrum_generator.hpp"}]},
+                             {FileNameJoin[{Global`$flexiblesusyTemplateDir, "run.cpp.in"}],
                               FileNameJoin[{Global`$flexiblesusyOutputDir, "run_" <> FlexibleSUSY`FSModelName <> ".cpp"}]}}];
 
            PrintHeadline["FlexibleSUSY has finished"];
