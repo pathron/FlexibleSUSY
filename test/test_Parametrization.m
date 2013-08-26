@@ -30,6 +30,8 @@ Print["SARAH output directory: ", $sarahOutputDir];
 
 Start["MSSM-RpV/LnV"];
 
+On[Assert];
+
 Print["testing EnforceCommonIndices[] ..."];
 
 randomizeIndices[term_] := Module[{
@@ -38,7 +40,7 @@ randomizeIndices[term_] := Module[{
     term /. Thread[indices -> Module@@{indices, indices}]
 ];
 
-convertedSoft = ConvertSarahTerms[{mu2[__], mq2[__], T[L1][__]}, Soft];
+convertedSoft = ConvertSarahTerms[Soft, {mu2[__], mq2[__], T[L1][__]}];
 
 mu2Terms1 = RelevantTerms[mu2[__], convertedSoft];
 mu2Terms2 = randomizeIndices[mu2Terms1];
@@ -65,7 +67,8 @@ hermiticityMu2 = HermiticityConditions[mu2[__], mu2Terms];
 
 TestEquality[redundanciesMu2, {}];
 TestMatch[hermiticityMu2,
-	  HoldPattern[{mu2[g2_, g1_] -> conj[mu2[g1_, g2_]]}]];
+	  HoldPattern[{mu2[g2_, g1_] ->
+		       IndexStructure`Private`cnj[mu2[g1_, g2_]]}]];
 
 Print["testing HeriticityConditions[mq2[__],...] ..."];
 
@@ -76,12 +79,13 @@ hermiticityMq2 = HermiticityConditions[mq2[__], mq2Terms];
 
 TestEquality[redundanciesMq2, {}];
 TestMatch[hermiticityMq2,
-	  HoldPattern[{mq2[g2_, g1_] -> conj[mq2[g1_, g2_]]}]];
+	  HoldPattern[{mq2[g2_, g1_] ->
+		       IndexStructure`Private`cnj[mq2[g1_, g2_]]}]];
 
 Print["testing Parametrize[mu2,...] ..."];
 
 naiveMu2 = Parametrization`Private`Realize[mu2, {3, 3}];
-parMu2 = Parametrize[mu2, {3, 3}, hermiticityMu2];
+parMu2 = Parametrization`Private`Parametrize[mu2, {3, 3}, hermiticityMu2];
 
 TestEquality[Length[Parametrization`Private`RealVariables[naiveMu2]], 3 3 2];
 TestEquality[Length[Parametrization`Private`RealVariables[parMu2]], 9];
@@ -100,7 +104,7 @@ TestEquality[hermiticityTL1, {}];
 Print["testing Parametrize[T[L1],...] ..."];
 
 naiveTL1 = Parametrization`Private`Realize[T[L1], {3, 3, 3}];
-parTL1 = Parametrize[T[L1], {3, 3, 3}, redundanciesTL1];
+parTL1 = Parametrization`Private`Parametrize[T[L1], {3, 3, 3}, redundanciesTL1];
 
 TestEquality[Length[Parametrization`Private`RealVariables[naiveTL1]], 3 3 3 2];
 TestEquality[Length[Parametrization`Private`RealVariables[parTL1]], 3 3 2];

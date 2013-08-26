@@ -27,15 +27,28 @@ RelevantTerms::usage;
 TermsHolomorphicIn::usage;
 RedundancyList::usage;
 HermiticityConditions::usage;
+CouplingPattern::usage;
 
 Begin["`Private`"]
 
 conj := Susyno`LieGroups`conj;
 
-ConvertSarahTerms[{}, terms_] := Expand[terms];
+(* remove hermiticity rule defined in TreeMasses.m *)
 
-ConvertSarahTerms[couplingPatterns_List, terms_] := Module[{
-	terms$ = Expand[terms],
+DownValues[cnj] = DownValues[Susyno`LieGroups`conj] /. conj -> cnj;
+UpValues  [cnj] = UpValues  [Susyno`LieGroups`conj] /. conj -> cnj;
+
+cnj[m_[a_,b_]] =. /; MemberQ[SARAH`ListSoftBreakingScalarMasses, m];
+
+Re[cnj[z_]] ^:=  Re[z];
+Im[cnj[z_]] ^:= -Im[z];
+
+ConvertSarahTerms[terms_] := Expand[terms] /. conj -> cnj;
+
+ConvertSarahTerms[terms_, {}] := ConvertSarahTerms[terms];
+
+ConvertSarahTerms[terms_, couplingPatterns_List] := Module[{
+	terms$ = ConvertSarahTerms[terms],
 	oldTerms,
 	newTerms
     },
@@ -58,7 +71,7 @@ TermsHolomorphicIn[couplingPattern_, terms_] :=
 		 HolomorphicIn[couplingPattern, #]&];
 
 HolomorphicIn[couplingPattern_, term_] :=
-    ! DependsOn[conj[couplingPattern], term];
+    ! DependsOn[cnj[couplingPattern], term];
 
 RelevantTermList[couplingPattern_, terms_Plus] :=
     Extract[terms, Take[#, 1]& /@
@@ -91,13 +104,13 @@ HermiticityConditions[couplingPattern_, terms_] := Module[{
     },
     indexedCoupling = IndexedCoupling[couplingPattern, firstTerm];
     solutions =
-	QuietSolve[terms == conj[terms /. #], indexedCoupling /. #]& /@
+	QuietSolve[terms == cnj[terms /. #], indexedCoupling /. #]& /@
 	IndexPermutationRuleLists[couplingPattern, firstTerm];
     Select[Cases[solutions, {{ s:(_ -> _) }} -> s],
 	   SelfDependent[Last[#], couplingPattern]&]
 ];
 
-EnforceCommonIndices[couplingPattern_, terms_Plus] := Module[{
+EnforceCommonIndices[couplingPattern : _[__], terms_Plus] := Module[{
 	indexLists = IndexCollections[couplingPattern, FirstTerm[terms]]
     },
     (# /. Thread[Flatten@IndexCollections[couplingPattern, #] ->
@@ -106,11 +119,11 @@ EnforceCommonIndices[couplingPattern_, terms_Plus] := Module[{
 
 EnforceCommonIndices[_, term_] := term;
 
-QuietSolve[eqs_, rest___] := Module[{
-	dummy
+QuietSolve[args___] := Block[{
+	(* SARAH`sum has some supernatural effect that breaks Solve[] *)
+	SARAH`sum
     },
-    (* SARAH`sum has some supernatural effect that breaks Solve[] *)
-    Quiet[Solve[eqs /. SARAH`sum :> dummy, rest], Solve::nsmet]
+    Quiet[Solve[args], {Solve::nsmet}]
 ];
 
 IndexPermutationRuleLists[couplingPattern_, term_] := Module[{
@@ -137,8 +150,10 @@ SelfDependent[solution_, couplingPattern_] :=
 DependsOn[couplingPattern_, exp_] :=
     Cases[exp, couplingPattern, {0, Infinity}] =!= {};
 
-CouplingPattern[indexedCoupling_] :=
-    indexedCoupling /. Alternatives@@indexedCoupling -> _;
+CouplingPattern[indexedCoupling : couplingHead_[__]] :=
+    couplingHead @@ Table[_, {Length[indexedCoupling]}];
+
+CouplingPattern[coupling_] := coupling;
 
 IndexedCoupling[pattern_, term_] := SingleCase[term, pattern, {0, Infinity}];
 

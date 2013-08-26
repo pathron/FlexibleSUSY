@@ -22,16 +22,56 @@
 
 BeginPackage["Parametrization`", {"SARAH`", "IndexStructure`"}]
 
-Parametrize::usage;
+ParametrizeSuperpotentialCoupling::usage;
+ParametrizeSusyBreakingCoupling::usage;
+ParametrizeCoupling::usage;
 
 Begin["`Private`"]
 
-conj := Susyno`LieGroups`conj;
+ParametrizeSuperpotentialCoupling[coupling_, superpotential_, dimensions_] :=
+Module[{
+	couplingPattern = CouplingPattern[coupling],
+	redundancies
+    },
+    redundancies =
+	RedundancyList[couplingPattern,
+		       RelevantTerms[couplingPattern, superpotential]];
+    Parametrize[Head[coupling], dimensions, redundancies]
+];
 
-conjRules := {
-    Re[conj[z_]] :>  Re[z],
-    Im[conj[z_]] :> -Im[z]
-};
+ParametrizeSuperpotentialCoupling[coupling_, superpotential_] :=
+    ParametrizeSuperpotentialCoupling[
+	coupling, superpotential, SARAH`getDimParameters[Head[coupling]]];
+
+ParametrizeSuperpotentialCoupling[coupling_, _] :=
+    ParametrizeCoupling[coupling] /;
+	SARAH`getDimParameters[Head[coupling]] === {};
+
+ParametrizeSusyBreakingCoupling[coupling_, lagSoft_, dimensions_] := Module[{
+	couplingPattern = CouplingPattern[coupling],
+	relevantTerms,
+	redundancies,
+	hermiticity
+    },
+    relevantTerms = RelevantTerms[couplingPattern, lagSoft];
+    redundancies =
+	RedundancyList[couplingPattern,
+		       TermsHolomorphicIn[couplingPattern, relevantTerms]];
+    hermiticity = HermiticityConditions[couplingPattern, relevantTerms];
+    Parametrize[Head[coupling], dimensions, Join[redundancies, hermiticity]]
+];
+
+ParametrizeSusyBreakingCoupling[coupling_, lagSoft_] :=
+    ParametrizeSusyBreakingCoupling[
+	coupling, lagSoft, SARAH`getDimParameters[Head[coupling]]];
+
+ParametrizeSusyBreakingCoupling[coupling_, _] :=
+    ParametrizeCoupling[coupling] /;
+	SARAH`getDimParameters[Head[coupling]] === {};
+
+ParametrizeCoupling[coupling_] := Re[coupling] /; LatticeRealQ[coupling];
+
+ParametrizeCoupling[coupling_] := Re[coupling] + I Im[coupling];
 
 Parametrize[couplingHead_, dimensions_, redundancies_] :=
     ReduceParameters[Realize[couplingHead, dimensions], redundancies];
@@ -57,7 +97,7 @@ ReduceParameters[parametrizedIndexedCoupling_, redundancies_] := Module[{
 	reductionRules
     },
     coefficientArrays = CoefficientArrays[equations, realVariables];
-    Assert[MatchQ[coefficientArrays, {{___?PossibleZeroQ},_}]];
+    Assert[MatchQ[Normal[coefficientArrays], {{___?PossibleZeroQ},_}]];
     constraintMatrix = RowReduce[coefficientArrays[[2]]];
     dependents = realVariables[[PositionOfFirstNonzero /@
 	Cases[constraintMatrix, Except[{___?PossibleZeroQ}]]]];
@@ -65,11 +105,14 @@ ReduceParameters[parametrizedIndexedCoupling_, redundancies_] := Module[{
     parametrizedIndexedCoupling /. reductionRules
 ];
 
+ReduceParameters[parametrizedIndexedCoupling_, {}] :=
+    parametrizedIndexedCoupling;
+
 PositionOfFirstNonzero[{z___?PossibleZeroQ, x_ /; !PossibleZeroQ[x], ___}] :=
     Length[{z}] + 1;
 
 UnrollIndexedRule[rule:(indexedCoupling_ -> rhs_), dimensions_] := Module[{
-	rulesOnParts = ((# /@ rule)& /@ {Re, Im}) //. conjRules,
+	rulesOnParts = ((# /@ rule)& /@ {Re, Im}),
 	loopArgs
     },
     loopArgs = Transpose[{List@@indexedCoupling, dimensions}];
@@ -78,6 +121,8 @@ UnrollIndexedRule[rule:(indexedCoupling_ -> rhs_), dimensions_] := Module[{
 
 RealVariables[parametrizedIndexedCoupling_] :=
     Variables[parametrizedIndexedCoupling];
+
+LatticeRealQ[z_] := MemberQ[SARAH`realVar, z];
 
 End[] (* `Private` *)
 
