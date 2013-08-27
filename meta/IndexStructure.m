@@ -44,13 +44,13 @@ ConvertSarahTerms[terms_] := Expand[terms] /. conj -> cnj;
 ConvertSarahTerms[terms_, {}] := ConvertSarahTerms[terms];
 
 ConvertSarahTerms[terms_, couplingPatterns_List] := Module[{
-	terms$ = ConvertSarahTerms[terms],
+	$terms = ConvertSarahTerms[terms],
 	oldTerms,
 	newTerms
     },
     {oldTerms, newTerms} =
-	Transpose[ConversionRelevantTo[#, terms$]& /@ couplingPatterns];
-    terms$ - Plus@@oldTerms + Plus@@newTerms
+	Transpose[ConversionRelevantTo[#, $terms]& /@ couplingPatterns];
+    $terms - Plus@@oldTerms + Plus@@newTerms
 ];
 
 ConversionRelevantTo[couplingPattern_, terms_] := Module[{
