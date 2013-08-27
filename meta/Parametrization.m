@@ -22,11 +22,36 @@
 
 BeginPackage["Parametrization`", {"SARAH`", "IndexStructure`"}]
 
+SuperpotentialParameterRules::usage;
+SusyBreakingParameterRules::usage;
+ParameterRules::usage;
 ParametrizeSuperpotentialCoupling::usage;
 ParametrizeSusyBreakingCoupling::usage;
 ParametrizeCoupling::usage;
+HasIndicesQ::usage;
+UpdateCouplingDimensions::usage;
+CouplingDimensions::usage;
 
 Begin["`Private`"]
+
+SuperpotentialParameterRules[parameters_, convertedSuperpotential_] :=
+    ParametrizationRule[
+	#, ParametrizeSuperpotentialCoupling[#, convertedSuperpotential]]& /@
+	parameters;
+
+SusyBreakingParameterRules[parameters_, convertedSoft_] :=
+    ParametrizationRule[
+	#, ParametrizeSusyBreakingCoupling[#, convertedSoft]]& /@
+	parameters;
+
+ParameterRules[parameters_] :=
+    ParametrizationRule[#, ParametrizeCoupling[#]]& /@ parameters;
+
+ParametrizationRule[couplingHead_[__]?HasIndicesQ, parametrization_] :=
+    couplingHead -> parametrization;
+
+ParametrizationRule[coupling_, parametrization_] :=
+    coupling -> parametrization;
 
 ParametrizeSuperpotentialCoupling[coupling_, superpotential_, dimensions_] :=
 Module[{
@@ -66,6 +91,13 @@ ParametrizeSusyBreakingCoupling[coupling_?HasIndicesQ, lagSoft_] :=
 
 ParametrizeSusyBreakingCoupling[coupling_, _] := ParametrizeCoupling[coupling];
 
+ParametrizeCoupling[couplingHead_[__]?HasIndicesQ] := Module[{
+	dimensions = CouplingDimensions[couplingHead]
+    },
+    Map[If[LatticeRealQ[#], Re[#], Re[#] + I Im[#]] &,
+	TableCoupling[couplingHead, dimensions], {Length[dimensions]}]
+];
+
 ParametrizeCoupling[coupling_] := Re[coupling] /; LatticeRealQ[coupling];
 
 ParametrizeCoupling[coupling_] := Re[coupling] + I Im[coupling];
@@ -73,14 +105,18 @@ ParametrizeCoupling[coupling_] := Re[coupling] + I Im[coupling];
 Parametrize[couplingHead_, dimensions_, redundancies_] :=
     ReduceParameters[Realize[couplingHead, dimensions], redundancies];
 
-Realize[couplingHead_, dimensions_] := Module[{
+Realize[couplingHead_, dimensions_] :=
+    Map[Re[#] + I Im[#] &,
+	TableCoupling[couplingHead, dimensions], {Length[dimensions]}];
+
+TableCoupling[couplingHead_, dimensions_] := Module[{
 	loopArgs,
 	entry,
 	i
     },
     loopArgs = MapIndexed[{i@@#2, #1}&, dimensions];
     entry = couplingHead @@ loopArgs[[All, 1]];
-    Table @@ Prepend[loopArgs, Re[entry] + I Im[entry]]
+    Table @@ Prepend[loopArgs, entry]
 ];
 
 (*
@@ -143,6 +179,8 @@ HasIndicesQ[_] := False;
 
 (* SARAH`getDimParameters[T] === {3, 3} *)
 
+UpdateCouplingDimensions[] := (
+
 DownValues[CouplingDimensions] = DownValues[SARAH`getDimParameters] /.
     SARAH`getDimParameters -> CouplingDimensions;
 
@@ -153,6 +191,10 @@ CouplingDimensions[couplingHead_] := Module[{
     dimensionsList = Cases[SARAH`parameters, {couplingHead, _, dims_} -> dims];
     If[dimensionsList === {}, Undefined, First[dimensionsList]]
 ];
+
+);
+
+UpdateCouplingDimensions[];
 
 End[] (* `Private` *)
 
