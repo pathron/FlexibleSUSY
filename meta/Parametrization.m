@@ -20,17 +20,25 @@
 
 *)
 
-BeginPackage["Parametrization`", {"SARAH`", "IndexStructure`"}]
+BeginPackage["Parametrization`", {"SARAH`"}]
 
 SuperpotentialParameterRules::usage;
 SusyBreakingParameterRules::usage;
 ParameterRules::usage;
-ParametrizeSuperpotentialCoupling::usage;
-ParametrizeSusyBreakingCoupling::usage;
-ParametrizeCoupling::usage;
 HasIndicesQ::usage;
 UpdateCouplingDimensions::usage;
 CouplingDimensions::usage;
+
+ConvertSarahTerms::usage;
+RelevantTerms::usage;
+TermsHolomorphicIn::usage;
+RedundancyList::usage;
+HermiticityConditions::usage;
+CouplingPattern::usage;
+
+trp::usage;
+cnj::usage;
+adj::usage;
 
 Begin["`Private`"]
 
@@ -119,30 +127,6 @@ TableCoupling[couplingHead_, dimensions_] := Module[{
     Table @@ Prepend[loopArgs, entry]
 ];
 
-(*
-ReduceParameters[parametrizedIndexedCoupling_, redundancies_] := Module[{
-	realVariables = RealVariables[parametrizedIndexedCoupling],
-	equations = Cases[Flatten[UnrollIndexedRule[
-		#, Dimensions[parametrizedIndexedCoupling]]& /@
-	    redundancies] /. Rule :> Equal, _Equal],
-	coefficientArrays,
-	constraintMatrix,
-	dependents,
-	reductionRules
-    },
-    coefficientArrays = CoefficientArrays[equations, realVariables];
-    Assert[MatchQ[Normal[coefficientArrays], {{___?PossibleZeroQ},_}]];
-    constraintMatrix = RowReduce[coefficientArrays[[2]]];
-    dependents = realVariables[[PositionOfFirstNonzero /@
-	Cases[constraintMatrix, Except[{___?PossibleZeroQ}]]]];
-    {reductionRules} = Solve[equations, dependents];
-    parametrizedIndexedCoupling /. reductionRules
-];
-
-PositionOfFirstNonzero[{z___?PossibleZeroQ, x_ /; !PossibleZeroQ[x], ___}] :=
-    Length[{z}] + 1;
-*)
-
 ReduceParameters[parametrizedIndexedCoupling_, redundancies_] := Module[{
 	realVariables = RealVariables[parametrizedIndexedCoupling],
 	equations = Flatten[UnrollIndexedRule[
@@ -176,6 +160,161 @@ HasIndicesQ[couplingHead_[__]] :=
     CouplingDimensions[couplingHead] =!= {};
 
 HasIndicesQ[_] := False;
+
+ConvertSarahTerms[terms_] := Expand[terms] /.
+    Susyno`LieGroups`conj -> cnj;
+
+ConvertSarahTerms[terms_, {}] := ConvertSarahTerms[terms];
+
+ConvertSarahTerms[terms_, couplingPatterns_List] := Module[{
+	$terms = ConvertSarahTerms[terms],
+	oldTerms,
+	newTerms
+    },
+    {oldTerms, newTerms} =
+	Transpose[ConversionRelevantTo[#, $terms]& /@ couplingPatterns];
+    $terms - Plus@@oldTerms + Plus@@newTerms
+];
+
+ConversionRelevantTo[couplingPattern_, terms_] := Module[{
+	relevantTerms = RelevantTerms[couplingPattern, terms]
+    },
+    {relevantTerms, EnforceCommonIndices[couplingPattern, relevantTerms]}
+];
+
+RelevantTerms[couplingPattern_, terms_] :=
+    Plus@@RelevantTermList[couplingPattern, terms];
+
+TermsHolomorphicIn[couplingPattern_, terms_] :=
+    Plus@@Select[RelevantTermList[couplingPattern, terms],
+		 HolomorphicIn[couplingPattern, #]&];
+
+HolomorphicIn[couplingPattern_, term_] :=
+    ! DependsOnQ[cnj[couplingPattern], term];
+
+RelevantTermList[couplingPattern_, terms_Plus] :=
+    Extract[terms, Take[#, 1]& /@
+	    Position[terms, couplingPattern, {0, Infinity}]];
+
+RelevantTermList[couplingPattern_, term_] := {term} /;
+    DependsOnQ[couplingPattern, term];
+
+RelevantTermList[couplingPattern_, term_] := {};
+
+RedundancyList[couplingPattern_, terms_] := Module[{
+	firstTerm = FirstTerm[terms],
+	indexedCoupling,
+	solutions,
+	s
+    },
+    indexedCoupling = IndexedCoupling[couplingPattern, firstTerm];
+    solutions =
+	QuietSolve[terms == (terms /. #), indexedCoupling /. #]& /@
+	Rest@IndexPermutationRuleLists[couplingPattern, firstTerm];
+    Select[Cases[solutions, {{ s:(_ -> _) }} -> s],
+	   SelfDependentQ[Last[#], couplingPattern]&]
+];
+
+HermiticityConditions[couplingPattern_, terms_] := Module[{
+	firstTerm = FirstTerm[terms],
+	indexedCoupling,
+	solutions,
+	s
+    },
+    indexedCoupling = IndexedCoupling[couplingPattern, firstTerm];
+    solutions =
+	QuietSolve[terms == cnj[terms /. #], indexedCoupling /. #]& /@
+	IndexPermutationRuleLists[couplingPattern, firstTerm];
+    Select[Cases[solutions, {{ s:(_ -> _) }} -> s],
+	   SelfDependentQ[Last[#], couplingPattern]&]
+];
+
+EnforceCommonIndices[couplingPattern : _[__] ? HasBlankQ, terms_Plus] :=
+Module[{
+	indexLists = IndexCollections[couplingPattern, FirstTerm[terms]]
+    },
+    (# /. Thread[Flatten@IndexCollections[couplingPattern, #] ->
+		 Flatten@indexLists])& /@ terms
+];
+
+EnforceCommonIndices[_, term_] := term;
+
+QuietSolve[args___] := Block[{
+	(* SARAH`sum has some supernatural effect that breaks Solve[] *)
+	SARAH`sum
+    },
+    Quiet[Solve[args], {Solve::nsmet}]
+];
+
+IndexPermutationRuleLists[couplingPattern_, term_] := Module[{
+	indexLists = IndexCollections[couplingPattern, term]
+    },
+    (Thread[Flatten[indexLists] -> Flatten[#]])& /@ Permutations[indexLists]
+];
+
+IndexCollections[couplingPattern_, term_] := Module[{
+	i
+    },
+    SingleCase[term, _[i:{___,#,___}] :> i, {0, Infinity}]& /@
+    List@@IndexedCoupling[couplingPattern, term]
+];
+
+FirstTerm[terms_Plus] := First[terms];
+
+FirstTerm[term_] := term;
+
+SelfDependentQ[solution_, couplingPattern_] :=
+    (Length[Variables[solution]] === 1) &&
+    DependsOnQ[couplingPattern, solution];
+
+DependsOnQ[couplingPattern_, exp_] :=
+    Cases[exp, couplingPattern, {0, Infinity}] =!= {};
+
+CouplingPattern[indexedCoupling : couplingHead_[__]] :=
+    couplingHead @@ Table[_, {Length[indexedCoupling]}];
+
+CouplingPattern[coupling_] := coupling;
+
+IndexedCoupling[pattern_, term_] := SingleCase[term, pattern, {0, Infinity}];
+
+HasBlankQ[pattern_] :=
+    Cases[pattern, _Blank | _BlankSequence | _BlankNullSequence,
+	  {0, Infinity}, Heads -> True] =!= {};
+
+SingleCase[args__] := Module[{
+	cases = Cases[args]
+    },
+    Assert[Length[cases] === 1];
+    First[cases]
+];
+
+DownValues[cnj] =
+    DownValues[Susyno`LieGroups`conj] /. Susyno`LieGroups`conj -> cnj;
+UpValues  [cnj] =
+    UpValues  [Susyno`LieGroups`conj] /. Susyno`LieGroups`conj -> cnj;
+
+Re[cnj[z_]] ^:=  Re[z];
+Im[cnj[z_]] ^:= -Im[z];
+cnj[x_Re] := x;
+cnj[x_Im] := x;
+
+DownValues[trp] = DownValues[SARAH`Tp] /. SARAH`Tp -> trp;
+UpValues  [trp] = UpValues  [SARAH`Tp] /. SARAH`Tp -> trp;
+
+DownValues[adj] = DownValues[SARAH`Adj] /. SARAH`Adj -> adj;
+UpValues  [adj] = UpValues  [SARAH`Adj] /. SARAH`Adj -> adj;
+
+trp[adj[m_]] := cnj[m];
+trp[cnj[m_]] := adj[m];
+trp[trp[m_]] := m;
+
+adj[cnj[m_]] := trp[m];
+adj[trp[m_]] := cnj[m];
+adj[adj[m_]] := m;
+
+cnj[adj[m_]] := trp[m];
+cnj[trp[m_]] := adj[m];
+cnj[SARAH`trace[m__]] := cnj /@ SARAH`trace[m];
 
 (* SARAH`getDimParameters[T] === {3, 3} *)
 

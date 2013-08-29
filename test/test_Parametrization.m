@@ -46,7 +46,7 @@ convertedSoft = ConvertSarahTerms[
 mu2Terms1 = RelevantTerms[mu2[__], convertedSoft];
 mu2Terms2 = randomizeIndices[mu2Terms1];
 mu2Terms3 = mu2Terms1/2 + mu2Terms2/2;
-mu2Terms = IndexStructure`Private`EnforceCommonIndices[mu2[__], mu2Terms3];
+mu2Terms = Parametrization`Private`EnforceCommonIndices[mu2[__], mu2Terms3];
 
 TestEquality[Length[mu2Terms3], 2];
 TestEquality[2 First[mu2Terms3], mu2Terms];
@@ -54,7 +54,7 @@ TestEquality[2 First[mu2Terms3], mu2Terms];
 mq2Terms1 = RelevantTerms[mq2[__], convertedSoft];
 mq2Terms2 = randomizeIndices /@ mq2Terms1;
 mq2Terms3 = Expand[mq2Terms1/2 + mq2Terms2/2];
-mq2Terms = IndexStructure`Private`EnforceCommonIndices[mq2[__], mq2Terms3];
+mq2Terms = Parametrization`Private`EnforceCommonIndices[mq2[__], mq2Terms3];
 
 TestEquality[Length[mq2Terms3], 4];
 TestEquality[Length[mq2Terms], 2];
@@ -68,8 +68,7 @@ hermiticityMu2 = HermiticityConditions[mu2[__], mu2Terms];
 
 TestEquality[redundanciesMu2, {}];
 TestMatch[hermiticityMu2,
-	  HoldPattern[{mu2[g2_, g1_] ->
-		       IndexStructure`Private`cnj[mu2[g1_, g2_]]}]];
+	  HoldPattern[{mu2[g2_, g1_] -> Parametrization`cnj[mu2[g1_, g2_]]}]];
 
 Print["testing HeriticityConditions[mq2[__],...] ..."];
 
@@ -80,8 +79,7 @@ hermiticityMq2 = HermiticityConditions[mq2[__], mq2Terms];
 
 TestEquality[redundanciesMq2, {}];
 TestMatch[hermiticityMq2,
-	  HoldPattern[{mq2[g2_, g1_] ->
-		       IndexStructure`Private`cnj[mq2[g1_, g2_]]}]];
+	  HoldPattern[{mq2[g2_, g1_] -> Parametrization`cnj[mq2[g1_, g2_]]}]];
 
 Print["testing Parametrize[mu2,...] ..."];
 
@@ -112,6 +110,8 @@ TestEquality[Length[Parametrization`Private`RealVariables[parTL1]], 3 3 2];
 
 Print["testing ParametrizeSusyBreakingCoupling[] ..."]
 
+fxn := Parametrization`Private`ParametrizeSusyBreakingCoupling;
+
 ComplexMatrix[name_, rows_, cols_] :=
     Table[Re[name[i,j]] + I Im[name[i,j]], {i, rows}, {j, cols}];
 
@@ -125,32 +125,24 @@ L1couplings[name_, size_] := Table[
 	  i > j, - Re[name[j,i,k]] - I Im[name[j,i,k]],
 	  True , 0], {i, size}, {j, size}, {k, size}];
 
-TestEquality[ParametrizeSusyBreakingCoupling[MassG, convertedSoft],
-	     I Im[MassG] + Re[MassG]];
-TestEquality[ParametrizeSusyBreakingCoupling[mHd2, convertedSoft],
-	     Re[mHd2]];
-TestEquality[ParametrizeSusyBreakingCoupling[B[\[Mu]], convertedSoft],
-	     I Im[B[\[Mu]]] + Re[B[\[Mu]]]];
-TestEquality[ParametrizeSusyBreakingCoupling[mu2[i1, i2], convertedSoft],
-	     HermitianMatrix[mu2, 3]];
-TestEquality[ParametrizeSusyBreakingCoupling[mq2[i1, i2], convertedSoft],
-	     HermitianMatrix[mq2, 3]];
-TestEquality[ParametrizeSusyBreakingCoupling[T[Yd][i1, i2], convertedSoft],
-	     ComplexMatrix[T[Yd], 3, 3]];
-TestEquality[ParametrizeSusyBreakingCoupling[T[L1][i1, i2, i3], convertedSoft],
-	     L1couplings[T[L1], 3]];
+TestEquality[fxn[MassG, convertedSoft], I Im[MassG] + Re[MassG]];
+TestEquality[fxn[mHd2, convertedSoft], Re[mHd2]];
+TestEquality[fxn[B[\[Mu]], convertedSoft], I Im[B[\[Mu]]] + Re[B[\[Mu]]]];
+TestEquality[fxn[mu2[i1, i2], convertedSoft], HermitianMatrix[mu2, 3]];
+TestEquality[fxn[mq2[i1, i2], convertedSoft], HermitianMatrix[mq2, 3]];
+TestEquality[fxn[T[Yd][i1, i2], convertedSoft], ComplexMatrix[T[Yd], 3, 3]];
+TestEquality[fxn[T[L1][i1, i2, i3], convertedSoft], L1couplings[T[L1], 3]];
 
 Print["testing ParametrizeSuperpotentialCoupling[] ..."]
+
+fxn := Parametrization`Private`ParametrizeSuperpotentialCoupling;
 
 convertedW = ConvertSarahTerms[
     Superpotential, {\[Mu], Yd[__], T[L1][__]}];
 
-TestEquality[ParametrizeSuperpotentialCoupling[\[Mu], convertedW],
-	     I Im[\[Mu]] + Re[\[Mu]]];
-TestEquality[ParametrizeSuperpotentialCoupling[Yd[i1, i2], convertedW],
-	     ComplexMatrix[Yd, 3, 3]];
-TestEquality[ParametrizeSuperpotentialCoupling[L1[i1, i2, i3], convertedW],
-	     L1couplings[L1, 3]];
+TestEquality[fxn[\[Mu], convertedW], I Im[\[Mu]] + Re[\[Mu]]];
+TestEquality[fxn[Yd[i1, i2], convertedW], ComplexMatrix[Yd, 3, 3]];
+TestEquality[fxn[L1[i1, i2, i3], convertedW], L1couplings[L1, 3]];
 
 DeleteDirectory[$sarahOutputDir, DeleteContents -> True];
 
