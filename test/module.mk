@@ -62,7 +62,8 @@ TEST_META := \
 		test/test_SelfEnergies.m \
 		test/test_TextFormatting.m \
 		test/test_ThresholdCorrections.m \
-		test/test_Parametrization.m
+		test/test_Parametrization.m \
+		test/test_Lattice.m
 
 TEST_OBJ := \
 		$(patsubst %.cpp, %.o, $(filter %.cpp, $(TEST_SRC)))

@@ -26,9 +26,10 @@ SuperpotentialParameterRules::usage;
 SusyBreakingParameterRules::usage;
 ParameterRules::usage;
 HasIndicesQ::usage;
-UpdateCouplingDimensions::usage;
+UpdateValues::usage;
 CouplingDimensions::usage;
 
+sarahOperatorReplacementRules::usage;
 ConvertSarahTerms::usage;
 RelevantTerms::usage;
 TermsHolomorphicIn::usage;
@@ -161,8 +162,7 @@ HasIndicesQ[couplingHead_[__]] :=
 
 HasIndicesQ[_] := False;
 
-ConvertSarahTerms[terms_] := Expand[terms] /.
-    Susyno`LieGroups`conj -> cnj;
+ConvertSarahTerms[terms_] := Expand[terms] /. sarahOperatorReplacementRules;
 
 ConvertSarahTerms[terms_, {}] := ConvertSarahTerms[terms];
 
@@ -288,21 +288,29 @@ SingleCase[args__] := Module[{
     First[cases]
 ];
 
+sarahOperatorReplacementRules := {
+    SARAH`Tp -> trp,
+    SARAH`Adj -> adj,
+    SARAH`Conj | Susyno`LieGroups`conj -> cnj
+};
+
+UpdateValues[] := (
+
 DownValues[cnj] =
-    DownValues[Susyno`LieGroups`conj] /. Susyno`LieGroups`conj -> cnj;
+    DownValues[Susyno`LieGroups`conj] /. sarahOperatorReplacementRules;
 UpValues  [cnj] =
-    UpValues  [Susyno`LieGroups`conj] /. Susyno`LieGroups`conj -> cnj;
+    UpValues  [Susyno`LieGroups`conj] /. sarahOperatorReplacementRules;
 
 Re[cnj[z_]] ^:=  Re[z];
 Im[cnj[z_]] ^:= -Im[z];
 cnj[x_Re] := x;
 cnj[x_Im] := x;
 
-DownValues[trp] = DownValues[SARAH`Tp] /. SARAH`Tp -> trp;
-UpValues  [trp] = UpValues  [SARAH`Tp] /. SARAH`Tp -> trp;
+DownValues[trp] = DownValues[SARAH`Tp] /. sarahOperatorReplacementRules;
+UpValues  [trp] = UpValues  [SARAH`Tp] /. sarahOperatorReplacementRules;
 
-DownValues[adj] = DownValues[SARAH`Adj] /. SARAH`Adj -> adj;
-UpValues  [adj] = UpValues  [SARAH`Adj] /. SARAH`Adj -> adj;
+DownValues[adj] = DownValues[SARAH`Adj] /. sarahOperatorReplacementRules;
+UpValues  [adj] = UpValues  [SARAH`Adj] /. sarahOperatorReplacementRules;
 
 trp[adj[m_]] := cnj[m];
 trp[cnj[m_]] := adj[m];
@@ -318,8 +326,6 @@ cnj[SARAH`trace[m__]] := cnj /@ SARAH`trace[m];
 
 (* SARAH`getDimParameters[T] === {3, 3} *)
 
-UpdateCouplingDimensions[] := (
-
 DownValues[CouplingDimensions] = DownValues[SARAH`getDimParameters] /.
     SARAH`getDimParameters -> CouplingDimensions;
 
@@ -333,7 +339,7 @@ CouplingDimensions[couplingHead_] := Module[{
 
 );
 
-UpdateCouplingDimensions[];
+UpdateValues[];
 
 End[] (* `Private` *)
 
