@@ -29,7 +29,8 @@ Print["testing TraceSameQ[] ..."];
 
 adj[mq2] = mq2;
 
-TestEquality[TraceSameQ[SARAH`trace[mq2, adj[Yu], Yu, adj[Yd], Yd],
-		    cnj@SARAH`trace[mq2, adj[Yd], Yd, adj[Yu], Yu]], True];
+TestEquality[Lattice`Private`TraceSameQ[
+    SARAH`trace[mq2, adj[Yu], Yu, adj[Yd], Yd],
+    cnj@SARAH`trace[mq2, adj[Yd], Yd, adj[Yu], Yu]], True];
 
 PrintTestSummary[];
