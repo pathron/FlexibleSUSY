@@ -227,6 +227,7 @@ public:
     };
     std::vector<EFTspec> efts;
     Initial_guesser<Lattice> *init_profile;
+    size_t nloops;
     Real tiny_dy;
     Real huge_dy;
     Real a;			// continuation parameter btw 0 & 1

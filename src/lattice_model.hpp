@@ -22,7 +22,10 @@
 #include <string>
 #include <ostream>
 #include <functional>
+#include <Eigen/Dense>
 #include "mathdefs.hpp"
+
+#define ATTR(x) __attribute__ ((x))
 
 namespace flexiblesusy {
 
@@ -44,9 +47,11 @@ struct ParWilson {
     virtual ~ParWilson() {}
     size_t width;		// 1 + number of Wilson coefficients
     // derivative wrt t == x[0]
-    virtual Real  dx(const Real a, const Real *x, size_t i) const = 0;
-    // d dx[i] / d x[j] == d dx[i] / d y[j] / unit[j]
-    virtual void ddx(const Real a, const Real *x, size_t i, Real *ddx) const=0;
+    virtual void  dx(Real a, const Eigen::VectorXd& x, Eigen::VectorXd& dx,
+		     size_t nloops) const = 0;
+    // ddx(j,i) == d dx[i] / d x[j] == d dx[i] / d y[j] / unit[j]
+    virtual void ddx(Real a, const Eigen::VectorXd& x, Eigen::MatrixXd& ddx,
+		     size_t nloops) const = 0;
 };
 
 class Lattice_model: public ParWilson {

@@ -174,8 +174,14 @@ public:
     void init(RGFlow<Lattice> *flow, size_t theory, size_t site, size_t span) {
 	IntraTheoryConstraint::init(flow, theory, site, span);
 	x.resize(f->efts[T].w->width);
+	dxm0.resize(x.size());
+	dxm1.resize(x.size());
+	ddxm0.resize(x.size(), x.size());
+	ddxm1.resize(x.size(), x.size());
+#if 0
 	ddxm0i.resize(x.size());
 	ddxm1i.resize(x.size());
+#endif
     }
     void alloc_rows() {
 	for (size_t n = 0; n < span - 1; n++)
@@ -185,11 +191,16 @@ public:
     using IntraTheoryConstraint::init;
 
 private:
-    RVec x;
+    Eigen::VectorXd x;
+    Eigen::VectorXd dxm0, dxm1;
+    Eigen::MatrixXd ddxm0, ddxm1;
+#if 0
     Real dxm0i, dxm1i;
     RVec ddxm0i, ddxm1i;
+#endif
 
-    void calc_dxmi_ddxmi(size_t m, size_t i, Real& dxmi, RVec& ddxmi);
+    void calc_dxm_ddxm(size_t m, Eigen::VectorXd& dxm, Eigen::MatrixXd& ddxm);
+//    void calc_dxmi_ddxmi(size_t m, size_t i, Real& dxmi, RVec& ddxmi);
     void set_diff(size_t r, size_t m, size_t i);
 };
 
@@ -234,9 +245,9 @@ public:
 private:
     int evolve_to(Real t_new, Adapter& a, Real eps = -1);
 
-    Eigen::ArrayXd xD0, xD1;
-    Adapter         a0,  a1;
-    RVec           dx0, dx1;
+    Eigen::ArrayXd  xD0, xD1;
+    Adapter          a0,  a1;
+    Eigen::VectorXd dx0, dx1;
 };
 
 class Uniform_dt : public IntraTheoryConstraint {

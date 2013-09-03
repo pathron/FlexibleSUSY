@@ -45,6 +45,7 @@ RGFlow<Lattice>::EFTspec::EFTspec
 }
 
 RGFlow<Lattice>::RGFlow() :
+    nloops(2),
     tiny_dy(1e-2), huge_dy(100),
     max_a_steps(1024), max_iter(100),
     units_set(false), hybrid(false), scl0(1),

@@ -40,6 +40,42 @@ void Lattice_constraint::rfree()
 
 void Lattice_RGE::operator()()
 {
+    calc_dxm_ddxm(mbegin, dxm0, ddxm0);
+    for (size_t n = 0; n < span - 1; n++) {
+	size_t m = mbegin + n;
+	calc_dxm_ddxm(m+1, dxm1, ddxm1);
+	for (size_t i = 1; i < x.size(); i++) { // x[0] untouched
+	    // row order determined by alloc_rows()
+	    set_diff(n * (f->efts[T].w->width-1) + i-1, m, i);
+	}
+	swap( dxm0,  dxm1); // cheaper than dxm0 = dxm1 ?
+	swap(ddxm0, ddxm1); // cheaper than ddxm0 = ddxm1 ?
+    }
+}
+
+void Lattice_RGE::calc_dxm_ddxm(size_t m, VectorXd& dxm, MatrixXd& ddxm)
+{
+    for (size_t j = 0; j < x.size(); j++) x[j] = y(m,j)*u(j);
+    f->efts[T].w-> dx(f->a, x,  dxm, f->nloops);
+    f->efts[T].w->ddx(f->a, x, ddxm, f->nloops);
+}
+
+void Lattice_RGE::set_diff(size_t r, size_t m, size_t i)
+{
+    A(r,m  ,0) = (ddxm0(0,i)*(y(m+1,0)-y(m,0))*u(0)-(dxm1[i]+dxm0[i]))*u(0)/2;
+    A(r,m+1,0) = (ddxm1(0,i)*(y(m+1,0)-y(m,0))*u(0)+(dxm1[i]+dxm0[i]))*u(0)/2;
+    z(r) = (y(m,0)*ddxm0(0,i) + y(m+1,0)*ddxm1(0,i))*u(0);
+    for (size_t j = 1; j < x.size(); j++) {
+	A(r,m  ,j) = (ddxm0(j,i)*(y(m+1,0)-y(m,0))*u(0)/2+(i==j?1:0))*u(j);
+	A(r,m+1,j) = (ddxm1(j,i)*(y(m+1,0)-y(m,0))*u(0)/2-(i==j?1:0))*u(j);
+	z(r) += (y(m,j)*ddxm0(j,i) + y(m+1,j)*ddxm1(j,i))*u(j);
+    }
+    z(r) *= (y(m+1,0)-y(m,0))*u(0)/2;
+}
+
+#if 0
+void Lattice_RGE::operator()()
+{
     for (size_t i = 1; i < x.size(); i++) { // x[0] untouched
 	calc_dxmi_ddxmi(mbegin, i, dxm0i, ddxm0i);
 	for (size_t n = 0; n < span - 1; n++) {
@@ -72,6 +108,7 @@ void Lattice_RGE::set_diff(size_t r, size_t m, size_t i)
     }
     z(r) *= (y(m+1,0)-y(m,0))*u(0)/2;
 }
+#endif
 
 void Lattice_RKRGE::operator()()
 {
@@ -81,10 +118,9 @@ void Lattice_RKRGE::operator()()
 	a0.x(j) = y(m+0,j)*u(j);
 	a1.x(j) = y(m+1,j)*u(j);
     }
-    for (size_t j = 1; j < a0.n; j++) {
-	dx0[j] = f->efts[T].w->dx(f->a, &a0.x(0), j);
-	dx1[j] = f->efts[T].w->dx(f->a, &a1.x(0), j);
-    }
+
+    f->efts[T].w->dx(f->a, a0.x, dx0, f->nloops);
+    f->efts[T].w->dx(f->a, a1.x, dx1, f->nloops);
 
     Real a_M = 0;
     Real t_M = (1-a_M)*a0.x(0) + a_M*a1.x(0);
@@ -129,23 +165,22 @@ int Lattice_RKRGE::evolve_to(Real to, Adapter& a, Real eps)
     Real guess = (from - to) * 0.1; //first step size
     Real hmin = (from - to) * tol * 1.0e-5;
 
-    RowVectorXd ddx(a.n);
+    MatrixXd ddx(a.n, a.n);
     const_Adapter b;
     Adapter db;
+    VectorXd dbx(a.n);
 
     int err = integrateOdes(*a.v, from, to, tol, guess, hmin,
-	    [=,&ddx,&b,&db](Real, const ArrayXd& xD) -> ArrayXd {
+	    [=,&ddx,&b,&db,&dbx](Real, const ArrayXd& xD) -> ArrayXd {
 		b.set(xD, a.n);
 
 		ArrayXd dxD(xD.size());
 		db.set(dxD, b.n);
 
-		for (size_t i = 0; i < db.n; i++) {
-		    db.x(i) = f->efts[T].w->dx(f->a, b.x.data(), i);
-
-		    f->efts[T].w->ddx(f->a, b.x.data(), i, &ddx[0]);
-		    db.D.block(i,0,1,db.n) = ddx * b.D;
-		}
+		f->efts[T].w-> dx(f->a, b.x, dbx, f->nloops);
+		db.x = dbx;
+		f->efts[T].w->ddx(f->a, b.x, ddx , f->nloops);
+		db.D = ddx.transpose() * b.D;
 
 		return dxD;
 	    }, odeStepper);

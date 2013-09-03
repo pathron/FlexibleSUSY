@@ -18,8 +18,10 @@ public:
     virtual std::string name() const { return "FMSSMN"; }
     virtual void print(std::ostream& s) const;
 
-    Real dx(const Real a, const Real *x, size_t i) const;
-    void ddx(const Real a, const Real *x, size_t i, Real *ddx) const;
+    void  dx(Real a, const Eigen::VectorXd& x, Eigen::VectorXd& dx,
+	     size_t nloops) const;
+    void ddx(Real a, const Eigen::VectorXd& x, Eigen::MatrixXd& ddx,
+	     size_t nloops) const;
 
     struct Translator : public Lattice_translator {
 	Translator(RGFlow<Lattice> *f, size_t T, size_t m) :

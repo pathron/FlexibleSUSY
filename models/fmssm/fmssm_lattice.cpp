@@ -8,20 +8,24 @@ extern "C" double ddxfmssm_(const double& a, const double *x, const int& i,
 
 namespace flexiblesusy {
 
+using namespace Eigen;
+
 Fmssm<Lattice>::Fmssm() : Lattice_model(169)
 {
 }
 
-Real Fmssm<Lattice>::dx(const Real a, const Real *x, size_t i) const
+void Fmssm<Lattice>::dx
+(Real a, const VectorXd& x, VectorXd& dx, size_t) const
 {
-    int i_ = i;
-    return dxfmssm_(a, x, i_);
+    for (int i = 0; i < dx.size(); i++)
+	dx[i] = dxfmssm_(a, x.data(), i);
 }
 
-void Fmssm<Lattice>::ddx(const Real a, const Real *x, size_t i, Real *ddx)const
+void Fmssm<Lattice>::ddx
+(const Real a, const VectorXd& x, MatrixXd& ddx, size_t) const
 {
-    int i_ = i;
-    ddxfmssm_(a, x, i_, ddx);
+    for (int i = 0; i < ddx.cols(); i++)
+	ddxfmssm_(a, x.data(), i, ddx.col(i).data());
 }
 
 void Fmssm<Lattice>::calculate_spectrum()
