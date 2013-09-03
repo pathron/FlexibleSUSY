@@ -21,7 +21,9 @@
 #ifndef @ModelName@_LATTICE_H
 #define @ModelName@_LATTICE_H
 
+#include "lattice_model.hpp"
 #include "@ModelName@_model.hpp"
+// Q: needed here? see below
 #include "@ModelName@_input_parameters.hpp"
 
 #include <iosfwd>
@@ -31,17 +33,29 @@ namespace flexiblesusy {
 class Lattice;
 
 template<>
-class @ModelName@<Lattice> {
+class @ModelName@<Lattice> : public Lattice_model {
 public:
-   @ModelName@(const @ModelName@_input_parameters& input_ = @ModelName@_input_parameters());
-   virtual ~@ModelName@();
+  // Q: why is @ModelName@_input_parameters needed here?
+  // does it forbid application of this class to unconstrained MSSM?
+  @ModelName@(const @ModelName@_input_parameters& input_ = @ModelName@_input_parameters());
+  virtual ~@ModelName@();
 
-   // interface functions
-   virtual void calculate_spectrum();
-   virtual int run_to(double);
-   virtual void print(std::ostream&) const;
+  // common interface functions
+
+  virtual void calculate_spectrum();
+  virtual std::string name() const;
+  virtual int run_to(double scale, double eps = -1.0);
+  virtual void print(std::ostream&) const;
+  virtual void set_precision(double);
+
+  // lattice specific methods
+
+  // trace abbreviations
+@abbrDecls@
+  // beta functions
+@dxddxDecls@
 };
 
 } // namespace flexiblesusy
 
-#endif
+#endif // @ModelName@_LATTICE_H

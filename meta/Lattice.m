@@ -25,49 +25,264 @@ BeginPackage["Lattice`", {
     "BetaFunction`",
     "Parametrization`",
     "Traces`",
-    "CConversion`"}]
+    "CConversion`",
+    "TextFormatting`",
+    "WriteOut`"}]
 
+WriteRGECode::usage;
 ParametrizeBetaFunctions::usage;
 
 Begin["`Private`"]
 
-ParametrizeBetaFunctions[betaFunctions_List, parameterRules_] := Module[{
+Format[x, CForm] := Format["x", OutputForm];
+
+Format[  x[i_], CForm] := Format[  "x["<>ToString[CForm[i]]<>"]", OutputForm];
+
+Format[ dx[i_], CForm] := Format[ "dx["<>ToString[CForm[i]]<>"]", OutputForm];
+
+Format[ddx[i_,j_], CForm] := Format["ddx(" <> ToString[CForm[i]] <> "," <>
+				    ToString[CForm[j]] <> ")", OutputForm];
+
+Format[a, CForm] := Format["a", OutputForm];
+
+Format[drv[ap_, p_], CForm] :=
+    Format["d" <> ToString[CForm[HoldForm[ap]]] <>
+	   "d" <> ToString[CForm[HoldForm[p]]], OutputForm];
+
+Unprotect[Re, Im];
+
+(* CHECK: interference with two-scale method *)
+
+Format[Re[z_], CForm] := Format["RE" <> ToValidCSymbolString[z], OutputForm];
+Format[Im[z_], CForm] := Format["IM" <> ToValidCSymbolString[z], OutputForm];
+
+Protect[Re, Im];
+
+WriteRGECode[
+    sarahAbbrs_List, betaFunctions_List, anomDims_List,
+    gaugeCouplingRules_, otherParameterRules_, templateRules_, files_List] :=
+Module[{
+	parameterRules = Join[gaugeCouplingRules, otherParameterRules],
+	gaugeCouplings = RealVariables[gaugeCouplingRules],
+	betaFunctionRules, betaFunctionDerivRules,
+	abbrRules, abbrDerivRules,
+	parameters, enumRules, enumParameters,
+	abbrDecls, abbrDefs,
+	betaDecls, betaDefs,
+	p
+    },
+    parameters = RealVariables[parameterRules];
+    enumRules = EnumRules[parameters];
+    enumParameters = EnumParameters[enumRules];
+    {betaFunctionRules, abbrRules} =
+	ParametrizeBetaFunctions[betaFunctions, sarahAbbrs, parameterRules];
+    abbrDerivRules = DifferentiateRules[abbrRules, parameters, abbrRules];
+    {abbrDecls, abbrDefs} = ToCCode[
+       RuleToC[#, enumRules]& /@ Flatten[{abbrRules, abbrDerivRules}]];
+    betaFunctionRules = Transpose[
+	ScaleByA[#, gaugeCouplings]& /@
+	SortBy[betaFunctionRules,
+	       (# /. {{BETA[_Integer, p_] -> _, ___}, ___} :>
+		Position[parameters, p])&]];
+    {betaDecls, betaDefs} = ToCCode@Flatten[
+       BetaFunctionRulesToC[betaFunctionRules, enumRules, abbrRules]];
+    WriteOut`ReplaceInFiles[files, Join[templateRules, {
+	"@enumParameters@"  -> WrapLines[IndentText[enumParameters,2],79,"  "],
+	"@abbrDecls@"	    -> WrapLines[IndentText[abbrDecls,2],79,"  "],
+	"@dxddxDecls@"      -> WrapLines[IndentText[betaDecls,2],79,"  "],
+	"@abbrDefs@"	    -> WrapLines[abbrDefs,79,"  "],
+	"@dxddxDefs@"       -> WrapLines[betaDefs,79,"  "]
+    }]];
+];
+
+EnumRules[parameters_List] := MapIndexed[
+    #1 -> "l" <> ToString@First[#2] <> ToString[#1, CForm]&, parameters];
+
+EnumParameters[enumRules_List] :=
+    StringJoin["enum : size_t { l0t, ", {Last[#], ", "}& /@ enumRules,
+	       "eftWidth };"];
+
+ScaleByA[b:{{(BETA[1, _] -> _)..}, {(BETA[_Integer, _] -> _)...}...},
+	 gaugeCouplings_] :=
+    Map[ScaleByA[#, gaugeCouplings]&, b, {2}]
+
+ScaleByA[b:BETA[1, p_] -> rhs_, gaugeCouplings_] := (b -> rhs) /;
+    MemberQ[gaugeCouplings, p];
+
+ScaleByA[b:BETA[1, _] -> rhs_, _] := b -> a rhs;
+
+ScaleByA[b:BETA[_Integer, _] -> rhs_, _] := b -> a rhs;
+
+RealVariables[parameterRules_] := Module[{
+	rvs = Variables[parameterRules[[All,2]]]
+    },
+    Assert[Complement[rvs, Union[rvs]] === {}];
+    SortBy[rvs, Position[Flatten@parameterRules[[All,2]], #]&]
+];
+
+DifferentiateRules[rules_, parameters_, abbrRules_] :=
+    DifferentiateRule[#, parameters, abbrRules]& /@ rules;
+
+DifferentiateRule[lhs_ -> rhs_, parameters_, abbrRules_] :=
+    DeleteCases[
+	(Differentiate[lhs, #, abbrRules] ->
+	 Differentiate[rhs, #, abbrRules])& /@
+	parameters,
+	_?PossibleZeroQ -> _?PossibleZeroQ];
+
+ToCCode[cfxns_] := Module[{
+	returnType,
+	name,
+	args,
+	attributes,
+	body
+    },
+    StringJoin /@
+    Transpose[
+	({{ReturnType, " ", Name, Args, {" ATTR(",Attributes,")"}, ";\n"},
+	  {ReturnType, " CLASSNAME::", Name, Args, "\n", Body, "\n"}} /.
+	 List@@# /. {___, Attributes, ___} -> {})& /@
+	Flatten[cfxns]]
+];
+
+RuleToC[lhs_ -> rhs_, enumRules_] :=
+CFxn[
+    ReturnType -> "double",
+    Name -> RValueToCFormString[lhs],
+    Args -> "(const Eigen::VectorXd& x) const",
+    Attributes -> "pure",
+    Body -> "{\n" <>
+    "  return " <> RValueToCFormString@ToCExp[rhs, x, enumRules] <> ";\n" <>
+    "}\n"
+];
+
+BetaFunctionRulesToC[betanLrules_, enumRules_, abbrRules_] := {
+CFxn[
+    ReturnType -> "void",
+    Name -> "dx",
+    Args -> "(double a, const Eigen::VectorXd& x, Eigen::VectorXd& dx, size_t nloops) const",
+    Body -> StringJoin["{\n",
+    "  dx.setZero();\n",
+    "  dx[l0t] = 1;\n",
+    MapIndexed[{
+    "\n  if (nloops < ", ToString@First[#2], ") return;\n",
+    {"  ", BetaFunctionRuleToCStmt[#, enumRules]}& /@
+	Flatten[#1]}&, betanLrules],
+    "}\n"]],
+CFxn[
+    ReturnType -> "void",
+    Name -> "ddx",
+    Args -> "(double a, const Eigen::VectorXd& x, Eigen::MatrixXd& ddx, size_t nloops) const",
+    Body -> StringJoin["{\n",
+    "  ddx.setZero();\n",
+    MapIndexed[{
+    "\n  if (nloops < ", ToString@First[#2], ") return;\n",
+    BetaFunctionRuleToDerivCStmt[#, enumRules, abbrRules]& /@ Flatten[#1]}&,
+    betanLrules],
+    "}\n"]
+]};
+
+BetaFunctionRuleToCStmt[BETA[1, p:(Re|Im)[_]] -> rhs_, enumRules_] :=
+    BetaFunctionRuleToAssignment[1, p, rhs, enumRules, "="];
+
+BetaFunctionRuleToCStmt[BETA[level_Integer, p:(Re|Im)[_]] -> rhs_,
+			     enumRules_] :=
+    BetaFunctionRuleToAssignment[level, p, rhs, enumRules, "+="];
+
+BetaFunctionRuleToAssignment[_Integer, _, rhs_?PossibleZeroQ, _, _] := {};
+
+BetaFunctionRuleToAssignment[
+    level_Integer, p_, rhs_, enumRules_, op_] :=
+    RValueToCFormString[ToCExp[p, dx, enumRules]] <> " " <> op <> " " <>
+    RValueToCFormString[CConversion`oneOver16PiSqr^level
+			ToCExp[rhs, x, enumRules]] <> ";\n";
+
+BetaFunctionRuleToDerivCStmt[
+    BETA[1, p:(Re|Im)[_]] -> rhs_, enumRules_, abbrRules_] :=
+    BetaFunctionRuleToAssignments[1, p, rhs, enumRules, abbrRules, "="];
+
+BetaFunctionRuleToDerivCStmt[
+    BETA[level_Integer, p:(Re|Im)[_]] -> rhs_, enumRules_, abbrRules_] :=
+    BetaFunctionRuleToAssignments[level, p, rhs, enumRules, abbrRules, "+="];
+
+BetaFunctionRuleToAssignments[
+    level_Integer, p_, rhs_, enumRules_, abbrRules_, op_] :=
+Module[{
+	pidx = p /. enumRules
+    },
+    Module[{
+	    q, qidx,
+	    deriv
+	},
+	{q, qidx} = List @@ #;
+	deriv = Differentiate[rhs, q, abbrRules];
+	If[PossibleZeroQ[deriv], {},
+	   {"  ddx(", qidx, ",", pidx, ") ", op, " ",
+	    RValueToCFormString[CConversion`oneOver16PiSqr^level
+				ToCExp[deriv, x, enumRules]],
+	    ";\n"}]
+    ]& /@ enumRules
+];
+
+ToCExp[parametrization_, array_Symbol, enumRules_] := parametrization /.
+    d:drv[(Re|Im)[_], (Re|Im)[_]] :> Symbol[ToString[d, CForm]][x] /.
+    ((First[#] -> array@Symbol[Last[#]])& /@ enumRules) /.
+    ap:(Re|Im)[abbr_Symbol] :> ap[x];
+
+Differentiate[exp_, x_, abbrRules_] :=
+    D[exp, x, NonConstants -> abbrRules[[All,1]]] /.
+    HoldPattern@D[f_, y_, ___] -> drv[f, y] /.
+    drv[f_, y_] /; IndependentQ[f, y, abbrRules] -> 0;
+
+IndependentQ[ap_, x_, abbrRules_] :=
+    PossibleZeroQ@Simplify@D[ap //. abbrRules, x];
+
+ParametrizeBetaFunctions[betaFunctions_List, sarahAbbrs_, parameterRules_] :=
+Module[{
 	convertedBetaFunctions = betaFunctions /.
 	    sarahOperatorReplacementRules,
+	convertedSarahAbbrs = Flatten[sarahAbbrs /.
+	    sarahOperatorReplacementRules, 1],
 	nestedTraceRules, traceRules,
+	sarahAbbrRules,
 	nBetaFunctions
     },
     nestedTraceRules = ParametrizeTraceAbbrs[
-	GetAllBetaFunctions /@ convertedBetaFunctions];
+	{convertedBetaFunctions, convertedSarahAbbrs}];
     traceRules = Flatten[nestedTraceRules];
     convertedBetaFunctions = convertedBetaFunctions /. traceRules;
+    sarahAbbrRules = ParametrizeSarahAbbrs[
+	convertedSarahAbbrs, Join[parameterRules, traceRules]];
     nBetaFunctions = Length[convertedBetaFunctions];
     {MapIndexed[
 	(WriteString["stdout",
-		     "[", First[#2], "/", nBetaFunctions, "] expanding"];
-	 ParametrizeBetaFunction[#1, Join[parameterRules, traceRules]])&,
+		     "[", First[#2], "/", nBetaFunctions, "] expanding "];
+	 ParametrizeBetaFunction[
+	     #1, Join[parameterRules, traceRules, sarahAbbrRules[[All,1]]]])&,
 	convertedBetaFunctions],
-     ParametrizeTraces[nestedTraceRules, parameterRules]}
+     Flatten[{ParametrizeTraces[nestedTraceRules, parameterRules],
+	      sarahAbbrRules[[All,2]]}]}
 ];
 
 ParametrizeBetaFunction[
-    BetaFunction`BetaFunction[name_, _, {beta1L_, beta2L_}],
+    BetaFunction`BetaFunction[name_, _, betanLs_List],
     partRules_] :=
 Module[{
-	tmp
+	result
     },
-    Flatten /@ {
-	WriteString["stdout", " BETA[1, ", name, "]"];
-	ParametrizeBetanLRules[name, beta1L, 1, partRules],
-	WriteString["stdout", ", BETA[2, ", name, "]..."];
-	tmp = ParametrizeBetanLRules[name, beta2L, 2, partRules];
-	WriteString["stdout", " done\n"];
-	tmp}
+    result =
+       MapIndexed[
+	   Flatten@ParametrizeBetanLRules[name, #1, First[#2], partRules]&,
+	   betanLs];
+    WriteString["stdout", "done\n"];
+    result
 ];
 
 ParametrizeBetanLRules[name_, betanL_, n_, partRules_] := Module[{
-	equations = ParametrizeBetanL[name, betanL, n, partRules]
+	equations
     },
+    WriteString["stdout", "BETA[",n ,", ", name, "]..."];
+    equations = ParametrizeBetanL[name, betanL, n, partRules];
     EquationsToRules /@ equations
 ]
 
@@ -165,6 +380,16 @@ Betaize[level_, parametrization_] :=
 	Im[z_] :> BETA[level, Im[z]]
     };
 
+ParametrizeSarahAbbrs[sarahAbbrRules:{{_,_}...}, partRules_] :=
+    SarahAbbrToRule /@
+    ReleaseHold[Hold[sarahAbbrRules] /. partRules //. matrixOpRules]
+
+SarahAbbrToRule[{abbr_, rhs_}] :=
+    {abbr -> Re[abbr], {Re[abbr] -> rhs}} /; PossibleZeroQ@Simplify@Im[rhs];
+
+SarahAbbrToRule[{ab_, rhs_}] :=
+    {ab -> Re[ab] + I Im[ab], {Re[ab] -> Re[rhs], Im[ab] -> Im[rhs]}};
+
 ParametrizeTraces[nestedTraceRules_List, parameterRules_] :=
     Flatten[ParametrizeTrace[#, parameterRules]& /@ nestedTraceRules]
 
@@ -234,7 +459,7 @@ TraceSameQ[SARAH`trace[a__], SARAH`trace[b__]] :=
 
 ListSameUptoRotationQ[a_List, b_List] :=
     Length[a] === Length[b] &&
-    Or @@ (b === RotateLeft[a, #]& /@ Range[0, Length[a]-1]);
+    Or @@ Table[b === RotateLeft[a, i], {i, 0, Length[a]-1}];
 
 matrixOpRules := {
     SARAH`MatMul :> Dot,

@@ -33,4 +33,24 @@ TestEquality[Lattice`Private`TraceSameQ[
     SARAH`trace[mq2, adj[Yu], Yu, adj[Yd], Yd],
     cnj@SARAH`trace[mq2, adj[Yd], Yd, adj[Yu], Yu]], True];
 
+Print["testing RValueToCFormString[] ..."];
+
+drv := Lattice`Private`drv;
+
+TestEquality[RValueToCFormString@drv[Re[Tr11], Re[md2[1, 1]]],
+	     "dRETr11dREmd211"];
+TestEquality[RValueToCFormString@drv[Re[SARAH`trace[mq2]], Re[me2[3, 3]]],
+	     "dREtracemq2dREme233"];
+
+Print["testing ToCExp[] ..."];
+
+ToCExp := Lattice`Private`ToCExp;
+
+TestEquality[RValueToCFormString @
+	     ToCExp[drv[Re[Tr11], Re[md2[1, 1]]], x, {}],
+	     "dRETr11dREmd211(x)"];
+TestEquality[RValueToCFormString @
+	     ToCExp[drv[Re[SARAH`trace[mq2]], Re[me2[3, 3]]], x, {}]
+	     "dREtracemq2dREme233(x)"];
+
 PrintTestSummary[];
