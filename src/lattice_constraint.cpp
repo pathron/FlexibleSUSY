@@ -44,7 +44,7 @@ void Lattice_RGE::operator()()
     for (size_t n = 0; n < span - 1; n++) {
 	size_t m = mbegin + n;
 	calc_dxm_ddxm(m+1, dxm1, ddxm1);
-	for (size_t i = 1; i < x.size(); i++) { // x[0] untouched
+	for (size_t i = 1; i < (size_t)x.size(); i++) { // x[0] untouched
 	    // row order determined by alloc_rows()
 	    set_diff(n * (f->efts[T].w->width-1) + i-1, m, i);
 	}
@@ -55,7 +55,7 @@ void Lattice_RGE::operator()()
 
 void Lattice_RGE::calc_dxm_ddxm(size_t m, VectorXd& dxm, MatrixXd& ddxm)
 {
-    for (size_t j = 0; j < x.size(); j++) x[j] = y(m,j)*u(j);
+    for (size_t j = 0; j < (size_t)x.size(); j++) x[j] = y(m,j)*u(j);
     f->efts[T].w-> dx(f->a, x,  dxm, f->nloops);
     f->efts[T].w->ddx(f->a, x, ddxm, f->nloops);
 }
@@ -65,7 +65,7 @@ void Lattice_RGE::set_diff(size_t r, size_t m, size_t i)
     A(r,m  ,0) = (ddxm0(0,i)*(y(m+1,0)-y(m,0))*u(0)-(dxm1[i]+dxm0[i]))*u(0)/2;
     A(r,m+1,0) = (ddxm1(0,i)*(y(m+1,0)-y(m,0))*u(0)+(dxm1[i]+dxm0[i]))*u(0)/2;
     z(r) = (y(m,0)*ddxm0(0,i) + y(m+1,0)*ddxm1(0,i))*u(0);
-    for (size_t j = 1; j < x.size(); j++) {
+    for (size_t j = 1; j < (size_t)x.size(); j++) {
 	A(r,m  ,j) = (ddxm0(j,i)*(y(m+1,0)-y(m,0))*u(0)/2+(i==j?1:0))*u(j);
 	A(r,m+1,j) = (ddxm1(j,i)*(y(m+1,0)-y(m,0))*u(0)/2-(i==j?1:0))*u(j);
 	z(r) += (y(m,j)*ddxm0(j,i) + y(m+1,j)*ddxm1(j,i))*u(j);
