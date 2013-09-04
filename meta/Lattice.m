@@ -66,6 +66,7 @@ Module[{
 	gaugeCouplings = RealVariables[gaugeCouplingRules],
 	betaFunctionRules, betaFunctionDerivRules,
 	abbrRules, abbrDerivRules,
+        trivialAbbrRules, nonTrivialAbbrRules,
 	parameters, enumRules, enumParameters,
 	abbrDecls, abbrDefs,
 	betaDecls, betaDefs,
@@ -76,16 +77,21 @@ Module[{
     enumParameters = EnumParameters[enumRules];
     {betaFunctionRules, abbrRules} =
 	ParametrizeBetaFunctions[betaFunctions, sarahAbbrs, parameterRules];
+Done[
     abbrDerivRules = DifferentiateRules[abbrRules, parameters, abbrRules];
+    {trivialAbbrRules, nonTrivialAbbrRules} =
+	SeparateTrivialRules@Flatten[{abbrRules, abbrDerivRules}];
     {abbrDecls, abbrDefs} = ToCCode[
-       RuleToC[#, enumRules]& /@ Flatten[{abbrRules, abbrDerivRules}]];
+        RuleToC[#, enumRules]& /@ nonTrivialAbbrRules],
+"Differentiating abbreviations... "];
     betaFunctionRules = Transpose[
 	ScaleByA[#, gaugeCouplings]& /@
 	SortBy[betaFunctionRules,
 	       (# /. {{BETA[_Integer, p_] -> _, ___}, ___} :>
 		Position[parameters, p])&]];
     {betaDecls, betaDefs} = ToCCode@Flatten[
-       BetaFunctionRulesToC[betaFunctionRules, enumRules, abbrRules]];
+	BetaFunctionRulesToC[betaFunctionRules, enumRules, abbrRules,
+			     trivialAbbrRules]];
     WriteOut`ReplaceInFiles[files, Join[templateRules, {
 	"@enumParameters@"  -> WrapLines[IndentText[enumParameters,2],79,"  "],
 	"@abbrDecls@"	    -> WrapLines[IndentText[abbrDecls,2],79,"  "],
@@ -121,14 +127,26 @@ RealVariables[parameterRules_] := Module[{
 ];
 
 DifferentiateRules[rules_, parameters_, abbrRules_] :=
-    DifferentiateRule[#, parameters, abbrRules]& /@ rules;
+    SelfApplyTrivialRules @
+    Flatten[DifferentiateRule[#, parameters, abbrRules]& /@ rules]
 
 DifferentiateRule[lhs_ -> rhs_, parameters_, abbrRules_] :=
-    DeleteCases[
-	(Differentiate[lhs, #, abbrRules] ->
-	 Differentiate[rhs, #, abbrRules])& /@
-	parameters,
-	_?PossibleZeroQ -> _?PossibleZeroQ];
+    (Differentiate[lhs, #, abbrRules] -> Differentiate[rhs, #, abbrRules])& /@
+    parameters;
+
+SelfApplyTrivialRules[rules_] := FixedPoint[RewriteTrivialRules, rules];
+
+RewriteTrivialRules[rules_] := Module[{
+	trivialRules = FindTrivialRules[rules]
+    },
+    (First[#] -> (Last[#] /. trivialRules))& /@ rules
+];
+
+FindTrivialRules[rules_] :=
+    Cases[rules, HoldPattern[_ -> rhs_ /; NumericQ@Expand[rhs]]];
+
+SeparateTrivialRules[rules_] := Flatten /@
+    Last@Reap[Sow[#, NumericQ@Expand@Last[#]]& /@ rules, {True, False}];
 
 ToCCode[cfxns_] := Module[{
 	returnType,
@@ -156,7 +174,7 @@ CFxn[
     "}\n"
 ];
 
-BetaFunctionRulesToC[betanLrules_, enumRules_, abbrRules_] := {
+BetaFunctionRulesToC[betanLRules_, enumRules_, abbrRules_, trivialRules_] := {
 CFxn[
     ReturnType -> "void",
     Name -> "dx",
@@ -166,8 +184,12 @@ CFxn[
     "  dx[l0t] = 1;\n",
     MapIndexed[{
     "\n  if (nloops < ", ToString@First[#2], ") return;\n",
-    {"  ", BetaFunctionRuleToCStmt[#, enumRules]}& /@
-	Flatten[#1]}&, betanLrules],
+    Module[{flattened = Flatten[#1], nRules},
+    nRules = Length[flattened];
+    MapIndexed[
+    Done[{"  ", BetaFunctionRuleToCStmt[#1, enumRules, trivialRules]},
+"[",First[#2],"/",nRules,"] translating ","BETA"@@First[#1]," into C... "]&,
+    flattened]]}&, betanLRules],
     "}\n"]],
 CFxn[
     ReturnType -> "void",
@@ -177,36 +199,44 @@ CFxn[
     "  ddx.setZero();\n",
     MapIndexed[{
     "\n  if (nloops < ", ToString@First[#2], ") return;\n",
-    BetaFunctionRuleToDerivCStmt[#, enumRules, abbrRules]& /@ Flatten[#1]}&,
-    betanLrules],
+    Module[{flattened = Flatten[#1], nRules},
+    nRules = Length[flattened];
+    MapIndexed[
+    Done[BetaFunctionRuleToDerivCStmt[#1, enumRules, abbrRules, trivialRules],
+    "[",First[#2],"/",nRules,"] differentiating ", "BETA"@@First[#1], "... "]&,
+    flattened]]}&, betanLRules],
     "}\n"]
 ]};
 
-BetaFunctionRuleToCStmt[BETA[1, p:(Re|Im)[_]] -> rhs_, enumRules_] :=
-    BetaFunctionRuleToAssignment[1, p, rhs, enumRules, "="];
+BetaFunctionRuleToCStmt[BETA[1, p:(Re|Im)[_]] -> rhs_,
+			enumRules_, trivialRules_] :=
+    BetaFunctionRuleToAssignment[1, p, rhs, enumRules, trivialRules, "="];
 
 BetaFunctionRuleToCStmt[BETA[level_Integer, p:(Re|Im)[_]] -> rhs_,
-			     enumRules_] :=
-    BetaFunctionRuleToAssignment[level, p, rhs, enumRules, "+="];
+			     enumRules_, trivialRules_] :=
+    BetaFunctionRuleToAssignment[level, p, rhs, enumRules, trivialRules, "+="];
 
-BetaFunctionRuleToAssignment[_Integer, _, rhs_?PossibleZeroQ, _, _] := {};
+BetaFunctionRuleToAssignment[_Integer, _, rhs_, _, _, _] := {} /;
+    PossibleZeroQ[rhs];
 
 BetaFunctionRuleToAssignment[
-    level_Integer, p_, rhs_, enumRules_, op_] :=
+    level_Integer, p_, rhs_, enumRules_, trivialRules_, op_] :=
     RValueToCFormString[ToCExp[p, dx, enumRules]] <> " " <> op <> " " <>
     RValueToCFormString[CConversion`oneOver16PiSqr^level
-			ToCExp[rhs, x, enumRules]] <> ";\n";
+			ToCExp[rhs /. trivialRules, x, enumRules]] <> ";\n";
 
-BetaFunctionRuleToDerivCStmt[
-    BETA[1, p:(Re|Im)[_]] -> rhs_, enumRules_, abbrRules_] :=
-    BetaFunctionRuleToAssignments[1, p, rhs, enumRules, abbrRules, "="];
+BetaFunctionRuleToDerivCStmt[BETA[1, p:(Re|Im)[_]] -> rhs_,
+			     enumRules_, abbrRules_, trivialRules_] :=
+    BetaFunctionRuleToAssignments[1, p, rhs,
+				  enumRules, abbrRules, trivialRules, "="];
 
-BetaFunctionRuleToDerivCStmt[
-    BETA[level_Integer, p:(Re|Im)[_]] -> rhs_, enumRules_, abbrRules_] :=
-    BetaFunctionRuleToAssignments[level, p, rhs, enumRules, abbrRules, "+="];
+BetaFunctionRuleToDerivCStmt[BETA[level_Integer, p:(Re|Im)[_]] -> rhs_,
+			     enumRules_, abbrRules_, trivialRules_] :=
+    BetaFunctionRuleToAssignments[level, p, rhs,
+				  enumRules, abbrRules, trivialRules, "+="];
 
 BetaFunctionRuleToAssignments[
-    level_Integer, p_, rhs_, enumRules_, abbrRules_, op_] :=
+    level_Integer, p_, rhs_, enumRules_, abbrRules_, trivialRules_, op_] :=
 Module[{
 	pidx = p /. enumRules
     },
@@ -215,8 +245,8 @@ Module[{
 	    deriv
 	},
 	{q, qidx} = List @@ #;
-	deriv = Differentiate[rhs, q, abbrRules];
-	If[PossibleZeroQ[deriv], {},
+	deriv = Differentiate[rhs, q, abbrRules] /. trivialRules;
+	If[PossibleZeroQ@Expand[deriv], {},
 	   {"  ddx(", qidx, ",", pidx, ") ", op, " ",
 	    RValueToCFormString[CConversion`oneOver16PiSqr^level
 				ToCExp[deriv, x, enumRules]],
@@ -233,6 +263,13 @@ Differentiate[exp_, x_, abbrRules_] :=
     D[exp, x, NonConstants -> abbrRules[[All,1]]] /.
     HoldPattern@D[f_, y_, ___] -> drv[f, y] /.
     drv[f_, y_] /; IndependentQ[f, y, abbrRules] -> 0;
+
+IndependentQ[ap_, x_, abbrRules_] :=
+    PossibleZeroQ@Simplify@D[ap //. abbrRules, x];
+
+Differentiate[exp_, x_, abbrRules_] :=
+    D[exp, x, NonConstants -> abbrRules[[All,1]]] /.
+    HoldPattern@D[f_, y_, ___] -> drv[f, y]
 
 IndependentQ[ap_, x_, abbrRules_] :=
     PossibleZeroQ@Simplify@D[ap //. abbrRules, x];
@@ -468,6 +505,17 @@ matrixOpRules := {
     Parametrization`adj :> ConjugateTranspose,
     SARAH`trace[m__] :> Tr[Dot[m]]
 };
+
+SetAttributes[Done, HoldFirst];
+
+Done[exp_, msg__] := Module[{
+	result
+    },
+    WriteString["stdout", msg];
+    result = exp;
+    If[{msg} =!= {}, WriteString["stdout", "done\n"]];
+    result
+];
 
 End[] (* `Private` *)
 
