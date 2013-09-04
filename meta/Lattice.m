@@ -217,7 +217,7 @@ BetaFunctionRuleToCStmt[BETA[level_Integer, p:(Re|Im)[_]] -> rhs_,
     BetaFunctionRuleToAssignment[level, p, rhs, enumRules, trivialRules, "+="];
 
 BetaFunctionRuleToAssignment[_Integer, _, rhs_, _, _, _] := {} /;
-    PossibleZeroQ[rhs];
+    Expand[rhs] === 0;
 
 BetaFunctionRuleToAssignment[
     level_Integer, p_, rhs_, enumRules_, trivialRules_, op_] :=
@@ -246,7 +246,7 @@ Module[{
 	},
 	{q, qidx} = List @@ #;
 	deriv = Differentiate[rhs, q, abbrRules] /. trivialRules;
-	If[PossibleZeroQ@Expand[deriv], {},
+	If[Expand[deriv] === 0, {},
 	   {"  ddx(", qidx, ",", pidx, ") ", op, " ",
 	    RValueToCFormString[CConversion`oneOver16PiSqr^level
 				ToCExp[deriv, x, enumRules]],
@@ -261,18 +261,7 @@ ToCExp[parametrization_, array_Symbol, enumRules_] := parametrization /.
 
 Differentiate[exp_, x_, abbrRules_] :=
     D[exp, x, NonConstants -> abbrRules[[All,1]]] /.
-    HoldPattern@D[f_, y_, ___] -> drv[f, y] /.
-    drv[f_, y_] /; IndependentQ[f, y, abbrRules] -> 0;
-
-IndependentQ[ap_, x_, abbrRules_] :=
-    PossibleZeroQ@Simplify@D[ap //. abbrRules, x];
-
-Differentiate[exp_, x_, abbrRules_] :=
-    D[exp, x, NonConstants -> abbrRules[[All,1]]] /.
     HoldPattern@D[f_, y_, ___] -> drv[f, y]
-
-IndependentQ[ap_, x_, abbrRules_] :=
-    PossibleZeroQ@Simplify@D[ap //. abbrRules, x];
 
 ParametrizeBetaFunctions[betaFunctions_List, sarahAbbrs_, parameterRules_] :=
 Module[{
