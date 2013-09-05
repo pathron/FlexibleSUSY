@@ -63,7 +63,7 @@ Protect[Re, Im];
 WriteRGECode[
     sarahAbbrs_List, betaFunctions_List, anomDims_List,
     gaugeCouplingRules_, otherParameterRules_, templateRules_, files_List] :=
-Block[{drv},
+Block[{drv, ToEnumSymbol},
 Module[{
 	parameterRules = Join[gaugeCouplingRules, otherParameterRules],
 	gaugeCouplings = RealVariables[gaugeCouplingRules],
@@ -78,15 +78,16 @@ Module[{
     parameters = RealVariables[parameterRules];
     enumRules = EnumRules[parameters];
     enumParameters = EnumParameters[enumRules];
+    SetToEnumSymbol /@ enumRules;
     {betaFunctionRules, abbrRules} =
 	ParametrizeBetaFunctions[betaFunctions, sarahAbbrs, parameterRules];
-DoneLn[
+    DoneLn[
     abbrDerivRules = DifferentiateRules[abbrRules, parameters, abbrRules];
     {trivialAbbrRules, nonTrivialAbbrRules} =
 	SeparateTrivialRules@Flatten[{abbrRules, abbrDerivRules}];
     {abbrDecls, abbrDefs} = ToCCode[
-        RuleToC[#, enumRules]& /@ nonTrivialAbbrRules],
-"Differentiating abbreviations... "];
+        RuleToC[#]& /@ nonTrivialAbbrRules],
+    "Differentiating abbreviations... "];
     betaFunctionRules = Transpose[
 	ScaleByA[#, gaugeCouplings]& /@
 	SortBy[betaFunctionRules,
@@ -109,6 +110,9 @@ EnumRules[parameters_List] := MapIndexed[
 EnumParameters[enumRules_List] :=
     StringJoin["enum : size_t { l0t, ", {Last[#], ", "}& /@ enumRules,
 	       "eftWidth };"];
+
+SetToEnumSymbol[parameter_ -> enum_String] :=
+    ToEnumSymbol[parameter] = Symbol[enum];
 
 ScaleByA[b:{{(BETA[1, _] -> _)..}, {(BETA[_Integer, _] -> _)...}...},
 	 gaugeCouplings_] :=
@@ -166,14 +170,15 @@ ToCCode[cfxns_] := Module[{
 	Flatten[cfxns]]
 ];
 
-RuleToC[lhs_ -> rhs_, enumRules_] :=
+RuleToC[lhs_ -> rhs_] :=
 CFxn[
     ReturnType -> "double",
-    Name -> RValueToCFormString[lhs],
+    Name -> RValueToCFormString@Replace[
+	lhs, d:drv[(Re|Im)[_], (Re|Im)[_]] :> Symbol[DrvToCFormString[d]]],
     Args -> "(const Eigen::VectorXd& x) const",
     Attributes -> "pure",
     Body -> "{\n" <>
-    "  return " <> RValueToCFormString@ToCExp[rhs, x, enumRules] <> ";\n" <>
+    "  return " <> RValueToCFormString@ToCExp[rhs, x] <> ";\n" <>
     "}\n"
 ];
 
@@ -192,7 +197,7 @@ CFxn[
     MapIndexed[(
     WriteString["stdout",
 		"[",First[#2],"/",nRules,"] ","BETA"@@First[#1],":"];
-    {"  ", BetaFunctionRuleToCStmt[#1, enumRules]})&,
+    {"  ", BetaFunctionRuleToCStmt[#1]})&,
     flattened]]}&, betanLRules],
     "}\n"]],
 CFxn[
@@ -213,29 +218,24 @@ CFxn[
     "}\n"]
 ]};
 
-BetaFunctionRuleToCStmt[BETA[1, p:(Re|Im)[_]] -> rhs_,
-			enumRules_] :=
-    BetaFunctionRuleToAssignment[1, p, rhs, enumRules, "="];
+BetaFunctionRuleToCStmt[BETA[1, p:(Re|Im)[_]] -> rhs_] :=
+    BetaFunctionRuleToAssignment[1, p, rhs, "="];
 
-BetaFunctionRuleToCStmt[BETA[level_Integer, p:(Re|Im)[_]] -> rhs_,
-			     enumRules_] :=
-    BetaFunctionRuleToAssignment[level, p, rhs, enumRules, "+="];
+BetaFunctionRuleToCStmt[BETA[level_Integer, p:(Re|Im)[_]] -> rhs_] :=
+    BetaFunctionRuleToAssignment[level, p, rhs, "+="];
 
 BetaFunctionRuleToAssignment[_Integer, _, rhs_, _, _, _] := {} /;
     Expand[rhs] === 0;
 
-BetaFunctionRuleToAssignment[
-    level_Integer, p_, rhs_, enumRules_, op_] :=
-    RValueToCFormString[ToCExp[p, dx, enumRules]] <> " " <> op <> " " <>
+BetaFunctionRuleToAssignment[level_Integer, p_, rhs_, op_] :=
+    RValueToCFormString[ToCExp[p, dx]] <> " " <> op <> " " <>
     RValueToCFormString[CConversion`oneOver16PiSqr^level
-			ToCExp[rhs, x, enumRules]] <> ";\n";
+			ToCExp[rhs, x]] <> ";\n";
 
-BetaFunctionRuleToAssignment[
-    level_Integer, p_, rhs_, enumRules_, op_] :=
-Module[{
-	rhsCExp = Done[ToCExp[rhs, x, enumRules], " translating to CExp... "]
+BetaFunctionRuleToAssignment[level_Integer, p_, rhs_, op_] := Module[{
+	rhsCExp = Done[ToCExp[rhs, x], " translating to CExp... "]
     },
-    RValueToCFormString[ToCExp[p, dx, enumRules]] <> " " <> op <> " " <>
+    RValueToCFormString[ToCExp[p, dx]] <> " " <> op <> " " <>
     DoneLn[RValueToCFormString[CConversion`oneOver16PiSqr^level rhsCExp],
     " to C... "] <> ";\n"
 ];
@@ -264,15 +264,15 @@ Module[{
 	If[Expand[deriv] === 0, {},
 	   {"  ddx(", qidx, ",", pidx, ") ", op, " ",
 	    RValueToCFormString[CConversion`oneOver16PiSqr^level
-				ToCExp[deriv, x, enumRules]],
+				ToCExp[deriv, x]],
 	    ";\n"}]
     ]& /@ enumRules
 ];
 
-ToCExp[parametrization_, array_Symbol, enumRules_] := parametrization /.
-    d:drv[(Re|Im)[_], (Re|Im)[_]] :> Symbol[DrvToCFormString[d]][x] /.
-    ((First[#] -> array@Symbol[Last[#]])& /@ enumRules) /.
-    ap:(Re|Im)[abbr_Symbol] :> ap[x];
+ToCExp[parametrization_, array_Symbol] := parametrization /.
+    d:drv[(Re|Im)[_], (Re|Im)[_]] :> Symbol[DrvToCFormString[d]][array] /.
+    p:(Re|Im)[_] /; ValueQ@ToEnumSymbol[p] :> array@ToEnumSymbol[p] /.
+    ap:(Re|Im)[abbr_Symbol] :> ap[array];
 
 Differentiate[exp_, x_, abbrRules_] :=
     D[exp, x, NonConstants -> abbrRules[[All,1]]] /.
@@ -306,8 +306,7 @@ Module[{
 ];
 
 ParametrizeBetaFunction[
-    BetaFunction`BetaFunction[name_, _, betanLs_List],
-    partRules_] :=
+    BetaFunction`BetaFunction[name_, _, betanLs_List], partRules_] :=
 Module[{
 	result
     },
