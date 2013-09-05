@@ -46,8 +46,10 @@ Format[ddx[i_,j_], CForm] := Format["ddx(" <> ToString[CForm[i]] <> "," <>
 Format[a, CForm] := Format["a", OutputForm];
 
 Format[drv[ap_, p_], CForm] :=
-    Format["d" <> ToString[CForm[HoldForm[ap]]] <>
-	   "d" <> ToString[CForm[HoldForm[p]]], OutputForm];
+    Format[DrvToCFormString[drv[ap, p]], OutputForm];
+
+DrvToCFormString[drv[ap_, p_]] :=
+    "d"<>ToString[CForm[HoldForm[ap]]] <> "d"<>ToString[CForm[HoldForm[p]]];
 
 Unprotect[Re, Im];
 
@@ -61,6 +63,7 @@ Protect[Re, Im];
 WriteRGECode[
     sarahAbbrs_List, betaFunctions_List, anomDims_List,
     gaugeCouplingRules_, otherParameterRules_, templateRules_, files_List] :=
+Block[{drv},
 Module[{
 	parameterRules = Join[gaugeCouplingRules, otherParameterRules],
 	gaugeCouplings = RealVariables[gaugeCouplingRules],
@@ -77,7 +80,7 @@ Module[{
     enumParameters = EnumParameters[enumRules];
     {betaFunctionRules, abbrRules} =
 	ParametrizeBetaFunctions[betaFunctions, sarahAbbrs, parameterRules];
-Done[
+DoneLn[
     abbrDerivRules = DifferentiateRules[abbrRules, parameters, abbrRules];
     {trivialAbbrRules, nonTrivialAbbrRules} =
 	SeparateTrivialRules@Flatten[{abbrRules, abbrDerivRules}];
@@ -90,8 +93,7 @@ Done[
 	       (# /. {{BETA[_Integer, p_] -> _, ___}, ___} :>
 		Position[parameters, p])&]];
     {betaDecls, betaDefs} = ToCCode@Flatten[
-	BetaFunctionRulesToC[betaFunctionRules, enumRules, abbrRules,
-			     trivialAbbrRules]];
+	BetaFunctionRulesToC[betaFunctionRules, enumRules, abbrRules]];
     WriteOut`ReplaceInFiles[files, Join[templateRules, {
 	"@enumParameters@"  -> WrapLines[IndentText[enumParameters,2],79,"  "],
 	"@abbrDecls@"	    -> WrapLines[IndentText[abbrDecls,2],79,"  "],
@@ -99,7 +101,7 @@ Done[
 	"@abbrDefs@"	    -> WrapLines[abbrDefs,79,"  "],
 	"@dxddxDefs@"       -> WrapLines[betaDefs,79,"  "]
     }]];
-];
+]];
 
 EnumRules[parameters_List] := MapIndexed[
     #1 -> "l" <> ToString@First[#2] <> ToString[#1, CForm]&, parameters];
@@ -137,13 +139,14 @@ DifferentiateRule[lhs_ -> rhs_, parameters_, abbrRules_] :=
 SelfApplyTrivialRules[rules_] := FixedPoint[RewriteTrivialRules, rules];
 
 RewriteTrivialRules[rules_] := Module[{
-	trivialRules = FindTrivialRules[rules]
+	trivialRules, nonTrivialRules
     },
-    (First[#] -> (Last[#] /. trivialRules))& /@ rules
+    {trivialRules, nonTrivialRules} = SeparateTrivialRules[rules];
+    SetRule /@ trivialRules;
+    nonTrivialRules
 ];
 
-FindTrivialRules[rules_] :=
-    Cases[rules, HoldPattern[_ -> rhs_ /; NumericQ@Expand[rhs]]];
+SetRule[lhs_ -> rhs_] := lhs = rhs;
 
 SeparateTrivialRules[rules_] := Flatten /@
     Last@Reap[Sow[#, NumericQ@Expand@Last[#]]& /@ rules, {True, False}];
@@ -174,7 +177,7 @@ CFxn[
     "}\n"
 ];
 
-BetaFunctionRulesToC[betanLRules_, enumRules_, abbrRules_, trivialRules_] := {
+BetaFunctionRulesToC[betanLRules_, enumRules_, abbrRules_] := {
 CFxn[
     ReturnType -> "void",
     Name -> "dx",
@@ -186,9 +189,10 @@ CFxn[
     "\n  if (nloops < ", ToString@First[#2], ") return;\n",
     Module[{flattened = Flatten[#1], nRules},
     nRules = Length[flattened];
-    MapIndexed[
-    Done[{"  ", BetaFunctionRuleToCStmt[#1, enumRules, trivialRules]},
-"[",First[#2],"/",nRules,"] translating ","BETA"@@First[#1]," into C... "]&,
+    MapIndexed[(
+    WriteString["stdout",
+		"[",First[#2],"/",nRules,"] ","BETA"@@First[#1],":"];
+    {"  ", BetaFunctionRuleToCStmt[#1, enumRules]})&,
     flattened]]}&, betanLRules],
     "}\n"]],
 CFxn[
@@ -202,41 +206,52 @@ CFxn[
     Module[{flattened = Flatten[#1], nRules},
     nRules = Length[flattened];
     MapIndexed[
-    Done[BetaFunctionRuleToDerivCStmt[#1, enumRules, abbrRules, trivialRules],
-    "[",First[#2],"/",nRules,"] differentiating ", "BETA"@@First[#1], "... "]&,
+    DoneLn[
+    BetaFunctionRuleToDerivCStmt[#1, enumRules, abbrRules],
+    "[",First[#2],"/",nRules,"] ", "D[BETA"@@First[#1], "]... "]&,
     flattened]]}&, betanLRules],
     "}\n"]
 ]};
 
 BetaFunctionRuleToCStmt[BETA[1, p:(Re|Im)[_]] -> rhs_,
-			enumRules_, trivialRules_] :=
-    BetaFunctionRuleToAssignment[1, p, rhs, enumRules, trivialRules, "="];
+			enumRules_] :=
+    BetaFunctionRuleToAssignment[1, p, rhs, enumRules, "="];
 
 BetaFunctionRuleToCStmt[BETA[level_Integer, p:(Re|Im)[_]] -> rhs_,
-			     enumRules_, trivialRules_] :=
-    BetaFunctionRuleToAssignment[level, p, rhs, enumRules, trivialRules, "+="];
+			     enumRules_] :=
+    BetaFunctionRuleToAssignment[level, p, rhs, enumRules, "+="];
 
 BetaFunctionRuleToAssignment[_Integer, _, rhs_, _, _, _] := {} /;
     Expand[rhs] === 0;
 
 BetaFunctionRuleToAssignment[
-    level_Integer, p_, rhs_, enumRules_, trivialRules_, op_] :=
+    level_Integer, p_, rhs_, enumRules_, op_] :=
     RValueToCFormString[ToCExp[p, dx, enumRules]] <> " " <> op <> " " <>
     RValueToCFormString[CConversion`oneOver16PiSqr^level
-			ToCExp[rhs /. trivialRules, x, enumRules]] <> ";\n";
+			ToCExp[rhs, x, enumRules]] <> ";\n";
+
+BetaFunctionRuleToAssignment[
+    level_Integer, p_, rhs_, enumRules_, op_] :=
+Module[{
+	rhsCExp = Done[ToCExp[rhs, x, enumRules], " translating to CExp... "]
+    },
+    RValueToCFormString[ToCExp[p, dx, enumRules]] <> " " <> op <> " " <>
+    DoneLn[RValueToCFormString[CConversion`oneOver16PiSqr^level rhsCExp],
+    " to C... "] <> ";\n"
+];
 
 BetaFunctionRuleToDerivCStmt[BETA[1, p:(Re|Im)[_]] -> rhs_,
-			     enumRules_, abbrRules_, trivialRules_] :=
+			     enumRules_, abbrRules_] :=
     BetaFunctionRuleToAssignments[1, p, rhs,
-				  enumRules, abbrRules, trivialRules, "="];
+				  enumRules, abbrRules, "="];
 
 BetaFunctionRuleToDerivCStmt[BETA[level_Integer, p:(Re|Im)[_]] -> rhs_,
-			     enumRules_, abbrRules_, trivialRules_] :=
+			     enumRules_, abbrRules_] :=
     BetaFunctionRuleToAssignments[level, p, rhs,
-				  enumRules, abbrRules, trivialRules, "+="];
+				  enumRules, abbrRules, "+="];
 
 BetaFunctionRuleToAssignments[
-    level_Integer, p_, rhs_, enumRules_, abbrRules_, trivialRules_, op_] :=
+    level_Integer, p_, rhs_, enumRules_, abbrRules_, op_] :=
 Module[{
 	pidx = p /. enumRules
     },
@@ -245,7 +260,7 @@ Module[{
 	    deriv
 	},
 	{q, qidx} = List @@ #;
-	deriv = Differentiate[rhs, q, abbrRules] /. trivialRules;
+	deriv = Differentiate[rhs, q, abbrRules];
 	If[Expand[deriv] === 0, {},
 	   {"  ddx(", qidx, ",", pidx, ") ", op, " ",
 	    RValueToCFormString[CConversion`oneOver16PiSqr^level
@@ -255,7 +270,7 @@ Module[{
 ];
 
 ToCExp[parametrization_, array_Symbol, enumRules_] := parametrization /.
-    d:drv[(Re|Im)[_], (Re|Im)[_]] :> Symbol[ToString[d, CForm]][x] /.
+    d:drv[(Re|Im)[_], (Re|Im)[_]] :> Symbol[DrvToCFormString[d]][x] /.
     ((First[#] -> array@Symbol[Last[#]])& /@ enumRules) /.
     ap:(Re|Im)[abbr_Symbol] :> ap[x];
 
@@ -282,7 +297,7 @@ Module[{
     nBetaFunctions = Length[convertedBetaFunctions];
     {MapIndexed[
 	(WriteString["stdout",
-		     "[", First[#2], "/", nBetaFunctions, "] expanding "];
+		     "[", First[#2], "/", nBetaFunctions, "] expanding"];
 	 ParametrizeBetaFunction[
 	     #1, Join[parameterRules, traceRules, sarahAbbrRules[[All,1]]]])&,
 	convertedBetaFunctions],
@@ -300,17 +315,26 @@ Module[{
        MapIndexed[
 	   Flatten@ParametrizeBetanLRules[name, #1, First[#2], partRules]&,
 	   betanLs];
-    WriteString["stdout", "done\n"];
+    WriteString["stdout", "\n"];
     result
 ];
 
 ParametrizeBetanLRules[name_, betanL_, n_, partRules_] := Module[{
 	equations
     },
-    WriteString["stdout", "BETA[",n ,", ", name, "]..."];
+    WriteString["stdout", "BETA[",n ,", ", name, "]... "];
     equations = ParametrizeBetanL[name, betanL, n, partRules];
     EquationsToRules /@ equations
 ]
+
+ParametrizeBetanLRules[name_, betanL_, n_, partRules_] := Module[{
+	equations
+    },
+Done[
+    equations = ParametrizeBetanL[name, betanL, n, partRules];
+    EquationsToRules /@ equations,
+	" BETA[",n ,", ", name, "]... "
+]]
 
 EquationsToRules[equations:HoldPattern@And[(BETA[_Integer, _] == _)..]] :=
     List@@equations /. Equal -> Rule;
@@ -498,11 +522,24 @@ matrixOpRules := {
 SetAttributes[Done, HoldFirst];
 
 Done[exp_, msg__] := Module[{
-	result
+	result,
+	time
     },
     WriteString["stdout", msg];
-    result = exp;
-    If[{msg} =!= {}, WriteString["stdout", "done\n"]];
+    result = Timing[exp];
+    If[(time = Round[First[result] 1*^3]) === 0,
+       time = ToString[Round[First[result] 1*^6]] <> " us",
+       time = ToString[time] <> " ms"];
+    WriteString["stdout", time];
+    Last[result]
+];
+
+SetAttributes[DoneLn, HoldFirst];
+
+DoneLn[exp_, msg__] := Module[{
+	result = Done[exp, msg]
+    },
+    WriteString["stdout", "\n"];
     result
 ];
 
