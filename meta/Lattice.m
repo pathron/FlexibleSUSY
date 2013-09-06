@@ -288,7 +288,7 @@ Module[{
 	sarahAbbrRules,
 	nBetaFunctions
     },
-    nestedTraceRules = ParametrizeTraceAbbrs[
+    nestedTraceRules = AbbreviateTraces[
 	{convertedBetaFunctions, convertedSarahAbbrs}];
     traceRules = Flatten[nestedTraceRules];
     convertedBetaFunctions = convertedBetaFunctions /. traceRules;
@@ -411,7 +411,7 @@ KroneckerRule[name_[i__]] := Module[{
 
 ReduceBetaEquations[equations_] := Module[{
 	variables =
-	    Cases[equations, BETA[_Integer, (Re|Im)[__]], {0, Infinity}]
+	    Union@Cases[equations, BETA[_Integer, (Re|Im)[__]], {0, Infinity}]
     },
     Reduce[# == 0& /@ equations, variables]
 ];
@@ -468,7 +468,7 @@ Module[{
 ParametrizeTrace[args__] :=
     (Print["Lattice`ParametrizeTrace[",args,"] failed."]; Abort[]);
 
-ParametrizeTraceAbbrs[exp_] := Module[{
+AbbreviateTraces[exp_] := Module[{
     	traces = Union@Flatten@Cases[exp, _SARAH`trace, {0, Infinity}],
 	grouped
     },
@@ -485,7 +485,7 @@ ConjugateTraceAbbrRule[{a_ -> b_, c_ -> d_}] :=
     {a -> b, c -> Parametrization`cnj[b]};
 
 ParametrizeTraceAbbrRule[traces_Alternatives -> abbr_] :=
-    ParametrizeTraceAbbrRule[First[traces] -> abbr];
+    traces -> Last@ParametrizeTraceAbbrRule[First[traces] -> abbr];
 
 (* Q: can a trace also be purely imaginary? *)
 
