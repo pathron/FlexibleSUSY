@@ -45,8 +45,10 @@ Format[ddx[i_,j_], CForm] := Format["ddx(" <> ToString[CForm[i]] <> "," <>
 
 Format[a, CForm] := Format["a", OutputForm];
 
+(*
 Format[drv[ap_, p_], CForm] :=
     Format[DrvToCFormString[drv[ap, p]], OutputForm];
+*)
 
 DrvToCFormString[drv[ap_, p_]] :=
     "d"<>ToString[CForm[HoldForm[ap]]] <> "d"<>ToString[CForm[HoldForm[p]]];
@@ -62,8 +64,15 @@ Protect[Re, Im];
 
 WriteRGECode[
     sarahAbbrs_List, betaFunctions_List, anomDims_List,
-    gaugeCouplingRules_, otherParameterRules_, templateRules_, files_List] :=
-Block[{drv, ToEnumSymbol},
+    gaugeCouplingRules_, otherParameterRules_, templateRules_,
+    modelName_, templateDir_, outputDir_] :=
+
+Block[{
+	drv,
+	ToEnumSymbol
+    },
+    Format[d:drv[_, _], CForm] := Format[DrvToCFormString[d], OutputForm];
+
 Module[{
 	parameterRules = Join[gaugeCouplingRules, otherParameterRules],
 	gaugeCouplings = RealVariables[gaugeCouplingRules],
@@ -73,6 +82,7 @@ Module[{
 	parameters, enumRules, enumParameters,
 	abbrDecls, abbrDefs,
 	betaDecls, betaDefs,
+	betaCFile,
 	p
     },
     parameters = RealVariables[parameterRules];
@@ -86,22 +96,41 @@ Module[{
     {trivialAbbrRules, nonTrivialAbbrRules} =
 	SeparateTrivialRules@Flatten[{abbrRules, abbrDerivRules}];
     {abbrDecls, abbrDefs} = ToCCode[
-        RuleToC[#]& /@ nonTrivialAbbrRules],
+        RuleToC[#]& /@ nonTrivialAbbrRules, 2^21],
     "Differentiating abbreviations... "];
     betaFunctionRules = Transpose[
 	ScaleByA[#, gaugeCouplings]& /@
 	SortBy[betaFunctionRules,
 	       (# /. {{BETA[_Integer, p_] -> _, ___}, ___} :>
 		Position[parameters, p])&]];
-    {betaDecls, betaDefs} = ToCCode@Flatten[
-	BetaFunctionRulesToC[betaFunctionRules, enumRules, abbrRules]];
-    WriteOut`ReplaceInFiles[files, Join[templateRules, {
-	"@enumParameters@"  -> WrapLines[IndentText[enumParameters,2],79,"  "],
-	"@abbrDecls@"	    -> WrapLines[IndentText[abbrDecls,2],79,"  "],
-	"@dxddxDecls@"      -> WrapLines[IndentText[betaDecls,2],79,"  "],
-	"@abbrDefs@"	    -> WrapLines[abbrDefs,79,"  "],
-	"@dxddxDefs@"       -> WrapLines[betaDefs,79,"  "]
+    {betaDecls, betaDefs} = ToCCode[Flatten[
+	BetaFunctionRulesToC[betaFunctionRules, enumRules, abbrRules]], 2^21];
+
+    WriteOut`ReplaceInFiles[{
+	{FileNameJoin[{templateDir, "lattice_info.hpp.in"}],
+	 FileNameJoin[{outputDir, modelName <> "_lattice_info.hpp"}]},
+	{FileNameJoin[{templateDir, "lattice_model.hpp.in"}],
+	 FileNameJoin[{outputDir, modelName <> "_lattice_model.hpp"}]},
+	{FileNameJoin[{templateDir, "lattice_model.cpp.in"}],
+	 FileNameJoin[{outputDir, modelName <> "_lattice_model.cpp"}]}},
+	Join[templateRules, {
+	"@enumParameters@"  -> enumParameters,
+	"@abbrDecls@"	    -> abbrDecls,
+	"@betaDecls@"	    -> betaDecls
     }]];
+    MapIndexed[(
+	betaCFile = FileNameJoin[
+	    {outputDir, modelName <> "_lattice_model_betafunctions_" <>
+	     ToString@First[#2] <> ".cpp"}];
+	WriteOut`ReplaceInFiles[{
+	    {FileNameJoin[{templateDir, "lattice_model_betafunctions.cpp.in"}],
+	     betaCFile}},
+	    Join[templateRules, {
+		"@abbrDefs@"	    -> "",
+		"@betaDefs@"	    -> #1
+	    }]];
+	betaCFile)&,
+    Join[abbrDefs, betaDefs]]
 ]];
 
 EnumRules[parameters_List] := MapIndexed[
@@ -155,26 +184,30 @@ SetRule[lhs_ -> rhs_] := lhs = rhs;
 SeparateTrivialRules[rules_] := Flatten /@
     Last@Reap[Sow[#, NumericQ@Expand@Last[#]]& /@ rules, {True, False}];
 
-ToCCode[cfxns_] := Module[{
-	returnType,
-	name,
-	args,
-	attributes,
-	body
+ToCCode[cfxns_, chunkSize_:Infinity] := Module[{
+	decls, defs
     },
-    StringJoin /@
-    Transpose[
+    {decls, defs} = Transpose[
 	({{ReturnType, " ", Name, Args, {" ATTR(",Attributes,")"}, ";\n"},
 	  {ReturnType, " CLASSNAME::", Name, Args, "\n", Body, "\n"}} /.
 	 List@@# /. {___, Attributes, ___} -> {})& /@
-	Flatten[cfxns]]
+	Flatten[cfxns]];
+    {StringJoin[decls], StringGroup[defs, chunkSize]}
+];
+
+StringGroup[strings_List, chunkSize_] := Module[{
+	flattened = Flatten[strings],
+	size = 0
+    },
+    StringJoin /@ Last@Reap[
+	(Sow[#, Quotient[size, chunkSize]]; size += StringLength[#])& /@
+	flattened]
 ];
 
 RuleToC[lhs_ -> rhs_] :=
 CFxn[
     ReturnType -> "double",
-    Name -> RValueToCFormString@Replace[
-	lhs, d:drv[(Re|Im)[_], (Re|Im)[_]] :> Symbol[DrvToCFormString[d]]],
+    Name -> RValueToCFormString[lhs],
     Args -> "(const Eigen::VectorXd& x) const",
     Attributes -> "pure",
     Body -> "{\n" <>
@@ -218,6 +251,65 @@ CFxn[
     "}\n"]
 ]};
 
+BetaFunctionRulesToC[betanLRules_, enumRules_, abbrRules_] := Flatten[{
+Reap[
+    CFxn[
+	ReturnType -> "void",
+	Name -> "dx",
+	Args -> "(double a, const Eigen::VectorXd& x, Eigen::VectorXd& dx, size_t nloops) const",
+	Body -> StringJoin["{\n",
+	"  dx.setZero();\n",
+	"  dx[l0t] = 1;\n",
+	MapIndexed[{
+	"\n  if (nloops < ", ToString@First[#2], ") return;\n",
+	Module[{flattened = Flatten[#1], nRules, name},
+	nRules = Length[flattened];
+	MapIndexed[(
+	WriteString["stdout",
+		    "[",First[#2],"/",nRules,"] ","BETA"@@First[#1],":"];
+	name = "d" <> RValueToCFormString@Last@First[#1] <> "_" <>
+	       ToString@First@First[#1] <> "loop";
+	Sow[CFxn[
+	    ReturnType -> "void",
+	    Name -> name,
+	    Args -> "(double a, const Eigen::VectorXd& x, Eigen::VectorXd& dx) const",
+	    Body -> StringJoin["{\n",
+	    "  ", BetaFunctionRuleToCStmt[#1],
+	    "}\n"]]
+	];
+	{"  ", name, "(a, x, dx);\n"})&,
+	flattened]]}&, betanLRules],
+	"}\n"]
+    ]
+],
+Reap[
+    CFxn[
+	ReturnType -> "void",
+	Name -> "ddx",
+	Args -> "(double a, const Eigen::VectorXd& x, Eigen::MatrixXd& ddx, size_t nloops) const",
+	Body -> StringJoin["{\n",
+	"  ddx.setZero();\n",
+	MapIndexed[{
+	"\n  if (nloops < ", ToString@First[#2], ") return;\n",
+	Module[{flattened = Flatten[#1], nRules, name},
+	nRules = Length[flattened];
+	MapIndexed[(
+	name = "dd" <> RValueToCFormString@Last@First[#1] <> "_" <>
+	ToString@First@First[#1] <> "loop";
+	DoneLn[Sow[CFxn[
+	    ReturnType -> "void",
+	    Name -> name,
+	    Args -> "(double a, const Eigen::VectorXd& x, Eigen::MatrixXd& ddx) const",
+	    Body -> StringJoin["{\n",
+	    BetaFunctionRuleToDerivCStmt[#1, enumRules, abbrRules],
+	    "}\n"]]],
+	    "[",First[#2],"/",nRules,"] ", "D[BETA"@@First[#1], "]... "];
+	{"  ", name, "(a, x, ddx);\n"})&,
+	flattened]]}&, betanLRules],
+	"}\n"]
+    ]
+]}];
+
 BetaFunctionRuleToCStmt[BETA[1, p:(Re|Im)[_]] -> rhs_] :=
     BetaFunctionRuleToAssignment[1, p, rhs, "="];
 
@@ -235,9 +327,10 @@ BetaFunctionRuleToAssignment[level_Integer, p_, rhs_, op_] :=
 BetaFunctionRuleToAssignment[level_Integer, p_, rhs_, op_] := Module[{
 	rhsCExp = Done[ToCExp[rhs, x], " translating to CExp... "]
     },
-    RValueToCFormString[ToCExp[p, dx]] <> " " <> op <> " " <>
-    DoneLn[RValueToCFormString[CConversion`oneOver16PiSqr^level rhsCExp],
-    " to C... "] <> ";\n"
+    DoneLn[RValueToCFormString[ToCExp[p, dx]] <> " " <> op <> " " <>
+	   RValueToCFormString[CConversion`oneOver16PiSqr^level rhsCExp] <>
+	   ";\n",
+	   " to C... "]
 ];
 
 BetaFunctionRuleToDerivCStmt[BETA[1, p:(Re|Im)[_]] -> rhs_,
