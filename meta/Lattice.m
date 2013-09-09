@@ -82,6 +82,7 @@ Module[{
 	parameters, enumRules, enumParameters,
 	abbrDecls, abbrDefs,
 	betaDecls, betaDefs,
+	defChunks, nDefChunks,
 	betaCFile,
 	p
     },
@@ -118,10 +119,13 @@ Module[{
 	"@abbrDecls@"	    -> abbrDecls,
 	"@betaDecls@"	    -> betaDecls
     }]];
+    defChunks = Join[abbrDefs, betaDefs];
+    nDefChunks = Length[defChunks];
     MapIndexed[(
 	betaCFile = FileNameJoin[
 	    {outputDir, modelName <> "_lattice_model_betafunctions_" <>
-	     ToString@First[#2] <> ".cpp"}];
+	     IntegerString[First[#2], 10, StringLength@ToString[nDefChunks]] <>
+	     ".cpp"}];
 	WriteOut`ReplaceInFiles[{
 	    {FileNameJoin[{templateDir, "lattice_model_betafunctions.cpp.in"}],
 	     betaCFile}},
@@ -130,7 +134,7 @@ Module[{
 		"@betaDefs@"	    -> #1
 	    }]];
 	betaCFile)&,
-    Join[abbrDefs, betaDefs]]
+    defChunks]
 ]];
 
 EnumRules[parameters_List] := MapIndexed[
