@@ -45,22 +45,14 @@ Format[ddx[i_,j_], CForm] := Format["ddx(" <> ToString[CForm[i]] <> "," <>
 
 Format[a, CForm] := Format["a", OutputForm];
 
-(*
 Format[drv[ap_, p_], CForm] :=
     Format[DrvToCFormString[drv[ap, p]], OutputForm];
-*)
 
 DrvToCFormString[drv[ap_, p_]] :=
     "d"<>ToString[CForm[HoldForm[ap]]] <> "d"<>ToString[CForm[HoldForm[p]]];
 
-Unprotect[Re, Im];
-
-(* CHECK: interference with two-scale method *)
-
-Format[Re[z_], CForm] := Format["RE" <> ToValidCSymbolString[z], OutputForm];
-Format[Im[z_], CForm] := Format["IM" <> ToValidCSymbolString[z], OutputForm];
-
-Protect[Re, Im];
+Format[REf[z_], CForm] := Format["RE" <> ToValidCSymbolString[z], OutputForm];
+Format[IMf[z_], CForm] := Format["IM" <> ToValidCSymbolString[z], OutputForm];
 
 WriteRGECode[
     sarahAbbrs_List, betaFunctions_List, anomDims_List,
@@ -138,14 +130,15 @@ Module[{
 ]];
 
 EnumRules[parameters_List] := MapIndexed[
-    #1 -> "l" <> ToString@First[#2] <> ToString[#1, CForm]&, parameters];
+    #1 -> "l" <> ToString@First[#2] <> ToString[ToCExp[#1], CForm]&,
+    parameters];
 
 EnumParameters[enumRules_List] :=
     StringJoin["enum : size_t { l0t, ", {Last[#], ", "}& /@ enumRules,
 	       "eftWidth };"];
 
 SetToEnumSymbol[parameter_ -> enum_String] :=
-    ToEnumSymbol[parameter] = Symbol[enum];
+    ToEnumSymbol[ToCExp[parameter]] = Symbol[enum];
 
 ScaleByA[b:{{(BETA[1, _] -> _)..}, {(BETA[_Integer, _] -> _)...}...},
 	 gaugeCouplings_] :=
@@ -211,49 +204,13 @@ StringGroup[strings_List, chunkSize_] := Module[{
 RuleToC[lhs_ -> rhs_] :=
 CFxn[
     ReturnType -> "double",
-    Name -> CExpToCFormString[lhs],
+    Name -> CExpToCFormString@ToCExp[lhs],
     Args -> "(const Eigen::VectorXd& x) const",
     Attributes -> "pure",
     Body -> "{\n" <>
     "  return " <> CExpToCFormString@ToCExp[rhs, x] <> ";\n" <>
     "}\n"
 ];
-
-BetaFunctionRulesToC[betanLRules_, enumRules_, abbrRules_] := {
-CFxn[
-    ReturnType -> "void",
-    Name -> "dx",
-    Args -> "(double a, const Eigen::VectorXd& x, Eigen::VectorXd& dx, size_t nloops) const",
-    Body -> StringJoin["{\n",
-    "  dx.setZero();\n",
-    "  dx[l0t] = 1;\n",
-    MapIndexed[{
-    "\n  if (nloops < ", ToString@First[#2], ") return;\n",
-    Module[{flattened = Flatten[#1], nRules},
-    nRules = Length[flattened];
-    MapIndexed[(
-    WriteString["stdout",
-		"[",First[#2],"/",nRules,"] ","BETA"@@First[#1],":"];
-    {"  ", BetaFunctionRuleToCStmt[#1]})&,
-    flattened]]}&, betanLRules],
-    "}\n"]],
-CFxn[
-    ReturnType -> "void",
-    Name -> "ddx",
-    Args -> "(double a, const Eigen::VectorXd& x, Eigen::MatrixXd& ddx, size_t nloops) const",
-    Body -> StringJoin["{\n",
-    "  ddx.setZero();\n",
-    MapIndexed[{
-    "\n  if (nloops < ", ToString@First[#2], ") return;\n",
-    Module[{flattened = Flatten[#1], nRules},
-    nRules = Length[flattened];
-    MapIndexed[
-    DoneLn[
-    BetaFunctionRuleToDerivCStmt[#1, enumRules, abbrRules],
-    "[",First[#2],"/",nRules,"] ", "D[BETA"@@First[#1], "]... "]&,
-    flattened]]}&, betanLRules],
-    "}\n"]
-]};
 
 BetaFunctionRulesToC[betanLRules_, enumRules_, abbrRules_] := Flatten[{
 Reap[
@@ -271,7 +228,7 @@ Reap[
 	MapIndexed[(
 	WriteString["stdout",
 		    "[",First[#2],"/",nRules,"] ","BETA"@@First[#1],":"];
-	name = "d" <> CExpToCFormString@Last@First[#1] <> "_" <>
+	name = "d" <> CExpToCFormString@ToCExp@Last@First[#1] <> "_" <>
 	       ToString@First@First[#1] <> "loop";
 	Sow[CFxn[
 	    ReturnType -> "void",
@@ -298,7 +255,7 @@ Reap[
 	Module[{flattened = Flatten[#1], nRules, name},
 	nRules = Length[flattened];
 	MapIndexed[(
-	name = "dd" <> CExpToCFormString@Last@First[#1] <> "_" <>
+	name = "dd" <> CExpToCFormString@ToCExp@Last@First[#1] <> "_" <>
 	ToString@First@First[#1] <> "loop";
 	DoneLn[Sow[CFxn[
 	    ReturnType -> "void",
@@ -366,10 +323,13 @@ Module[{
     ]& /@ enumRules
 ];
 
-ToCExp[parametrization_, array_Symbol] := parametrization /.
-    d:drv[(Re|Im)[_], (Re|Im)[_]] :> Symbol[DrvToCFormString[d]][array] /.
-    p:(Re|Im)[_] /; ValueQ@ToEnumSymbol[p] :> array@ToEnumSymbol[p] /.
-    ap:(Re|Im)[abbr_Symbol] :> ap[array];
+ToCExp[parametrization_] :=
+    parametrization /. Re[z_] :> REf[z] /. Im[z_] :> IMf[z];
+
+ToCExp[parametrization_, array_Symbol] := ToCExp[parametrization] /.
+    d:drv[(REf|IMf)[_], (REf|IMf)[_]] :> Symbol[DrvToCFormString[d]][array] /.
+    p:(REf|IMf)[_] /; ValueQ@ToEnumSymbol[p] :> array@ToEnumSymbol[p] /.
+    ap:(REf|IMf)[abbr_Symbol] :> ap[array];
 
 Differentiate[exp_, x_, abbrRules_] :=
     D[exp, x, NonConstants -> abbrRules[[All,1]]] /.
@@ -616,16 +576,16 @@ matrixOpRules := {
 };
 
 cExpToCFormStringDispatch = Dispatch[{
-                    Power[a_?NumericQ,n_?NumericQ] :> N[Power[a,n]],
-                    Sqrt[a_?NumericQ]        :> N[Sqrt[a]],
-                    Rational[a_?NumericQ, b_?NumericQ] :> N[Rational[a,b]],
+        Power[a_?NumericQ,n_?NumericQ] :> N[Power[a,n]],
+        Sqrt[a_?NumericQ]        :> N[Sqrt[a]],
+        Rational[a_?NumericQ, b_?NumericQ] :> N[Rational[a,b]],
 (*
-                    Power[a_,0.5]            :> Sqrt[a] /.
-                    Power[a_,-0.5]           :> 1/Sqrt[a] /.
+        Power[a_,0.5]            :> Sqrt[a] /.
+        Power[a_,-0.5]           :> 1/Sqrt[a] /.
 *)
-                    Power[a_,2]              :> Global`Sqr[a],
-                    Power[a_,-2]             :> 1/Global`Sqr[a],
-                    Power[E,a_]              :> exp[a]}];
+        Power[a_,2]              :> Global`Sqr[a],
+        Power[a_,-2]             :> 1/Global`Sqr[a]
+    }];
 
 CExpToCFormString[expr_] :=
     ToString[expr //. cExpToCFormStringDispatch, CForm];

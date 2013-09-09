@@ -33,24 +33,27 @@ TestEquality[Lattice`Private`TraceSameQ[
     SARAH`trace[mq2, adj[Yu], Yu, adj[Yd], Yd],
     cnj@SARAH`trace[mq2, adj[Yd], Yd, adj[Yu], Yu]], True];
 
-Print["testing RValueToCFormString[] ..."];
+Print["testing CExpToCFormString[] ..."];
 
+REf := Lattice`Private`REf;
+IMf := Lattice`Private`IMf;
 drv := Lattice`Private`drv;
+CExpToCFormString := Lattice`Private`CExpToCFormString;
 
-TestEquality[RValueToCFormString@drv[Re[Tr11], Re[md2[1, 1]]],
+TestEquality[CExpToCFormString@drv[REf[Tr11], REf[md2[1, 1]]],
 	     "dRETr11dREmd211"];
-TestEquality[RValueToCFormString@drv[Re[SARAH`trace[mq2]], Re[me2[3, 3]]],
+TestEquality[CExpToCFormString@drv[REf[SARAH`trace[mq2]], REf[me2[3, 3]]],
 	     "dREtracemq2dREme233"];
 
 Print["testing ToCExp[] ..."];
 
 ToCExp := Lattice`Private`ToCExp;
 
-TestEquality[RValueToCFormString @
-	     ToCExp[drv[Re[Tr11], Re[md2[1, 1]]], x, {}],
+TestEquality[CExpToCFormString @
+	     ToCExp[drv[Re[Tr11], Re[md2[1, 1]]], x],
 	     "dRETr11dREmd211(x)"];
-TestEquality[RValueToCFormString @
-	     ToCExp[drv[Re[SARAH`trace[mq2]], Re[me2[3, 3]]], x, {}]
+TestEquality[CExpToCFormString @
+	     ToCExp[drv[Re[SARAH`trace[mq2]], Re[me2[3, 3]]], x]
 	     "dREtracemq2dREme233(x)"];
 
 PrintTestSummary[];
