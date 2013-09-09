@@ -207,11 +207,11 @@ StringGroup[strings_List, chunkSize_] := Module[{
 RuleToC[lhs_ -> rhs_] :=
 CFxn[
     ReturnType -> "double",
-    Name -> RValueToCFormString[lhs],
+    Name -> CExpToCFormString[lhs],
     Args -> "(const Eigen::VectorXd& x) const",
     Attributes -> "pure",
     Body -> "{\n" <>
-    "  return " <> RValueToCFormString@ToCExp[rhs, x] <> ";\n" <>
+    "  return " <> CExpToCFormString@ToCExp[rhs, x] <> ";\n" <>
     "}\n"
 ];
 
@@ -267,7 +267,7 @@ Reap[
 	MapIndexed[(
 	WriteString["stdout",
 		    "[",First[#2],"/",nRules,"] ","BETA"@@First[#1],":"];
-	name = "d" <> RValueToCFormString@Last@First[#1] <> "_" <>
+	name = "d" <> CExpToCFormString@Last@First[#1] <> "_" <>
 	       ToString@First@First[#1] <> "loop";
 	Sow[CFxn[
 	    ReturnType -> "void",
@@ -294,7 +294,7 @@ Reap[
 	Module[{flattened = Flatten[#1], nRules, name},
 	nRules = Length[flattened];
 	MapIndexed[(
-	name = "dd" <> RValueToCFormString@Last@First[#1] <> "_" <>
+	name = "dd" <> CExpToCFormString@Last@First[#1] <> "_" <>
 	ToString@First@First[#1] <> "loop";
 	DoneLn[Sow[CFxn[
 	    ReturnType -> "void",
@@ -320,15 +320,15 @@ BetaFunctionRuleToAssignment[_Integer, _, rhs_, _, _, _] := {} /;
     Expand[rhs] === 0;
 
 BetaFunctionRuleToAssignment[level_Integer, p_, rhs_, op_] :=
-    RValueToCFormString[ToCExp[p, dx]] <> " " <> op <> " " <>
-    RValueToCFormString[CConversion`oneOver16PiSqr^level
+    CExpToCFormString[ToCExp[p, dx]] <> " " <> op <> " " <>
+    CExpToCFormString[CConversion`oneOver16PiSqr^level
 			ToCExp[rhs, x]] <> ";\n";
 
 BetaFunctionRuleToAssignment[level_Integer, p_, rhs_, op_] := Module[{
 	rhsCExp = Done[ToCExp[rhs, x], " translating to CExp... "]
     },
-    DoneLn[RValueToCFormString[ToCExp[p, dx]] <> " " <> op <> " " <>
-	   RValueToCFormString[CConversion`oneOver16PiSqr^level rhsCExp] <>
+    DoneLn[CExpToCFormString[ToCExp[p, dx]] <> " " <> op <> " " <>
+	   CExpToCFormString[CConversion`oneOver16PiSqr^level rhsCExp] <>
 	   ";\n",
 	   " to C... "]
 ];
@@ -356,8 +356,8 @@ Module[{
 	deriv = Differentiate[rhs, q, abbrRules];
 	If[Expand[deriv] === 0, {},
 	   {"  ddx(", qidx, ",", pidx, ") ", op, " ",
-	    RValueToCFormString[CConversion`oneOver16PiSqr^level
-				ToCExp[deriv, x]],
+	    CExpToCFormString[CConversion`oneOver16PiSqr^level
+			      ToCExp[deriv, x]],
 	    ";\n"}]
     ]& /@ enumRules
 ];
@@ -610,6 +610,21 @@ matrixOpRules := {
     Parametrization`adj :> ConjugateTranspose,
     SARAH`trace[m__] :> Tr[Dot[m]]
 };
+
+cExpToCFormStringDispatch = Dispatch[{
+                    Power[a_?NumericQ,n_?NumericQ] :> N[Power[a,n]],
+                    Sqrt[a_?NumericQ]        :> N[Sqrt[a]],
+                    Rational[a_?NumericQ, b_?NumericQ] :> N[Rational[a,b]],
+(*
+                    Power[a_,0.5]            :> Sqrt[a] /.
+                    Power[a_,-0.5]           :> 1/Sqrt[a] /.
+*)
+                    Power[a_,2]              :> Global`Sqr[a],
+                    Power[a_,-2]             :> 1/Global`Sqr[a],
+                    Power[E,a_]              :> exp[a]}];
+
+CExpToCFormString[expr_] :=
+    ToString[expr //. cExpToCFormStringDispatch, CForm];
 
 SetAttributes[Done, HoldFirst];
 
