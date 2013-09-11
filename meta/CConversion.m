@@ -294,8 +294,9 @@ Format[SARAH`T[x_],CForm] :=
 Format[FlexibleSUSY`GreekSymbol[x_],CForm] :=
     Format[ToValidCSymbol[x], OutputForm];
 
-Format[SARAH`Conj[x_],CForm]            :=
-    If[SARAH`getDimParameters[x] === {} || SARAH`getDimParameters[x] === {0},
+Format[SARAH`Conj[x_],CForm] :=
+    If[SARAH`getDimParameters[x /. FlexibleSUSY`GreekSymbol -> Identity] === {} ||
+       SARAH`getDimParameters[x /. FlexibleSUSY`GreekSymbol -> Identity] === {0},
        Format["Conj(" <> ToString[CForm[x]] <> ")", OutputForm],
        Format[ToString[CForm[x]] <> ".conjugate()", OutputForm]
       ];
@@ -329,7 +330,7 @@ Format[SARAH`trace[HoldPattern[x_]],CForm] :=
  *)
 RValueToCFormString[expr_] :=
     Module[{times, result, symbols, greekSymbols, greekSymbolsRules},
-           symbols = Cases[{expr}, _Symbol, Infinity];
+           symbols = Cases[{expr}, x_Symbol | x_Symbol[__] :> x, Infinity];
            greekSymbols = Select[symbols, GreekQ];
            greekSymbolsRules = Rule[#, FlexibleSUSY`GreekSymbol[#]]& /@ greekSymbols;
            result = expr /.
