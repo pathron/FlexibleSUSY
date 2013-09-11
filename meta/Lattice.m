@@ -27,7 +27,8 @@ BeginPackage["Lattice`", {
     "Traces`",
     "CConversion`",
     "TextFormatting`",
-    "WriteOut`"}]
+    "WriteOut`",
+    "Makefile`"}]
 
 WriteRGECode::usage;
 ParametrizeBetaFunctions::usage;
@@ -75,7 +76,8 @@ Module[{
 	abbrDecls, abbrDefs,
 	betaDecls, betaDefs,
 	defChunks, nDefChunks,
-	betaCFile,
+	replacementFiles, cFiles,
+	betaCFile, betaCFiles,
 	p
     },
     parameters = RealVariables[parameterRules];
@@ -99,13 +101,14 @@ Module[{
     {betaDecls, betaDefs} = ToCCode[Flatten[
 	BetaFunctionRulesToC[betaFunctionRules, enumRules, abbrRules]], 2^21];
 
-    WriteOut`ReplaceInFiles[{
+    replacementFiles = {
 	{FileNameJoin[{templateDir, "lattice_info.hpp.in"}],
 	 FileNameJoin[{outputDir, modelName <> "_lattice_info.hpp"}]},
 	{FileNameJoin[{templateDir, "lattice_model.hpp.in"}],
 	 FileNameJoin[{outputDir, modelName <> "_lattice_model.hpp"}]},
 	{FileNameJoin[{templateDir, "lattice_model.cpp.in"}],
-	 FileNameJoin[{outputDir, modelName <> "_lattice_model.cpp"}]}},
+	 FileNameJoin[{outputDir, modelName <> "_lattice_model.cpp"}]}};
+    WriteOut`ReplaceInFiles[replacementFiles,
 	Join[templateRules, {
 	"@enumParameters@"  -> enumParameters,
 	"@abbrDecls@"	    -> abbrDecls,
@@ -113,7 +116,7 @@ Module[{
     }]];
     defChunks = Join[abbrDefs, betaDefs];
     nDefChunks = Length[defChunks];
-    MapIndexed[(
+    betaCFiles = MapIndexed[(
 	betaCFile = FileNameJoin[
 	    {outputDir, modelName <> "_lattice_model_betafunctions_" <>
 	     IntegerString[First[#2], 10, StringLength@ToString[nDefChunks]] <>
@@ -126,8 +129,18 @@ Module[{
 		"@betaDefs@"	    -> #1
 	    }]];
 	betaCFile)&,
-    defChunks]
+    defChunks];
+    cFiles = Join[
+	Select[replacementFiles[[All,2]], StringMatchQ[#, ___ ~~ ".cpp"]&],
+	betaCFiles];
+    WriteMakefile[templateDir, outputDir, cFiles, templateRules]
 ]];
+
+WriteMakefile[templateDir_, outputDir_, cppFiles_, templateRules_] :=
+    Makefile`ReplaceInMakefiles[{
+	{FileNameJoin[{templateDir, "lattice.mk.in"}],
+	 FileNameJoin[{outputDir, "lattice.mk"}]}},
+	cppFiles, templateRules];
 
 EnumRules[parameters_List] := MapIndexed[
     #1 -> "l" <> ToString@First[#2] <> ToString[ToCExp[#1], CForm]&,

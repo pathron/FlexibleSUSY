@@ -9,8 +9,11 @@ META_SRC     := \
 		$(DIR)/ConvergenceTester.m \
 		$(DIR)/FlexibleSUSY.m \
 		$(DIR)/Format.m \
+		$(DIR)/Lattice.m \
 		$(DIR)/LoopMasses.m \
+		$(DIR)/Makefile.m \
 		$(DIR)/Parameters.m \
+		$(DIR)/Parametrization.m \
 		$(DIR)/Phases.m \
 		$(DIR)/SelfEnergies.m \
 		$(DIR)/EWSB.m \

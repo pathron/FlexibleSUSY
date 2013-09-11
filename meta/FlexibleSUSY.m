@@ -1,5 +1,5 @@
 
-BeginPackage["FlexibleSUSY`", {"SARAH`", "AnomalousDimension`", "BetaFunction`", "TextFormatting`", "CConversion`", "TreeMasses`", "EWSB`", "Traces`", "SelfEnergies`", "Phases`", "LoopMasses`", "WriteOut`", "Constraint`", "ThresholdCorrections`", "ConvergenceTester`"}];
+BeginPackage["FlexibleSUSY`", {"SARAH`", "AnomalousDimension`", "BetaFunction`", "TextFormatting`", "CConversion`", "TreeMasses`", "EWSB`", "Traces`", "SelfEnergies`", "Phases`", "LoopMasses`", "WriteOut`", "Constraint`", "ThresholdCorrections`", "ConvergenceTester`", "Lattice`"}];
 
 Print["***********************************************************"];
 Print["FlexibleSUSY ", Get[FileNameJoin[{Global`$flexiblesusyConfigDir,"version"}]]];
@@ -661,7 +661,21 @@ MakeFlexibleSUSY[OptionsPattern[]] :=
             susyParameterReplacementRules, susyBreakingParameterReplacementRules,
             numberOfSusyParameters, anomDim,
             ewsbEquations, massMatrices, phases, vevs,
-            diagonalizationPrecision, allParticles, freePhases, fixedParameters},
+            diagonalizationPrecision, allParticles, freePhases, fixedParameters,
+
+	    allParameterReplacementRules,
+	    Lat$gaugeCouplings,
+	    Lat$vevs,
+	    Lat$susyParameters,
+	    Lat$superpotentialParameters,
+	    Lat$susyBreakingParameters,
+	    Lat$superpotential,
+	    Lat$soft,
+	    Lat$gaugeCouplingRules,
+	    Lat$vevRules,
+	    Lat$superpotentialParameterRules,
+	    Lat$susyBreakingParameterRules,
+	    Lat$allParameterRules},
            (* check if SARAH`Start[] was called *)
            If[!ValueQ[Model`Name],
               Print["Error: Model`Name is not defined.  Did you call SARAH`Start[\"Model\"]?"];
@@ -792,6 +806,31 @@ MakeFlexibleSUSY[OptionsPattern[]] :=
                           {FileNameJoin[{Global`$flexiblesusyTemplateDir, "two_scale_soft_parameters.cpp.in"}],
                            FileNameJoin[{Global`$flexiblesusyOutputDir, FlexibleSUSY`FSModelName <> "_two_scale_soft_parameters.cpp"}]}},
                          traceDecl, numberOfSusyParameters];
+
+	   allParameterReplacementRules = Union@Join[susyParameterReplacementRules, susyBreakingParameterReplacementRules];
+	   Parametrization`UpdateValues[];
+	   Lat$gaugeCouplings = First/@SARAH`BetaGauge /. allParameterReplacementRules;
+	   Lat$vevs = First/@SARAH`BetaVEV /. allParameterReplacementRules;
+	   Lat$susyParameters = GetName/@susyBetaFunctions;
+	   Lat$superpotentialParameters = Complement[Lat$susyParameters, Lat$gaugeCouplings, Lat$vevs];
+	   Lat$susyBreakingParameters = GetName/@susyBreakingBetaFunctions;
+	   Lat$superpotential = Parametrization`ConvertSarahTerms[SARAH`Superpotential /. allParameterReplacementRules, Parametrization`CouplingPattern/@Lat$superpotentialParameters];
+	   (* SARAH`Soft is undocumented *)
+	   Lat$soft = Parametrization`ConvertSarahTerms[SARAH`Soft /. allParameterReplacementRules, Parametrization`CouplingPattern/@Lat$susyBreakingParameters];
+	   Lat$gaugeCouplingRules = Parametrization`ParameterRules[Lat$gaugeCouplings];
+	   Lat$vevRules = Parametrization`ParameterRules[Lat$vevs];
+	   Lat$superpotentialParameterRules = Parametrization`SuperpotentialParameterRules[Lat$superpotentialParameters, Lat$superpotential];
+	   Lat$susyBreakingParameterRules = Parametrization`SusyBreakingParameterRules[Lat$susyBreakingParameters, Lat$soft];
+	   Lat$allParameterRules = Join[Lat$gaugeCouplingRules, Lat$vevRules, Lat$superpotentialParameterRules, Lat$susyBreakingParameterRules];
+	   (* simplify model for quick tests *)
+	   Lat$allParameterRules = Parametrization`Sphericalize[Lat$allParameterRules];
+	   Lattice`WriteRGECode[
+	       TraceAbbr /. susyBreakingParameterReplacementRules /. traceRules,
+	       Join[susyBetaFunctions, susyBreakingBetaFunctions], anomDim,
+	       Lat$gaugeCouplingRules, Complement[Lat$allParameterRules, Lat$gaugeCouplingRules],
+	       GeneralReplacementRules[],
+	       FlexibleSUSY`FSModelName,
+	       Global`$flexiblesusyTemplateDir, Global`$flexiblesusyOutputDir];
 
            Print["Checking EWSB equations ..."];
            vevs = #[[1]]& /@ SARAH`BetaVEV;
@@ -978,10 +1017,6 @@ MakeFlexibleSUSY[OptionsPattern[]] :=
                              FileNameJoin[{Global`$flexiblesusyOutputDir, FlexibleSUSY`FSModelName <> "_two_scale_model.hpp"}]},
                             {FileNameJoin[{Global`$flexiblesusyTemplateDir, "two_scale_model.cpp.in"}],
                              FileNameJoin[{Global`$flexiblesusyOutputDir, FlexibleSUSY`FSModelName <> "_two_scale_model.cpp"}]},
-                            {FileNameJoin[{Global`$flexiblesusyTemplateDir, "lattice_model.hpp.in"}],
-                             FileNameJoin[{Global`$flexiblesusyOutputDir, FlexibleSUSY`FSModelName <> "_lattice_model.hpp"}]},
-                            {FileNameJoin[{Global`$flexiblesusyTemplateDir, "lattice_model.cpp.in"}],
-                             FileNameJoin[{Global`$flexiblesusyOutputDir, FlexibleSUSY`FSModelName <> "_lattice_model.cpp"}]},
                             {FileNameJoin[{Global`$flexiblesusyTemplateDir, "physical.hpp.in"}],
                              FileNameJoin[{Global`$flexiblesusyOutputDir, FlexibleSUSY`FSModelName <> "_physical.hpp"}]},
                             {FileNameJoin[{Global`$flexiblesusyTemplateDir, "physical.cpp.in"}],

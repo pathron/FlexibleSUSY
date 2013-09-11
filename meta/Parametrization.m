@@ -28,6 +28,7 @@ ParameterRules::usage;
 HasIndicesQ::usage;
 UpdateValues::usage;
 CouplingDimensions::usage;
+Sphericalize::usage;
 
 sarahOperatorReplacementRules::usage;
 ConvertSarahTerms::usage;
@@ -286,6 +287,25 @@ SingleCase[args__] := Module[{
     },
     Assert[Length[cases] === 1];
     First[cases]
+];
+
+Sphericalize[parameterRules_] := Module[{
+	matrices = Union@Cases[
+	    Variables[parameterRules[[All, 2]]] /. Re|Im -> Identity,
+	    m_[_, _] :> m],
+	apparentlyYukawas,
+	apparentlyTrilinears,
+	i, j
+    },
+    apparentlyYukawas =
+	Select[matrices, StringMatchQ[SymbolName[#], "Y" ~~ ___]&];
+    apparentlyTrilinears =
+	Select[matrices, StringMatchQ[SymbolName[#], "TY" ~~ ___]&];
+    (trp[#] = #; cnj[#] = #; adj[#] = #)& /@ matrices;
+    parameterRules /.
+	_Im | (Re[_[i_, j_]] /; i =!= j) |
+	Alternatives@@(Except[#@@CouplingDimensions[#], #[_,_]]& /@
+		       Join[apparentlyYukawas, apparentlyTrilinears]) -> 0
 ];
 
 sarahOperatorReplacementRules := {

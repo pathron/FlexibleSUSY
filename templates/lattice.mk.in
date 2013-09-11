@@ -1,0 +1,28 @@
+#  ====================================================================
+#  This file is part of FlexibleSUSY.
+#
+#  FlexibleSUSY is free software: you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published
+#  by the Free Software Foundation, either version 3 of the License,
+#  or (at your option) any later version.
+#
+#  FlexibleSUSY is distributed in the hope that it will be useful, but
+#  WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+#  General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with FlexibleSUSY.  If not, see
+#  <http://www.gnu.org/licenses/>.
+#  ====================================================================
+
+
+# Q: is CLASSNAME in a makefile always the same as ModelName in a metacode ?
+
+LIB@ModelName@_SRC += \
+	$(DIR)/run_@ModelName@.cpp \
+	$(DIR)/@ModelName@_info.cpp \
+	$(DIR)/@ModelName@_slha_io.cpp \
+	$(DIR)/@ModelName@_physical.cpp \
+	$(DIR)/@ModelName@_utilities.cpp \
+@generatedCppFiles@
