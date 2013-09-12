@@ -60,6 +60,8 @@ GetGoldstoneBosons::usage="returns list of all goldstone bosons";
 GetSMGoldstoneBosons::usage="returns list of all Standard Model
 goldstone bosons";
 
+GetVectorBosons::usage="returns list of all vector bosons";
+
 GetDimension::usage="returns the size of the particle multiplet";
 
 GetDimensionStartSkippingGoldstones::usage="return first index,
@@ -77,6 +79,8 @@ matrix";
 
 GetMixingMatrixSymbol::usage="get mixing matrix symbol from mass
 matrix";
+
+GetMassOfUnmixedParticle::usage="returns mass of unmixed particle";
 
 ReplaceDependencies::usage="returs expression with dependencies
 (ThetaW etc.) replaced by the user-defined expressions (";
@@ -103,11 +107,12 @@ IsDiracFermion::usage="";
 IsComplexScalar::usage="";
 IsRealScalar::usage="";
 IsMassless::usage="";
+IsUnmixed::usage="";
 
 StripGenerators::usage="removes all generators Lam, Sig, fSU2, fSU3
 and removes Delta with the given indices";
 
-Begin["Private`"];
+Begin["`Private`"];
 
 unrotatedParticles = {};
 
