@@ -271,10 +271,12 @@ SelfDependentQ[solution_, couplingPattern_] :=
 DependsOnQ[couplingPattern_, exp_] :=
     Cases[exp, couplingPattern, {0, Infinity}] =!= {};
 
-CouplingPattern[indexedCoupling : couplingHead_[__]] :=
+CouplingPattern[indexedCoupling : couplingHead_?CouplingHeadQ[__]] :=
     couplingHead @@ Table[_, {Length[indexedCoupling]}];
 
 CouplingPattern[coupling_] := coupling;
+
+CouplingHeadQ[couplingHead_] := CouplingDimensions[couplingHead] =!= Undefined;
 
 IndexedCoupling[pattern_, term_] := SingleCase[term, pattern, {0, Infinity}];
 
@@ -298,15 +300,24 @@ Sphericalize[parameterRules_] := Module[{
 	i, j
     },
     apparentlyYukawas =
-	Select[matrices, StringMatchQ[SymbolName[#], "Y" ~~ ___]&];
+	Select[matrices, ApparentlyYukawaQ];
     apparentlyTrilinears =
-	Select[matrices, StringMatchQ[SymbolName[#], "TY" ~~ ___]&];
+	Select[matrices, ApparentlyYukawaTrilinearQ];
     (trp[#] = #; cnj[#] = #; adj[#] = #)& /@ matrices;
     parameterRules /.
 	_Im | (Re[_[i_, j_]] /; i =!= j) |
 	Alternatives@@(Except[#@@CouplingDimensions[#], #[_,_]]& /@
 		       Join[apparentlyYukawas, apparentlyTrilinears]) -> 0
 ];
+
+ApparentlyYukawaQ[matrix_Symbol] :=
+    StringMatchQ[SymbolName[matrix], "Y" ~~ ___];
+
+ApparentlyYukawaQ[_] := False;
+
+ApparentlyYukawaTrilinearQ[T[matrix_?ApparentlyYukawaQ]] := True;
+
+ApparentlyYukawaTrilinearQ[_] := False;
 
 sarahOperatorReplacementRules := {
     SARAH`Tp -> trp,

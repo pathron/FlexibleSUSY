@@ -664,7 +664,6 @@ MakeFlexibleSUSY[OptionsPattern[]] :=
             ewsbEquations, massMatrices, phases, vevs,
             diagonalizationPrecision, allParticles, freePhases, fixedParameters,
 
-	    allParameterReplacementRules,
 	    Lat$gaugeCouplings,
 	    Lat$vevs,
 	    Lat$susyParameters,
@@ -803,25 +802,26 @@ MakeFlexibleSUSY[OptionsPattern[]] :=
                            FileNameJoin[{Global`$flexiblesusyOutputDir, FlexibleSUSY`FSModelName <> "_two_scale_soft_parameters.cpp"}]}},
                          traceDecl, numberOfSusyParameters];
 
-	   allParameterReplacementRules = Union@Join[susyParameterReplacementRules, susyBreakingParameterReplacementRules];
 	   Parametrization`UpdateValues[];
-	   Lat$gaugeCouplings = First/@SARAH`BetaGauge /. allParameterReplacementRules;
-	   Lat$vevs = First/@SARAH`BetaVEV /. allParameterReplacementRules;
+	   Lat$gaugeCouplings = First/@SARAH`BetaGauge;
+	   Lat$vevs = First/@SARAH`BetaVEV;
 	   Lat$susyParameters = GetName/@susyBetaFunctions;
 	   Lat$superpotentialParameters = Complement[Lat$susyParameters, Lat$gaugeCouplings, Lat$vevs];
 	   Lat$susyBreakingParameters = GetName/@susyBreakingBetaFunctions;
-	   Lat$superpotential = Parametrization`ConvertSarahTerms[SARAH`Superpotential /. allParameterReplacementRules, Parametrization`CouplingPattern/@Lat$superpotentialParameters];
+	   Lat$superpotential = Parametrization`ConvertSarahTerms[SARAH`Superpotential, Parametrization`CouplingPattern/@Lat$superpotentialParameters];
 	   (* SARAH`Soft is undocumented *)
-	   Lat$soft = Parametrization`ConvertSarahTerms[SARAH`Soft /. allParameterReplacementRules, Parametrization`CouplingPattern/@Lat$susyBreakingParameters];
+	   Lat$soft = Parametrization`ConvertSarahTerms[SARAH`Soft, Parametrization`CouplingPattern/@Lat$susyBreakingParameters];
 	   Lat$gaugeCouplingRules = Parametrization`ParameterRules[Lat$gaugeCouplings];
 	   Lat$vevRules = Parametrization`ParameterRules[Lat$vevs];
 	   Lat$superpotentialParameterRules = Parametrization`SuperpotentialParameterRules[Lat$superpotentialParameters, Lat$superpotential];
 	   Lat$susyBreakingParameterRules = Parametrization`SusyBreakingParameterRules[Lat$susyBreakingParameters, Lat$soft];
 	   Lat$allParameterRules = Join[Lat$gaugeCouplingRules, Lat$vevRules, Lat$superpotentialParameterRules, Lat$susyBreakingParameterRules];
+
 	   (* simplify model for quick tests *)
 	   Lat$allParameterRules = Parametrization`Sphericalize[Lat$allParameterRules];
+
 	   Lattice`WriteRGECode[
-	       TraceAbbr /. susyBreakingParameterReplacementRules /. traceRules,
+	       SARAH`TraceAbbr /. traceRules,
 	       Join[susyBetaFunctions, susyBreakingBetaFunctions], anomDim,
 	       Lat$gaugeCouplingRules, Complement[Lat$allParameterRules, Lat$gaugeCouplingRules],
 	       GeneralReplacementRules[],
