@@ -4,11 +4,14 @@
 #include "two_scale_constraint.hpp"
 #include "two_scale_convergence_tester.hpp"
 #include "linalg.h"
+#include "error.hpp"
 
 #define BOOST_TEST_DYN_LINK
 #define BOOST_TEST_MODULE test_two_scale_solver
 
 #include <boost/test/unit_test.hpp>
+
+using namespace flexiblesusy;
 
 class Static_model: public Two_scale_model {
 public:
@@ -20,6 +23,7 @@ public:
    virtual int run_to(double, double) { return 0; }
    virtual void set_parameters(const DoubleVector& v) { parameters = v; }
    virtual DoubleVector get_parameters() const { return parameters; }
+   virtual void set_precision(double) {}
 private:
    DoubleVector parameters;
 };
@@ -53,6 +57,7 @@ public:
    virtual ~Counting_model() {}
    virtual void calculate_spectrum() {}
    virtual int run_to(double, double) { ++number_of_runs; return 0; }
+   virtual void set_precision(double) {}
    unsigned get_number_of_runs() const {
       return number_of_runs;
    }
@@ -139,8 +144,9 @@ BOOST_AUTO_TEST_CASE( test_unchanged_parameters )
    solver.add_model(&model);
    solver.set_convergence_tester(&ccc);
 
-   BOOST_CHECK_THROW(solver.solve(), RGFlow<Two_scale>::NoConvergenceError);
+   BOOST_CHECK_THROW(solver.solve(), NoConvergenceError);
    BOOST_CHECK_EQUAL(model.get_parameters(), parameters);
+   BOOST_CHECK_EQUAL(solver.get_model(), &model);
 }
 
 BOOST_AUTO_TEST_CASE( test_trival_matching )
@@ -166,7 +172,7 @@ BOOST_AUTO_TEST_CASE( test_trival_matching )
    solver.add_model(&model2);
    solver.set_convergence_tester(&ccc);
 
-   BOOST_CHECK_THROW(solver.solve(), RGFlow<Two_scale>::NoConvergenceError);
+   BOOST_CHECK_THROW(solver.solve(), NoConvergenceError);
 
    // the high scale parameters should be the same as the low scale
    // parameters
@@ -207,7 +213,7 @@ BOOST_AUTO_TEST_CASE( test_count_method_calls )
       } else {
          // expect NoConvergenceError because the accuracy_goal_reached()
          // function of the convergence tester returns always false
-         BOOST_CHECK_THROW(solver.solve(), RGFlow<Two_scale>::NoConvergenceError);
+         BOOST_CHECK_THROW(solver.solve(), NoConvergenceError);
       }
 
       // check that all iterations were done
@@ -230,4 +236,46 @@ BOOST_AUTO_TEST_CASE( test_count_method_calls )
       BOOST_CHECK_EQUAL(model2_c1.get_number_of_apply_calls(),
                         2 * number_of_iterations);
    }
+}
+
+BOOST_AUTO_TEST_CASE( test_run_to_with_zero_models )
+{
+   RGFlow<Two_scale> solver;
+
+   const int status = solver.run_to(1000.);
+
+   BOOST_CHECK_EQUAL(status, 1);
+   BOOST_CHECK_EQUAL(solver.get_model(), (void*)NULL);
+}
+
+BOOST_AUTO_TEST_CASE( test_run_to_with_one_model )
+{
+   Static_model model(DoubleVector(10));
+   RGFlow<Two_scale> solver;
+   solver.add_model(&model);
+
+   const int status = solver.run_to(1000.);
+
+   BOOST_CHECK_EQUAL(status, 0);
+   BOOST_CHECK_EQUAL(solver.get_model(), &model);
+}
+
+BOOST_AUTO_TEST_CASE( test_run_to_with_two_models )
+{
+   Static_model model1(DoubleVector(10)), model2(DoubleVector(10));
+   Trivial_matching_condition mc(&model1, &model2);
+   const double mc_scale = mc.get_scale();
+
+   RGFlow<Two_scale> solver;
+   solver.add_model(&model1, &mc);
+   solver.add_model(&model2);
+
+   solver.run_to(mc_scale);
+   BOOST_CHECK_EQUAL(solver.get_model(), &model1);
+
+   solver.run_to(mc_scale / 2.);
+   BOOST_CHECK_EQUAL(solver.get_model(), &model1);
+
+   solver.run_to(mc_scale * 2.);
+   BOOST_CHECK_EQUAL(solver.get_model(), &model2);
 }

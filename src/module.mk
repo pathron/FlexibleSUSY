@@ -2,15 +2,23 @@ DIR          := src
 MODNAME      := libflexisusy
 
 LIBFLEXI_SRC := \
-		$(DIR)/coupling_monitor.cpp \
+		$(DIR)/betafunction.cpp \
+		$(DIR)/command_line_options.cpp \
 		$(DIR)/def.cpp \
 		$(DIR)/dilog.f \
+		$(DIR)/error.cpp \
+		$(DIR)/gsl_utils.cpp \
 		$(DIR)/linalg.cpp \
 		$(DIR)/lowe.cpp \
 		$(DIR)/numerics.cpp \
+		$(DIR)/program_options.cpp \
 		$(DIR)/rge.cpp \
+		$(DIR)/rk.cpp \
+		$(DIR)/scan.cpp \
+		$(DIR)/slha_io.cpp \
 		$(DIR)/stopwatch.cpp \
-		$(DIR)/utils.cpp
+		$(DIR)/utils.cpp \
+		$(DIR)/wrappers.cpp
 
 ifneq ($(findstring two_scale,$(ALGORITHMS)),)
 LIBFLEXI_SRC += \
@@ -22,10 +30,10 @@ endif
 
 ifneq ($(findstring lattice,$(ALGORITHMS)),)
 LIBFLEXI_SRC += \
+		$(DIR)/lattice_model.cpp \
 		$(DIR)/lattice_constraint.cpp \
 		$(DIR)/lattice_numerical_constraint.cpp \
 		$(DIR)/lattice_solver.cpp \
-		$(DIR)/rk.cpp \
 		$(DIR)/SM.cpp \
 		$(DIR)/fortran_utils.f
 endif
@@ -54,12 +62,19 @@ clean::         clean-$(MODNAME)
 
 distclean::     distclean-$(MODNAME)
 
+$(LIBFLEXI_DEP) $(LIBFLEXI_OBJ): CPPFLAGS += $(EIGENFLAGS)
+
 ifneq ($(findstring lattice,$(ALGORITHMS)),)
-$(LIBFLEXI_OBJ): CPPFLAGS += $(TVMETFLAGS) $(GSLFLAGS) $(BOOSTFLAGS)
+$(LIBFLEXI_DEP) $(LIBFLEXI_OBJ): CPPFLAGS += $(GSLFLAGS) $(BOOSTFLAGS)
 endif
 
+ifeq ($(ENABLE_STATIC_LIBS),yes)
 $(LIBFLEXI): $(LIBFLEXI_OBJ)
 		$(MAKELIB) $@ $^
+else
+$(LIBFLEXI): $(LIBFLEXI_OBJ)
+		$(MAKELIB) $@ $^ $(BOOSTTHREADLIBS) $(GSLLIBS) $(LAPACKLIBS)
+endif
 
 ALLDEP += $(LIBFLEXI_DEP)
 ALLLIB += $(LIBFLEXI)

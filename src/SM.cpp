@@ -1,5 +1,6 @@
 #include "SM.hpp"
 
+namespace flexiblesusy {
 
 using namespace std;
 
@@ -11,9 +12,9 @@ CM33 standard_unitary_matrix(Real s12, Real s13, Real s23, Real delta)
     Real c13 = sqrt(1 - sqr(s13));
     Comp P = polar(1.0, delta);
     CM33 V;
-    V =  c12*c13              ,  s12*c13              , s13*conj(P),
-	-s12*c23-c12*s23*s13*P,  c12*c23-s12*s23*s13*P, s23*c13    ,
-	 s12*s23-c12*c23*s13*P, -c12*s23-s12*c23*s13*P, c23*c13    ;
+    V <<  c12*c13              ,  s12*c13              , s13*conj(P),
+	 -s12*c23-c12*s23*s13*P,  c12*c23-s12*s23*s13*P, s23*c13    ,
+	  s12*s23-c12*c23*s13*P, -c12*s23-s12*c23*s13*P, c23*c13    ;
     return V;
 }
 
@@ -34,4 +35,6 @@ CM33 standard_VCKM(Real gamma, Real Vub)
 CM33 standard_VCKM(Real gamma)
 {
     return standard_VCKM(gamma, modVub_cent);
+}
+
 }

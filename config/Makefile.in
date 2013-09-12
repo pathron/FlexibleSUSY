@@ -1,0 +1,128 @@
+MODELS     := @MODELS@
+MODULES    := config src legacy slhaea meta templates $(MODELS) test examples doc
+CPPFLAGS   := @CPPFLAGS@ $(patsubst %,-I%,$(MODULES)) -I.
+CXXFLAGS   := @CXXFLAGS@
+FFLAGS     := @FFLAGS@
+FLIBS      := @FLIBS@
+BOOSTTESTLIBS  := @BOOSTTESTLIBS@
+BOOSTTHREADLIBS  := @BOOSTTHREADLIBS@
+BOOSTFLAGS := @BOOSTFLAGS@
+CXX        := @CXX@
+EIGENFLAGS := @EIGENFLAGS@
+FC         := @FC@
+GSLLIBS    := @GSLLIBS@
+GSLFLAGS   := @GSLFLAGS@
+LAPACKLIBS := @LAPACKLIBS@
+ENABLE_LOOPTOOLS := @ENABLE_LOOPTOOLS@
+LOOPTOOLSFLAGS := @LOOPTOOLSFLAGS@
+LOOPTOOLSLIBS  := @LOOPTOOLSLIBS@
+MAKELIB    := @MAKELIB@
+LIBEXT     := @LIBEXT@
+ENABLE_STATIC_LIBS := @ENABLE_STATIC_LIBS@
+VERSION    := @VERSION@
+PKGNAME    := @PKGNAME@
+ABSBASEDIR := @ABSBASEDIR@
+ALGORITHMS := @ALGORITHMS@
+MATH       := @MATH@
+
+# the modules add their dependency files to this variable
+ALLDEP   :=
+# the modules add headers to be created to this variable
+ALLHDR   :=
+# the modules add their libraries to this variable
+ALLLIB   :=
+# the modules add executables to this variable
+ALLEXE   :=
+# the modules add test executables to this variable
+ALLTST   :=
+
+# flexiblesusy-config script
+FSCONFIG := @FSCONFIG@
+
+.PHONY:  all allhdr allexec alllib alltest clean-executables \
+	 clean clean-dep distclean showbuild tag release
+
+all:     allhdr alllib allexec
+
+include $(patsubst %, %/module.mk, $(MODULES))
+
+ifneq ($(MAKECMDGOALS),clean)
+ifneq ($(MAKECMDGOALS),distclean)
+ifneq ($(MAKECMDGOALS),showbuild)
+ifneq ($(MAKECMDGOALS),tag)
+ifneq ($(MAKECMDGOALS),release)
+ifneq ($(MAKECMDGOALS),doc)
+ifeq ($(findstring clean-,$(MAKECMDGOALS)),)
+ifeq ($(findstring distclean-,$(MAKECMDGOALS)),)
+-include $(ALLDEP)
+endif
+endif
+endif
+endif
+endif
+endif
+endif
+endif
+
+allhdr:   $(ALLHDR)
+allexec:  $(ALLEXE)
+alllib:   $(ALLLIB)
+alltest:  $(ALLTST)
+
+clean-dep:
+	rm -rf $(ALLDEP)
+
+%.d: %.cpp
+# -MT '$*.o' ensures that the target contains the full path
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -MM -MP -MG -o $@ -MT '$*.o' $^
+
+%.d: %.f
+# the sed script ensures that the target contains the full path
+	$(FC) $(CPPFLAGS) -cpp -MM -MP -MG $^ -MT '$*.o' | \
+	sed 's|.*\.o:|$*.o:|' > $@
+
+clean-executables:
+	rm -f $(ALLEXE)
+
+distclean::
+	-rm -f Makefile
+	-rm -f flexiblesusy-config
+
+showbuild:
+	@echo "PKGNAME    = $(PKGNAME)"
+	@echo "VERSION    = $(VERSION)"
+	@echo "ABSBASEDIR = $(ABSBASEDIR)"
+	@echo "CXX        = $(CXX)"
+	@echo "CPPFLAGS   = $(CPPFLAGS)"
+	@echo "CXXFLAGS   = $(CXXFLAGS)"
+	@echo "FC         = $(FC)"
+	@echo "FFLAGS     = $(FFLAGS)"
+	@echo "MAKELIB    = $(MAKELIB)"
+	@echo "LIBEXT     = $(LIBEXT)"
+	@echo "ENABLE_STATIC_LIBS = $(ENABLE_STATIC_LIBS)"
+	@echo "FLIBS      = $(FLIBS)"
+	@echo "BOOSTTESTLIBS  = $(BOOSTTESTLIBS)"
+	@echo "BOOSTTHREADLIBS  = $(BOOSTTHREADLIBS)"
+	@echo "BOOSTFLAGS = $(BOOSTFLAGS)"
+	@echo "EIGENFLAGS = $(EIGENFLAGS)"
+	@echo "GSLLIBS    = $(GSLLIBS)"
+	@echo "GSLFLAGS   = $(GSLFLAGS)"
+	@echo "LAPACKLIBS = $(LAPACKLIBS)"
+	@echo "ENABLE_LOOPTOOLS = $(ENABLE_LOOPTOOLS)"
+	@echo "LOOPTOOLSFLAGS = $(LOOPTOOLSFLAGS)"
+	@echo "LOOPTOOLSLIBS  = $(LOOPTOOLSLIBS)"
+	@echo "ALGORITHMS = $(ALGORITHMS)"
+	@echo "MATH       = $(MATH)"
+	@echo "MODELS     = $(MODELS)"
+	@echo ""
+	@echo "The list of modules to be built:"
+	@echo "--------------------------------"
+	@echo "$(MODULES)"
+
+tag:
+	git tag v$(VERSION) -m "version $(VERSION)"
+
+release:
+	git archive --worktree-attributes --format=tar \
+	--prefix=$(PKGNAME)-$(VERSION)/ \
+	v$(VERSION) | gzip > $(PKGNAME)-$(VERSION).tar.gz

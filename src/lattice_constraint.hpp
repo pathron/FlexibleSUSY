@@ -20,10 +20,12 @@
 #define lattice_constraint_hpp
 
 
+#include <Eigen/Dense>
 #include "constraint.hpp"
 #include "matching.hpp"
 #include "lattice_solver.hpp"
 
+namespace flexiblesusy {
 
 class Lattice;
 
@@ -44,8 +46,10 @@ protected:
     virtual void activate();
     Real& A(size_t r, size_t T, size_t m, size_t j)
     { return f->A(rows[r]->rowSpec.realRow, T, m, j); }
-    Real y(size_t T, size_t m, size_t i) { return f->y(T, m, i); }
+    Real y(size_t T, size_t m, size_t i) const { return f->y(T, m, i); }
     Real& z(size_t r) { return f->z[rows[r]->rowSpec.realRow]; }
+    Real u(size_t T, size_t i) const { return f->u(T, i); }
+    Real x(size_t T, size_t m, size_t i) const { return f->x(T, m, i); }
     void ralloc(size_t nrows, size_t T, size_t m, size_t span);
     void rfree();
 private:
@@ -61,15 +65,19 @@ public:
     virtual void init
     (RGFlow<Lattice> *flow, size_t lower_theory)
     { Lattice_constraint::init(flow); TL = lower_theory; }
-    virtual void relocate(const std::vector<std::vector<size_t>>& site_maps) {}
+    virtual void relocate(const std::vector<std::vector<size_t>>&) {}
+    using Lattice_constraint::init;
 protected:
     Real& A(size_t r, size_t To, size_t j)
     { return Lattice_constraint::A(r, TL+To, m(To), j); }
-    Real y(size_t To, size_t i)
+    Real y(size_t To, size_t i) const
     { return Lattice_constraint::y(TL+To, m(To), i); }
     Real& z(size_t r) { return Lattice_constraint::z(r); }
-    Real u(size_t To, size_t i) { return f->efts[TL+To].units[i]; }
-    size_t m(size_t To) { return To ? 0 : f->efts[TL].height - 1; }
+    Real u(size_t To, size_t i) const
+    { return Lattice_constraint::u(TL+To, i); }
+    Real x(size_t To, size_t i) const
+    { return Lattice_constraint::x(TL+To, m(To), i); }
+    size_t m(size_t To) const { return To ? 0 : f->efts[TL].height - 1; }
     void ralloc(size_t nrows)
     { Lattice_constraint::ralloc(nrows, TL, m(0), 2); }
     size_t TL;
@@ -93,12 +101,14 @@ public:
     virtual void relocate(const std::vector<std::vector<size_t>>& site_maps)
     { relocate(site_maps[T]); }
     size_t mbegin;
+    using Lattice_constraint::init;
 protected:
     Real& A(size_t r, size_t m, size_t j)
     { return Lattice_constraint::A(r, T, m, j); }
-    Real y(size_t m, size_t i) { return Lattice_constraint::y(T, m, i); }
+    Real y(size_t m, size_t i) const { return Lattice_constraint::y(T, m, i); }
     Real& z(size_t r) { return Lattice_constraint::z(r); }
-    Real u(size_t i) { return f->efts[T].units[i]; }
+    Real u(size_t i) const { return Lattice_constraint::u(T, i); }
+    Real x(size_t m, size_t i) const { return Lattice_constraint::x(T, m, i); }
     void ralloc(size_t nrows, size_t m, size_t span)
     { Lattice_constraint::ralloc(nrows, T, m, span); }
     size_t T;
@@ -114,11 +124,14 @@ public:
     // SingleSiteConstraint() {}
     virtual void init(RGFlow<Lattice> *flow, size_t theory, size_t site)
     { IntraTheoryConstraint::init(flow, theory, site, 1); }
+    virtual double get_scale() const { return std::exp(x(0))*f->scl0; }
+    using IntraTheoryConstraint::init;
 protected:
     Real& A(size_t r, size_t j)
     { return IntraTheoryConstraint::A(r, mbegin, j); }
-    Real y(size_t i) { return IntraTheoryConstraint::y(mbegin, i); }
+    Real y(size_t i) const { return IntraTheoryConstraint::y(mbegin, i); }
     Real& z(size_t r) { return IntraTheoryConstraint::z(r); }
+    Real x(size_t i) const { return IntraTheoryConstraint::x(mbegin, i); }
     void ralloc(size_t nrows)
     { IntraTheoryConstraint::ralloc(nrows, mbegin, 1); }
 private:
@@ -136,6 +149,7 @@ public:
     void alloc_rows() { ssc->alloc_rows(); }
     void free_rows() { ssc->free_rows(); }
     void operator()() { (*ssc)(); }
+    using InterTheoryConstraint::init;
 private:
     SingleSiteConstraint *ssc;
     size_t To;
@@ -160,32 +174,56 @@ public:
     void init(RGFlow<Lattice> *flow, size_t theory, size_t site, size_t span) {
 	IntraTheoryConstraint::init(flow, theory, site, span);
 	x.resize(f->efts[T].w->width);
+	dxm0.resize(x.size());
+	dxm1.resize(x.size());
+	ddxm0.resize(x.size(), x.size());
+	ddxm1.resize(x.size(), x.size());
+#if 0
 	ddxm0i.resize(x.size());
 	ddxm1i.resize(x.size());
+#endif
     }
     void alloc_rows() {
 	for (size_t n = 0; n < span - 1; n++)
 	    ralloc(f->efts[T].w->width - 1, mbegin + n, 2);
     }
     void operator()();
+    using IntraTheoryConstraint::init;
 
-    RVec x;
+private:
+    Eigen::VectorXd x;
+    Eigen::VectorXd dxm0, dxm1;
+    Eigen::MatrixXd ddxm0, ddxm1;
+#if 0
     Real dxm0i, dxm1i;
     RVec ddxm0i, ddxm1i;
+#endif
 
-    void calc_dxmi_ddxmi(size_t m, size_t i, Real& dxmi, RVec& ddxmi);
+    void calc_dxm_ddxm(size_t m, Eigen::VectorXd& dxm, Eigen::MatrixXd& ddxm);
+//    void calc_dxmi_ddxmi(size_t m, size_t i, Real& dxmi, RVec& ddxmi);
     void set_diff(size_t r, size_t m, size_t i);
 };
 
 class Lattice_RKRGE : public IntraTheoryConstraint {
 public:
-    struct Adapter {
-	void set(BRVec& xD, size_t width) { v = &xD; n = width; }
-	Real& x(size_t i) { return (*v)[i]; }
-	Real& D(size_t i, size_t j) { return (*v)[(i+1)*n + j]; }
+    template<class A, class V, class M>
+    struct Adapter_ {
+	Adapter_() : x(nullptr,0), D(nullptr,0,0) {}
+	void set(A& xD, size_t width) {
+	    v = &xD;
+	    n = width;
+	    new (&x) Eigen::Map<V>(v->data()  , n);
+	    new (&D) Eigen::Map<M>(v->data()+n, n, n);
+	}
 	size_t n;
-	BRVec *v;
+	Eigen::Map<V> x;
+	Eigen::Map<M> D;
+	A *v;
     };
+
+    typedef Adapter_<Eigen::ArrayXd, Eigen::VectorXd, Eigen::MatrixXd> Adapter;
+    typedef Adapter_<const Eigen::ArrayXd, const Eigen::VectorXd,
+		     const Eigen::MatrixXd> const_Adapter;
 
     // Lattice_RKRGE() {}
     void init(RGFlow<Lattice> *flow, size_t theory, size_t site, size_t span) {
@@ -202,11 +240,14 @@ public:
 	ralloc(f->efts[T].w->width - 1, mbegin, 2);
     }
     void operator()();
+    using IntraTheoryConstraint::init;
+
+private:
     int evolve_to(Real t_new, Adapter& a, Real eps = -1);
 
-    BRVec   xD0, xD1;
-    Adapter  a0,  a1;
-    RVec    dx0, dx1;
+    Eigen::ArrayXd  xD0, xD1;
+    Adapter          a0,  a1;
+    Eigen::VectorXd dx0, dx1;
 };
 
 class Uniform_dt : public IntraTheoryConstraint {
@@ -246,7 +287,7 @@ class Unified_xi_xj : public AnySingleSiteConstraint {
 public:
     Unified_xi_xj(size_t i, size_t j) :
 	AnySingleSiteConstraint(1,
-	    [=](AnySingleSiteConstraint *dummy) {
+	    [=](AnySingleSiteConstraint *) {
 		A(0,i) =  u(i);
 		A(0,j) = -u(j);
 		z(0) = 0;
@@ -258,7 +299,7 @@ class Fixed_x : public AnySingleSiteConstraint {
 public:
     Fixed_x(size_t i, Real x) :
 	AnySingleSiteConstraint(1,
-	    [=](AnySingleSiteConstraint *dummy) {
+	    [=](AnySingleSiteConstraint *) {
 		A(0,i) = u(i);
 		z(0) = x;
 	    })
@@ -269,12 +310,13 @@ class Fixed_t : public AnySingleSiteConstraint {
 public:
     Fixed_t(Real mu) :
 	AnySingleSiteConstraint(1,
-	    [=](AnySingleSiteConstraint *dummy) {
+	    [=](AnySingleSiteConstraint *) {
 		A(0,0) = u(0);
 		z(0) = std::log(mu/f->scl0);
 	    })
 	{}
 };
 
+}
 
 #endif // lattice_constraint_hpp

@@ -1,6 +1,10 @@
+#include <iomanip>
+#include <algorithm>
+#include <cassert>
 #include <gsl/gsl_spline.h>
 
 #include "mathdefs.hpp"
+#include "lattice_model.hpp"
 #include "lattice_constraint.hpp"
 #include "lattice_initial_guesser.hpp"
 #include "lattice_solver.hpp"
@@ -8,10 +12,9 @@
 #include "logger.hpp"
 
 
+namespace flexiblesusy {
+
 using namespace std;
-
-
-// const double lattice_default_scale0 = TeV;
 
 
 ostream& operator<<(ostream &out, const RGFlow<Lattice>& f)
@@ -28,6 +31,12 @@ ostream& operator<<(ostream &out, const RGFlow<Lattice>& f)
     return out;
 }
 
+int Lattice_model::run_to(double, double eps)
+{
+    // TODO: slide scale pointer
+    return 0;
+}
+
 RGFlow<Lattice>::EFTspec::EFTspec
 (Lattice_model *model, const vector<SingleSiteConstraint*>& cs,
  InterTheoryConstraint* m, RGFlow *flow) :
@@ -36,6 +45,7 @@ RGFlow<Lattice>::EFTspec::EFTspec
 }
 
 RGFlow<Lattice>::RGFlow() :
+    nloops(2),
     tiny_dy(1e-2), huge_dy(100),
     max_a_steps(1024), max_iter(100),
     units_set(false), hybrid(false), scl0(1),
@@ -61,6 +71,82 @@ void RGFlow<Lattice>::add_model
  const vector<SingleSiteConstraint*>& constraints)
 {
     efts.push_back(EFTspec(model, constraints, matching, this));
+}
+
+void RGFlow<Lattice>::add_model
+(Lattice_model *model,
+ const vector<SingleSiteConstraint*>& upward_constraints,
+ const vector<SingleSiteConstraint*>& downward_constraints)
+{
+    add_model(model, nullptr, upward_constraints, downward_constraints);
+}
+
+void RGFlow<Lattice>::add_model
+(Lattice_model *model,
+ InterTheoryConstraint *matching,
+ const vector<SingleSiteConstraint*>& us,
+ const vector<SingleSiteConstraint*>& ds)
+{
+    typedef vector<SingleSiteConstraint*>::const_iterator ci_t;
+
+    vector<SingleSiteConstraint*> rs(ds.size());
+    reverse_copy(ds.begin(), ds.end(), rs.begin());
+
+    vector<SingleSiteConstraint*> combined;
+    ci_t pu = us.begin();
+    ci_t pr = rs.begin();
+
+    while (pu != us.cend() || pr != rs.cend()) {
+	ci_t pun = find(pu, us.cend(), pr != rs.cend() ? *pr : nullptr);
+	ci_t prn = find(pr, rs.cend(), pu != us.cend() ? *pu : nullptr);
+
+	if (pun == pu && prn == pr) {
+	    assert(*pu == *pr);
+	    combined.push_back(*pu);
+	    pu++; pr++;
+	}
+	else if ((pr  == rs.cend() && pu  != us.cend()) ||
+		 (prn == rs.cend() && pun != us.cend()))
+	    while (pu != pun)
+		combined.push_back(*pu++);
+	else if ((pu  == us.cend() && pr  != rs.cend()) ||
+		 (pun == us.cend() && prn != rs.cend()))
+	    while (pr != prn)
+		combined.push_back(*pr++);
+	else {
+	    stringstream msg;
+	    msg << "RGFlow<Lattice>::Error: failed to combine upward "
+		   "and downward constraints in model" << model->name();
+	    throw SetupError(msg.str());
+	}
+    }
+#ifdef VERBOSE
+    {
+	stringstream uss, rss, css;
+	for (auto c: us	     ) uss << ' ' << c;
+	for (auto c: rs	     ) rss << ' ' << c;
+	for (auto c: combined) css << ' ' << c;
+	VERBOSE_MSG("         upward   constraints:" << uss.str() << "\n"
+		    "reversed downward constraints:" << rss.str() << "\n"
+		    "         combined constraints:" << css.str());
+    }
+#endif
+    add_model(model, matching, combined);
+}
+
+void RGFlow<Lattice>::reset()
+{
+    // TODO: do something reasonable
+}
+
+void RGFlow<Lattice>::set_convergence_tester(Convergence_tester<Lattice>*)
+{
+    // TODO: do something reasonable
+}
+
+void RGFlow<Lattice>::set_running_precision(Two_scale_running_precision*)
+{
+    // TODO: do something reasonable
 }
 
 void RGFlow<Lattice>::set_initial_guesser(Initial_guesser<Lattice>* guesser)
@@ -511,7 +597,7 @@ RGFlow<Lattice>::EqRow *RGFlow<Lattice>::ralloc
     assert(r != nullptr);
     if (r != nullptr) {
 	free_row_list_head = r->next;
-	r->rowSpec = { T, m, span };
+	r->rowSpec = { T, m, span, 0/* to be determined by sort_rows() */ };
     }
     return r;
 }
@@ -530,7 +616,7 @@ void RGFlow<Lattice>::sort_rows()
     for (size_t r = 0; r < layout.size(); r++)
 	layout[r] = &row_pool[r];
     sort(layout.begin(), layout.end(),
-	 [](EqRow *a, EqRow *b) {
+	 [](EqRow *a, EqRow *b) -> bool {
 	     if (a->rowSpec.T < b->rowSpec.T) return true;
 	     if (a->rowSpec.T > b->rowSpec.T) return false;
 	     if (a->rowSpec.m < b->rowSpec.m) return true;
@@ -570,7 +656,7 @@ RGFlow<Lattice>::Inner_status RGFlow<Lattice>::iterate()
     while (iter < max_iter && state != END) {
 	iter++;
 	apply_constraints();
-#if 0
+#ifdef DUMP_MATRIX
 	cout << setprecision(15) << scientific;
 	for (size_t i = 0; i < y_.size(); i++) {
 	    for (size_t j = 0; j < y_.size(); j++) {
@@ -586,7 +672,7 @@ RGFlow<Lattice>::Inner_status RGFlow<Lattice>::iterate()
 	if (INFO > 0) {
 	    stringstream msg;
 	    msg << "RGFlow<Lattice>::Error: failed to solve equations, "
-		<< "DGBSV returned INFO = " << INFO;
+		   "DGBSV returned INFO = " << INFO;
 	    throw NonInvertibleMatrixError(msg.str());
 	}
 	Real maxdy = maxdiff(y_, z);
@@ -604,4 +690,6 @@ RGFlow<Lattice>::Inner_status RGFlow<Lattice>::iterate()
     }
     else
 	return ENDLESS;
+}
+
 }

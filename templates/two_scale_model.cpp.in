@@ -1,0 +1,398 @@
+// ====================================================================
+// This file is part of FlexibleSUSY.
+//
+// FlexibleSUSY is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published
+// by the Free Software Foundation, either version 3 of the License,
+// or (at your option) any later version.
+//
+// FlexibleSUSY is distributed in the hope that it will be useful, but
+// WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+// General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with FlexibleSUSY.  If not, see
+// <http://www.gnu.org/licenses/>.
+// ====================================================================
+
+// File generated at @DateAndTime@
+
+#include "@ModelName@_two_scale_model.hpp"
+#include "wrappers.hpp"
+#include "logger.hpp"
+#include "error.hpp"
+#include "root_finder.hpp"
+#include "gsl_utils.hpp"
+#ifdef ENABLE_LOOPTOOLS
+#include <clooptools.h>
+#endif
+
+#include <cmath>
+#include <iostream>
+#include <thread>
+
+namespace flexiblesusy {
+
+using namespace @ModelName@_info;
+
+#define CLASSNAME @ModelName@<Two_scale>
+
+#define PHYSICAL(parameter) physical.parameter
+#define INPUT(parameter) model->get_input().parameter
+#define LOCALINPUT(parameter) input.parameter
+
+CLASSNAME::@ModelName@(const @ModelName@_input_parameters& input_)
+   : Two_scale_model()
+   , @ModelName@_soft_parameters(input_)
+   , number_of_ewsb_iterations(100)
+   , number_of_mass_iterations(20)
+   , ewsb_loop_order(1)
+   , pole_mass_loop_order(1)
+   , calculate_sm_pole_masses(false)
+   , precision(1.0e-3)
+   , ewsb_iteration_precision(1.0e-5)
+   , physical()
+   , problems(@ModelName@_info::particle_names)
+   , thread_exception()
+@physicalMassesInit@
+@mixingMatricesInit@
+@phasesInit@
+{
+}
+
+CLASSNAME::~@ModelName@()
+{
+}
+
+void CLASSNAME::do_calculate_sm_pole_masses(bool flag)
+{
+   calculate_sm_pole_masses = flag;
+}
+
+bool CLASSNAME::do_calculate_sm_pole_masses() const
+{
+   return calculate_sm_pole_masses;
+}
+
+void CLASSNAME::set_ewsb_loop_order(unsigned loop_order)
+{
+   ewsb_loop_order = loop_order;
+}
+
+void CLASSNAME::set_number_of_ewsb_iterations(std::size_t iterations)
+{
+   number_of_ewsb_iterations = iterations;
+}
+
+void CLASSNAME::set_number_of_mass_iterations(std::size_t iterations)
+{
+   number_of_mass_iterations = iterations;
+}
+
+void CLASSNAME::set_precision(double precision_)
+{
+   precision = precision_;
+   ewsb_iteration_precision = precision_;
+}
+
+void CLASSNAME::set_pole_mass_loop_order(unsigned loop_order)
+{
+   pole_mass_loop_order = loop_order;
+}
+
+void CLASSNAME::set_ewsb_iteration_precision(double precision)
+{
+   ewsb_iteration_precision = precision;
+}
+
+double CLASSNAME::get_ewsb_iteration_precision() const
+{
+   return ewsb_iteration_precision;
+}
+
+const @ModelName@_physical& CLASSNAME::get_physical() const
+{
+   return physical;
+}
+
+const Problems<@ModelName@_info::NUMBER_OF_PARTICLES>& CLASSNAME::get_problems() const
+{
+   return problems;
+}
+
+Problems<@ModelName@_info::NUMBER_OF_PARTICLES>& CLASSNAME::get_problems()
+{
+   return problems;
+}
+
+int CLASSNAME::tadpole_equations(const gsl_vector* x, void* params, gsl_vector* f)
+{
+   if (contains_nan(x, @numberOfEWSBEquations@)) {
+      for (std::size_t i = 0; i < @numberOfEWSBEquations@; ++i)
+         gsl_vector_set(f, i, std::numeric_limits<double>::max());
+      return 1;
+   }
+
+   const CLASSNAME::Ewsb_parameters* ewsb_parameters
+      = static_cast<CLASSNAME::Ewsb_parameters*>(params);
+   @ModelName@* model = ewsb_parameters->model;
+   const unsigned ewsb_loop_order = ewsb_parameters->ewsb_loop_order;
+
+   double tadpole[@numberOfEWSBEquations@];
+
+@calculateTreeLevelTadpoles@
+   if (ewsb_loop_order > 0) {
+      model->calculate_DRbar_parameters();
+@calculateOneLoopTadpoles@
+   }
+
+   for (std::size_t i = 0; i < @numberOfEWSBEquations@; ++i)
+      gsl_vector_set(f, i, tadpole[i]);
+
+   return GSL_SUCCESS;
+}
+
+int CLASSNAME::solve_ewsb_iteratively()
+{
+   const gsl_multiroot_fsolver_type* solvers[] =
+      {gsl_multiroot_fsolver_hybrid, gsl_multiroot_fsolver_hybrids};
+
+   double x_init[@numberOfEWSBEquations@];
+   ewsb_initial_guess(x_init);
+
+#ifdef VERBOSE
+   std::cout << "Solving EWSB equations ...\n"
+      "\tInitial guess: x_init =";
+   for (std::size_t i = 0; i < @numberOfEWSBEquations@; ++i)
+      std::cout << " " << x_init[i];
+   std::cout << '\n';
+#endif
+
+   int status;
+   for (std::size_t i = 0; i < sizeof(solvers)/sizeof(*solvers); ++i) {
+      VERBOSE_MSG("\tStarting EWSB iteration using solver " << i);
+      status = solve_ewsb_iteratively_with(solvers[i], x_init);
+      if (status == GSL_SUCCESS) {
+         VERBOSE_MSG("\tSolver " << i << " finished successfully!");
+         break;
+      }
+#ifdef VERBOSE
+      else {
+         WARNING("\tSolver " << i << " could not find a solution!"
+                 " (requested precision: " << ewsb_iteration_precision << ")");
+      }
+#endif
+   }
+
+   if (status != GSL_SUCCESS) {
+      problems.flag_no_ewsb();
+#ifdef VERBOSE
+      WARNING("\tCould not find a solution to the EWSB equations!"
+              " (requested precision: " << ewsb_iteration_precision << ")");
+#endif
+   } else {
+      problems.unflag_no_ewsb();
+   }
+
+   return status;
+}
+
+int CLASSNAME::solve_ewsb_iteratively(unsigned loop_order)
+{
+   // temporarily set `ewsb_loop_order' to `loop_order' and do
+   // iteration
+   const unsigned old_loop_order = ewsb_loop_order;
+   ewsb_loop_order = loop_order;
+   const int status = solve_ewsb_iteratively();
+   ewsb_loop_order = old_loop_order;
+   return status;
+}
+
+int CLASSNAME::solve_ewsb_tree_level()
+{
+   int error = 0;
+
+@solveEwsbTreeLevel@
+
+   return error;
+}
+
+int CLASSNAME::solve_ewsb_tree_level_via_soft_higgs_masses()
+{
+   int error = 0;
+
+@solveTreeLevelEWSBviaSoftHiggsMasses@
+
+   return error;
+}
+
+int CLASSNAME::solve_ewsb_one_loop()
+{
+   return solve_ewsb_iteratively(1);
+}
+
+int CLASSNAME::solve_ewsb()
+{
+   VERBOSE_MSG("\tSolving EWSB at " << ewsb_loop_order << "-loop order");
+
+   if (ewsb_loop_order == 0)
+      return solve_ewsb_tree_level();
+
+   return solve_ewsb_iteratively(ewsb_loop_order);
+}
+
+void CLASSNAME::ewsb_initial_guess(double x_init[@numberOfEWSBEquations@])
+{
+@ewsbInitialGuess@
+}
+
+int CLASSNAME::solve_ewsb_iteratively_with(const gsl_multiroot_fsolver_type* solver,
+                                             const double x_init[@numberOfEWSBEquations@])
+{
+   Ewsb_parameters params = {this, ewsb_loop_order};
+   Root_finder<@numberOfEWSBEquations@> root_finder(CLASSNAME::tadpole_equations,
+                              &params,
+                              number_of_ewsb_iterations,
+                              ewsb_iteration_precision);
+   root_finder.set_solver_type(solver);
+   const int status = root_finder.find_root(x_init);
+
+   return status;
+}
+
+void CLASSNAME::print(std::ostream& ostr) const
+{
+   ostr << "========================================\n"
+           "@ModelName@\n"
+           "========================================\n";
+   @ModelName@_soft_parameters::print(ostr);
+   ostr << "----------------------------------------\n"
+           "tree-level DRbar masses:\n"
+           "----------------------------------------\n";
+@printMasses@
+   ostr << "----------------------------------------\n"
+           "tree-level DRbar mixing matrices:\n"
+           "----------------------------------------\n";
+@printMixingMatrices@
+   physical.print(ostr);
+}
+
+double CLASSNAME::A0(double m) const
+{
+   return a0(m, get_scale());
+}
+
+double CLASSNAME::B0(double p, double m1, double m2) const
+{
+#ifdef ENABLE_LOOPTOOLS
+   setmudim(Sqr(get_scale()));
+   return Re(::B0(p*p, m1*m1, m2*m2));
+#else
+   return b0(p, m1, m2, get_scale());
+#endif
+}
+
+double CLASSNAME::B1(double p, double m1, double m2) const
+{
+#ifdef ENABLE_LOOPTOOLS
+   setmudim(Sqr(get_scale()));
+   return Re(::B1(p*p, m1*m1, m2*m2));
+#else
+   return -b1(p, m1, m2, get_scale());
+#endif
+}
+
+double CLASSNAME::B00(double p, double m1, double m2) const
+{
+#ifdef ENABLE_LOOPTOOLS
+   setmudim(Sqr(get_scale()));
+   return Re(::B00(p*p, m1*m1, m2*m2));
+#else
+   return b22(p, m1, m2, get_scale());
+#endif
+}
+
+double CLASSNAME::B22(double p, double m1, double m2) const
+{
+   return B00(p, m1, m2) - 0.25 * A0(m1) - 0.25 * A0(m2);
+}
+
+double CLASSNAME::H0(double p, double m1, double m2) const
+{
+   return 4.0 * B00(p, m1, m2) + G0(p, m1, m2);
+}
+
+double CLASSNAME::F0(double p, double m1, double m2) const
+{
+   return A0(m1) - 2.0 * A0(m2) - (2.0 * Sqr(p) + 2.0 * Sqr(m1) - Sqr(m2)) *
+      B0(p, m1, m2);
+}
+
+double CLASSNAME::G0(double p, double m1, double m2) const
+{
+   return (Sqr(p) - Sqr(m1) - Sqr(m2)) * B0(p, m1, m2) - A0(m1) - A0(m2);
+}
+
+void CLASSNAME::calculate_DRbar_parameters()
+{
+@saveSoftHiggsMasses@
+   solve_ewsb_tree_level_via_soft_higgs_masses();
+
+@calculateAllMasses@
+@restoreSoftHiggsMasses@
+}
+
+void CLASSNAME::calculate_1loop_masses()
+{
+@callAllLoopMassFunctions@
+}
+
+void CLASSNAME::copy_DRbar_masses_to_pole_masses()
+{
+@copyDRbarMassesToPoleMasses@
+}
+
+void CLASSNAME::calculate_spectrum()
+{
+   calculate_DRbar_parameters();
+   if (pole_mass_loop_order > 0)
+      calculate_1loop_masses();
+   else
+      copy_DRbar_masses_to_pole_masses();
+}
+
+void CLASSNAME::clear()
+{
+   @ModelName@_soft_parameters::clear();
+
+@clearOutputParameters@
+   physical.clear();
+   problems.clear();
+}
+
+std::string CLASSNAME::name() const
+{
+   return "@ModelName@";
+}
+
+int CLASSNAME::run_to(double scale, double eps)
+{
+   if (eps < 0.0)
+      eps = precision;
+   return @ModelName@_soft_parameters::run_to(scale, eps);
+}
+
+@massCalculationFunctions@
+
+@tadpoleEqFunctions@
+
+@selfEnergyFunctions@
+
+@loopMassesFunctions@
+
+@runningDRbarMassesFunctions@
+
+@dependenceNumFunctions@
+
+} // namespace flexiblesusy

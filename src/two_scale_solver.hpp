@@ -20,11 +20,12 @@
 #define TWO_SCALE_SOLVER_H
 
 #include "rg_flow.hpp"
-#include "error.hpp"
 
 #include <vector>
 #include <string>
 #include <sstream>
+
+namespace flexiblesusy {
 
 template <class T> class Constraint;
 template <class T> class Matching;
@@ -37,43 +38,6 @@ class Two_scale_running_precision;
 template<>
 class RGFlow<Two_scale> {
 public:
-   class SetupError : public Error {
-   public:
-      SetupError(const std::string& message_) : message(message_) {}
-      virtual ~SetupError() {}
-      virtual std::string what() const { return message; }
-   private:
-      std::string message;
-   };
-
-   class NoConvergenceError : public Error {
-   public:
-      NoConvergenceError(unsigned number_of_iterations_)
-         : number_of_iterations(number_of_iterations_) {}
-      virtual ~NoConvergenceError() {}
-      virtual std::string what() const {
-         std::stringstream message;
-         message << "RGFlow<Two_scale>::NoConvergenceError: no convergence"
-                 << " after " << number_of_iterations << " iterations";
-         return message.str();
-      }
-   private:
-      unsigned number_of_iterations;
-   };
-
-   class NonPerturbativeRunningError : public Error {
-   public:
-      NonPerturbativeRunningError(Two_scale_model* model_, double scale_)
-         : model(model_)
-         , scale(scale_)
-         {}
-      virtual ~NonPerturbativeRunningError() {}
-      virtual std::string what() const;
-   private:
-      Two_scale_model* model;
-      double scale;
-   };
-
    RGFlow();
    ~RGFlow();
 
@@ -93,8 +57,14 @@ public:
                   Matching<Two_scale>* m,
                   const std::vector<Constraint<Two_scale>*>& upwards_constraints,
                   const std::vector<Constraint<Two_scale>*>& downwards_constraints);
+   /// get model at current scale
+   Two_scale_model* get_model() const;
    /// get number of used iterations
    unsigned int number_of_iterations_done() const;
+   /// clear all internal data
+   void reset();
+   /// pick valid model and run it to the given scale
+   int run_to(double);
    /// set convergence tester
    void set_convergence_tester(Convergence_tester<Two_scale>*);
    /// set running precision calculator
@@ -134,6 +104,7 @@ private:
    Initial_guesser<Two_scale>* initial_guesser;       ///< does initial guess
    Two_scale_running_precision* running_precision_calculator; ///< RG running precision calculator
    double running_precision;           ///< RG running precision
+   Two_scale_model* model_at_this_scale; ///< model at current scale
 
    bool accuracy_goal_reached() const; ///< check if accuracy goal is reached
    void check_setup() const;           ///< check the setup
@@ -141,9 +112,11 @@ private:
    void initial_guess();               ///< initial guess
    void run_up();                      ///< run all models up
    void run_down();                    ///< run all models down
-   void apply_lowest_constaint();      ///< apply lowest constraint
+   void apply_lowest_constraint();      ///< apply lowest constraint
    double get_precision();             ///< returns running precision
    void update_running_precision();    ///< update the RG running precision
 };
+
+}
 
 #endif

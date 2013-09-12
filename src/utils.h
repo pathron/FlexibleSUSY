@@ -12,12 +12,12 @@
 #ifndef UTILS_H
 #define UTILS_H
 
-#include "mycomplex.h"
+#include <mycomplex.h>
 #include <cstdlib>
 #include <fstream>
 #include <iostream>
 #include <cmath>
-#include "def.h"
+#include <def.h>
 #include <stdio.h>
 #include <string>
 #include <exception>
@@ -31,7 +31,12 @@
 #include <dirent.h>
 
 using namespace std;
+using namespace softsusy;
 
+/// returns either sqrt(f) for f>0 or 0 otherwise
+inline double zeroSqrt(double f){ if (f > 0.) return sqrt(f); 
+  else return EPSTOL; 
+}
 /// Gives exponent of the largest number: either imaginary or real part
 double frexp(const Complex & c, int * i);
 /// Exception handler - will even trap errors in the fortran portion
@@ -51,7 +56,38 @@ inline int minimum(int a, int b) { return ((a < b) ? a : b); }
 /// Finds fractional difference between |a| and |b|
 double toleranceCheck(double sTin, double sTout);
 
-/// checks if ABSOLUTE (or squared) values are closer than tol
+inline double minimum(double a, double b, double c) {
+   if(a <= b && a <= c) return a;
+   else if(b <= a && b <= c) return b;
+   else return c;
+}
+
+inline double maximum(double a, double b, double c) {
+   if(a >= b && a >= c) return a;
+   else if(b >= a && b >= c) return b;
+   else return c;
+}
+
+inline double middle(double a, double b, double c) {
+   if((a >= b && a <= c) ||(a >= c && a <= b)   ) return a;
+   else if((b >= a && b <= c) ||(b >= c && b <= a) ) return b;
+   else  return c;
+}
+
+inline int massorder(double & a, double & b, double & c) {
+   double anew, bnew, cnew;
+   anew = minimum(a,b,c);
+   cnew= maximum(a,b,c);
+   bnew = middle(a,b,c);
+
+   a = anew;
+   b = bnew;
+   c = cnew;
+   return 0;
+}
+
+/// checks if ABSOLUTE (or squared) values are closer than tol, or both
+/// numbers are smaller than EPSTOL
 bool close(double m1, double m2, double tol);
 
 /// Returns |a| with sign of b in front

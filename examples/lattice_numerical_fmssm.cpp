@@ -2,7 +2,7 @@
 #include <string>
 
 #include "consts.hpp"
-#include "mssm_parameter_point.hpp"
+// #include "mssm_parameter_point.hpp"
 #include "fmssm_oneloop.hpp"
 #include "fmssm_lattice.hpp"
 #include "lattice_initial_guesser.hpp"
@@ -18,23 +18,24 @@
 
 using namespace std;
 
+namespace flexiblesusy {
 
 class Fmssm_cmssm_constraint : public Fmssm_mx_constraint {
 public:
     Fmssm_cmssm_constraint
     (double m0, double m12, double a0) {
 	mgc.M1 = mgc.M2 = mgc.M3 = m12;
-	mfc.m2Q = sqr(m0), 0, 0,
-	    	  0, sqr(m0), 0,
-	    	  0, 0, sqr(m0);
+	mfc.m2Q << sqr(m0), 0, 0,
+	    	   0, sqr(m0), 0,
+	    	   0, 0, sqr(m0);
 	mfc.m2U = mfc.m2D = mfc.m2L = mfc.m2E = mfc.m2Q;
 	mhc.m2Hu_fin = mhc.m2Hd_fin = sqr(m0);
 	// to be set by initial guesser
 	// mhc.m2Hu_ini = m2Hu_ini;
 	// mhc.m2Hd_ini = m2Hd_ini;
-	tfc.Au = a0, a0, a0,
-	    	 a0, a0, a0,
-	    	 a0, a0, a0;
+	tfc.Au << a0, a0, a0,
+	    	  a0, a0, a0,
+	    	  a0, a0, a0;
 	tfc.Ad = tfc.Ae = tfc.Au;
     }
 };
@@ -136,34 +137,38 @@ private:
     Fmssm_mx_constraint& mxc;
 };
 
+}
+
+using namespace flexiblesusy;
 
 int main(int argc, char *argv[])
 {
-   Mssm_parameter_point pp;
+   // Mssm_parameter_point pp;
    // FIXME: solver does not work if GeV = 1 instead of 1e-3,
    // this has sth to do with guessing units of vanishing Wilson coefficients
-   pp.m0  = 400*GeV;
-   pp.m12 = 300*GeV;
+   Real pp_m0  = 400*GeV;
+   Real pp_m12 = 300*GeV;
    // METACODE: Fmssm_constraint_on_trilinears divides by 0
    // when a0 = 0, this can be avoided by rewriting the equation
    // without divisions
    // UPDATE: supposed to be fixed in writeRGE.m
-   pp.a0  = pp.m0;
-   pp.tanBeta = 10;
-   Real mu = pp.m0;		// sign wish enters here
+   Real pp_a0  = pp_m0;
+   Real pp_tanBeta = 10;
+   Real pp_mxGuess = MX1L();
+   Real mu = pp_m0;		// sign wish enters here
    // one may want to check sign(mu) after solution is found
-   Real b  = pp.m0;
+   Real b  = pp_m0;
 
    Fmssm<Lattice> fmssm;
 
-   Fmssm_mz_constraint_n fmssm_mz_constraint(pp.tanBeta);
-   Fmssm_msusy_constraint_n fmssm_msusy_constraint(pp.tanBeta);
-   Fmssm_cmssm_constraint fmssm_cmssm_constraint(pp.m0, pp.m12, pp.a0);
+   Fmssm_mz_constraint_n fmssm_mz_constraint(pp_tanBeta);
+   Fmssm_msusy_constraint_n fmssm_msusy_constraint(pp_tanBeta);
+   Fmssm_cmssm_constraint fmssm_cmssm_constraint(pp_m0, pp_m12, pp_a0);
    // Fmssm_convergence_tester fmssm_convergence_tester(1.0e-4);
 
    // LATTICE: guess of initial profile requires knowledge of entire
    // EFT tower
-   Fmssm_initial_guesser initial_guesser(pp.mxGuess, mu, b,
+   Fmssm_initial_guesser initial_guesser(pp_mxGuess, mu, b,
 					 fmssm_mz_constraint,
 					 fmssm_msusy_constraint,
 					 fmssm_cmssm_constraint);
@@ -195,7 +200,7 @@ int main(int argc, char *argv[])
        if (argv1.find("1") != string::npos) solver.disable_multithreading();
    }
 
-   INFO("Running: " << pp);
+   // INFO("Running: " << pp);
    try {
       solver.solve();
    } catch (Error& e) {

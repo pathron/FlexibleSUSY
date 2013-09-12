@@ -1,0 +1,63 @@
+// ====================================================================
+// This file is part of FlexibleSUSY.
+//
+// FlexibleSUSY is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published
+// by the Free Software Foundation, either version 3 of the License,
+// or (at your option) any later version.
+//
+// FlexibleSUSY is distributed in the hope that it will be useful, but
+// WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+// General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with FlexibleSUSY.  If not, see
+// <http://www.gnu.org/licenses/>.
+// ====================================================================
+
+// File generated at @DateAndTime@
+
+#ifndef @ModelName@_TWO_SCALE_susy_parameters_H
+#define @ModelName@_TWO_SCALE_susy_parameters_H
+
+#include "betafunction.hpp"
+#include "@ModelName@_input_parameters.hpp"
+
+#include <iosfwd>
+#include <string>
+#include <vector>
+#include <Eigen/Core>
+
+namespace flexiblesusy {
+
+class @ModelName@_susy_parameters : public Beta_function {
+public:
+   @ModelName@_susy_parameters(const @ModelName@_input_parameters& input_ = @ModelName@_input_parameters());
+   @ModelName@_susy_parameters(double scale_, double loops_, double thresholds_, const @ModelName@_input_parameters& input_@cCtorParameterList@);
+   virtual ~@ModelName@_susy_parameters() {}
+   virtual Eigen::ArrayXd beta() const;
+   virtual const Eigen::ArrayXd display() const;
+   virtual void print(std::ostream&) const;
+   virtual void set(const Eigen::ArrayXd&);
+   const @ModelName@_input_parameters& get_input() const;
+   void set_input(const @ModelName@_input_parameters&);
+
+   @ModelName@_susy_parameters calc_beta() const;
+   virtual void clear();
+
+@setter@
+@getter@
+@anomDimPrototypes@
+
+protected:
+@parameterDef@
+   @ModelName@_input_parameters input;
+
+private:
+   static const int numberOfParameters = @numberOfParameters@;
+};
+
+} // namespace flexiblesusy
+
+#endif

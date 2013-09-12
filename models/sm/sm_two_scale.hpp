@@ -8,6 +8,8 @@
 
 #include <iostream>
 
+namespace flexiblesusy {
+
 class Two_scale;
 
 /// Formatted output
@@ -18,6 +20,7 @@ class StandardModel<Two_scale>: public Two_scale_model, protected RGE {
 private:
    DoubleMatrix yu, yd, ye; ///< Yukawa matrices for ups, downs and leptons
    DoubleVector g;          ///< Gauge couplings (g1 = sqrt(5/3) g_Y)
+   double precision;
 
 public:
    const static int numStandardModelPars = 3 * 3 * 3 + 3;
@@ -32,8 +35,9 @@ public:
 
    virtual void calculate_spectrum() {}
    virtual std::string name() const { return "SM"; }
-   virtual int run_to(double scale, double eps = -1.0) { return RGE::runto(scale, eps); }
+   virtual int run_to(double scale, double eps = -1.0);
    virtual void print(std::ostream& s) const { s << *this; }
+   virtual void set_precision(double p) { precision = p; }
 
    /// sets object to be equal to another
    const StandardModel & operator=(const StandardModel<Two_scale>& s);
@@ -58,13 +62,13 @@ public:
    /// Returns all gauge couplings
    virtual DoubleVector displayGauge() const;
    /// Return renomalisation scale
-   double getScale() const { return RGE::displayMu(); }
+   double get_scale() const { return RGE::displayMu(); }
    /// Return number of loops
    int displayLoops() const { return RGE::displayLoops(); }
    /// Return level of threshold approximation
    int displayThresholds() const { return RGE::displayThresholds(); }
    /// Calculate beta functions
-   StandardModel calcBeta() const;
+   StandardModel calc_beta() const;
 
 protected:
    /// Sets all RGE parameters to elements of vector
@@ -74,5 +78,7 @@ protected:
    /// Calculate beta functions
    virtual DoubleVector beta() const;
 };
+
+}
 
 #endif

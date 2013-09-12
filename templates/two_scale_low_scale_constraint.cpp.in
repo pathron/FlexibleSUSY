@@ -1,0 +1,227 @@
+// ====================================================================
+// This file is part of FlexibleSUSY.
+//
+// FlexibleSUSY is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published
+// by the Free Software Foundation, either version 3 of the License,
+// or (at your option) any later version.
+//
+// FlexibleSUSY is distributed in the hope that it will be useful, but
+// WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+// General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with FlexibleSUSY.  If not, see
+// <http://www.gnu.org/licenses/>.
+// ====================================================================
+
+// File generated at @DateAndTime@
+
+#include "@ModelName@_two_scale_low_scale_constraint.hpp"
+#include "@ModelName@_two_scale_model.hpp"
+#include "wrappers.hpp"
+#include "logger.hpp"
+#include "ew_input.hpp"
+#include "gsl_utils.hpp"
+#include "minimizer.hpp"
+#include "root_finder.hpp"
+
+#include <cassert>
+#include <cmath>
+#include <limits>
+
+namespace flexiblesusy {
+
+#define INPUTPARAMETER(p) inputPars.p
+#define MODELPARAMETER(p) model->get_##p()
+#define BETAPARAMETER(p) beta_functions.get_##p()
+#define BETA(p) beta_##p
+#define SM(p) Electroweak_constants::p
+#define STANDARDDEVIATION(p) Electroweak_constants::Error_##p
+#define Pole(p) model->get_physical().p
+#define MODEL model
+#define MODELCLASSNAME @ModelName@<Two_scale>
+
+@ModelName@_low_scale_constraint<Two_scale>::@ModelName@_low_scale_constraint()
+   : Constraint<Two_scale>()
+   , model(0)
+   , inputPars()
+   , oneset()
+   , new_g1(0.)
+   , new_g2(0.)
+   , new_g3(0.)
+   , new_Yu(Eigen::Matrix<double,3,3>::Zero())
+   , new_Yd(Eigen::Matrix<double,3,3>::Zero())
+   , new_Ye(Eigen::Matrix<double,3,3>::Zero())
+{
+@scaleGuess@
+   scale = initial_scale_guess;
+}
+
+@ModelName@_low_scale_constraint<Two_scale>::@ModelName@_low_scale_constraint(const @ModelName@_input_parameters& inputPars_, const QedQcd& oneset_)
+   : Constraint<Two_scale>()
+   , model(0)
+   , inputPars(inputPars_)
+   , oneset(oneset_)
+   , new_g1(0.)
+   , new_g2(0.)
+   , new_g3(0.)
+   , new_Yu(Eigen::Matrix<double,3,3>::Zero())
+   , new_Yd(Eigen::Matrix<double,3,3>::Zero())
+   , new_Ye(Eigen::Matrix<double,3,3>::Zero())
+{
+@scaleGuess@
+   scale = initial_scale_guess;
+}
+
+@ModelName@_low_scale_constraint<Two_scale>::~@ModelName@_low_scale_constraint()
+{
+}
+
+void @ModelName@_low_scale_constraint<Two_scale>::apply()
+{
+   assert(model && "Error: @ModelName@_low_scale_constraint:"
+          " model pointer must not be zero");
+
+   model->calculate_DRbar_parameters();
+   update_scale();
+   calculate_DRbar_gauge_couplings();
+   calculate_DRbar_yukawa_couplings();
+
+   const double MZDRbar
+      = model->calculate_M@VectorZ@_DRbar_1loop(Electroweak_constants::MZ);
+
+@applyConstraint@
+
+   model->set_@hyperchargeCoupling@(new_g1);
+   model->set_@leftCoupling@(new_g2);
+   model->set_@strongCoupling@(new_g3);
+
+   model->set_@UpYukawa@(new_Yu);
+   model->set_@DownYukawa@(new_Yd);
+   model->set_@ElectronYukawa@(new_Ye);
+}
+
+double @ModelName@_low_scale_constraint<Two_scale>::get_scale() const
+{
+   return scale;
+}
+
+double @ModelName@_low_scale_constraint<Two_scale>::get_initial_scale_guess() const
+{
+   return initial_scale_guess;
+}
+
+void @ModelName@_low_scale_constraint<Two_scale>::set_model(Two_scale_model* model_)
+{
+   model = cast_model<@ModelName@<Two_scale> >(model_);
+}
+
+void @ModelName@_low_scale_constraint<Two_scale>::set_input_parameters(const @ModelName@_input_parameters& inputPars_)
+{
+   inputPars = inputPars_;
+}
+
+void @ModelName@_low_scale_constraint<Two_scale>::set_sm_parameters(const QedQcd& oneset_)
+{
+   oneset = oneset_;
+}
+
+void @ModelName@_low_scale_constraint<Two_scale>::reset()
+{
+   scale = initial_scale_guess;
+   model = NULL;
+   oneset = QedQcd();
+   new_g1 = 0.;
+   new_g2 = 0.;
+   new_g3 = 0.;
+   new_Yu = Eigen::Matrix<double,3,3>::Zero();
+   new_Yd = Eigen::Matrix<double,3,3>::Zero();
+   new_Ye = Eigen::Matrix<double,3,3>::Zero();
+}
+
+void @ModelName@_low_scale_constraint<Two_scale>::update_scale()
+{
+@calculateScale@
+}
+
+void @ModelName@_low_scale_constraint<Two_scale>::calculate_DRbar_gauge_couplings()
+{
+   assert(oneset.displayMu() == get_scale() && "Error: low-energy data"
+          " set is not defined at the same scale as the low-energy"
+          " constraint.  You need to run the low-energy data set to this"
+          " scale!");
+
+   const double MZ = Electroweak_constants::MZ;
+   const double MW = Electroweak_constants::MW;
+   const double MZ2 = Sqr(MZ);
+   const double MW2 = Sqr(MW);
+   const double cW2 = MW2/MZ2;
+
+   const double self_energy_Z = Re(model->self_energy_@VectorZ@_heavy(MZ));
+   const double self_energy_W = Re(model->self_energy_@VectorW@_heavy(MW));
+   const double delta_sW2 = - cW2 * (self_energy_W / MW2 - self_energy_Z / MZ2);
+   double sinThetaW2_drbar = Sqr(SM(sinThetaW)) + delta_sW2;
+
+   if (sinThetaW2_drbar <= 1.0e-4 || sinThetaW2_drbar >= 0.99) {
+#ifdef VERBOSE
+      WARNING("@ModelName@_low_scale_constraint: loop corrections to"
+              " sinThetaW are non-perturbative, resetting sinThetaW to"
+              " the Standard Model value");
+#endif
+      sinThetaW2_drbar = Sqr(SM(sinThetaW));
+   }
+   const double sinThetaW_drbar = Sqrt(sinThetaW2_drbar);
+   const double cosThetaW_drbar = Sqrt(1.0 - sinThetaW2_drbar);
+
+   const double alpha_em = oneset.displayAlpha(ALPHA);
+   const double alpha_s  = oneset.displayAlpha(ALPHAS);
+
+   const double delta_alpha_em = calculate_delta_alpha_em(alpha_em);
+   const double delta_alpha_s  = calculate_delta_alpha_s(alpha_s);
+
+   const double alpha_em_drbar = alpha_em / (1.0 - delta_alpha_em);
+   const double alpha_s_drbar  = alpha_s  / (1.0 - delta_alpha_s);
+
+   const double e_drbar  = Sqrt(4.0 * Pi * alpha_em_drbar);
+   const double g3_drbar = Sqrt(4.0 * Pi * alpha_s_drbar);
+   const double g1_inv_gut_normalization = @hyperchargeCouplingInverseGutNormalization@;
+   const double g2_inv_gut_normalization = @leftCouplingInverseGutNormalization@;
+
+   new_g1 = e_drbar * g1_inv_gut_normalization / cosThetaW_drbar;
+   new_g2 = e_drbar * g2_inv_gut_normalization / sinThetaW_drbar;
+   new_g3 = g3_drbar;
+}
+
+double @ModelName@_low_scale_constraint<Two_scale>::calculate_delta_alpha_em(double alphaEm) const
+{
+   const double currentScale = model->get_scale();
+@calculateDeltaAlphaEm@
+}
+
+double @ModelName@_low_scale_constraint<Two_scale>::calculate_delta_alpha_s(double alphaS) const
+{
+   const double currentScale = model->get_scale();
+@calculateDeltaAlphaS@
+}
+
+void @ModelName@_low_scale_constraint<Two_scale>::calculate_DRbar_yukawa_couplings()
+{
+   Eigen::Matrix<double,3,3> topDRbar(Eigen::Matrix<double,3,3>::Zero()),
+      bottomDRbar(Eigen::Matrix<double,3,3>::Zero()),
+      electronDRbar(Eigen::Matrix<double,3,3>::Zero());
+   topDRbar(0,0)      = oneset.displayMass(mUp);
+   topDRbar(1,1)      = oneset.displayMass(mCharm);
+   topDRbar(2,2)      = model->calculate_M@TopQuark@_DRbar_1loop(oneset.displayPoleMt(), 3);
+   bottomDRbar(0,0)   = oneset.displayMass(mDown);
+   bottomDRbar(1,1)   = oneset.displayMass(mStrange);
+   bottomDRbar(2,2)   = model->calculate_M@BottomQuark@_DRbar_1loop(oneset.displayMass(mBottom), 3);
+   electronDRbar(0,0) = oneset.displayMass(mElectron);
+   electronDRbar(1,1) = oneset.displayMass(mMuon);
+   electronDRbar(2,2) = model->calculate_M@Electron@_DRbar_1loop(oneset.displayMass(mTau), 3);
+
+@setDRbarYukawaCouplings@
+}
+
+} // namespace flexiblesusy

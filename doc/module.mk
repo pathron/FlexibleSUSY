@@ -6,14 +6,16 @@ INDEX_PADE      := $(DOC_OUTPUT_DIR)/index.html
 DOXYFILE        := $(DIR)/Doxyfile
 
 .PHONY:         all-$(MODNAME) clean-$(MODNAME) distclean-$(MODNAME) \
-		$(INDEX_PADE)
+		$(INDEX_PADE) doc
+
+doc: all-$(MODNAME)
 
 all-$(MODNAME): $(INDEX_PADE)
 
 clean-$(MODNAME):
-		rm -rf $(DOC_OUTPUT_DIR)
 
 distclean-$(MODNAME): clean-$(MODNAME)
+		rm -rf $(DOC_OUTPUT_DIR)
 
 clean::         clean-$(MODNAME)
 
@@ -23,4 +25,6 @@ $(INDEX_PADE):
 		( cat $(DOXYFILE) ; \
 		  echo "INPUT = $(MODULES)" ; \
 		  echo "OUTPUT_DIRECTORY = $(DOC_OUTPUT_DIR)" ; \
-		  echo "EXCLUDE = $(ALLDEP)" ) | doxygen -
+		  echo "EXCLUDE = $(ALLDEP) $(META_SRC) $(TEMPLATES) \
+		        $(TEST_SRC) $(TEST_META)" \
+		) | doxygen -

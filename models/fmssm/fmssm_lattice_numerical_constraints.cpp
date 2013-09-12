@@ -2,6 +2,8 @@
 #include "fmssm_lattice_numerical_constraints.hpp"
 
 
+namespace flexiblesusy {
+
 using namespace std;
 
 
@@ -73,7 +75,7 @@ Fmssm_constraint_on_yukawas_n_::Fmssm_constraint_on_yukawas_n_() :
 	members[i] = new AnyNumericalConstraint(nonzeros[i],
 	    [&,i](const AnyNumericalConstraint *self, const Real *x) {
 		return fmssm_yukawas_n_(0,0,0,
-					Yu.begin(),Yd.begin(),Ye.begin(),
+					Yu.data(),Yd.data(),Ye.data(),
 					0,0,
 					nullptr,nullptr,nullptr,
 					nullptr,nullptr,
@@ -115,4 +117,6 @@ Fmssm_constraint_on_ewsb_n_::~Fmssm_constraint_on_ewsb_n_()
 {
     for (auto m: members)
 	delete static_cast<AnyNumericalConstraint *>(m);
+}
+
 }

@@ -7,6 +7,8 @@
 
 #include <iostream>
 
+namespace flexiblesusy {
+
 class Two_scale;
 
 /// Formatted output
@@ -52,7 +54,7 @@ public:
    /// Returns s VEV
    double displayVs() const { return vs; }
    /// Calculate beta functions
-   StandardModelCW calcBeta() const;
+   StandardModelCW calc_beta() const;
 
    /// Calculate Z' mass
    double calcZprimeMass() const;
@@ -70,5 +72,7 @@ private:
    double lambda; ///< scalar potential parameter lambda
    double vs;     ///< VEV of singlet field
 };
+
+}
 
 #endif

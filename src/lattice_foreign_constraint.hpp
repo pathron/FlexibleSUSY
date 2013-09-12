@@ -4,6 +4,7 @@
 
 #include "lattice_constraint.hpp"
 
+namespace flexiblesusy {
 
 class ForeignConstraint : public SingleSiteConstraint {
 public:
@@ -15,6 +16,7 @@ public:
 	row.resize(x.size());
     }
     void alloc_rows() { ralloc(nr); }
+    using SingleSiteConstraint::init;
 protected:
     void set_x() {
 	for (size_t j = 0; j < x.size(); j++) x[j] = u(j)*y(j);
@@ -41,6 +43,7 @@ public:
 	row.resize(w.size() + x.size());
     }
     void alloc_rows() { ralloc(nr); }
+    using InterTheoryConstraint::init;
 protected:
     void set_w_x() {
 	for (size_t j = 0; j < w.size(); j++) w[j] = u(0,j)*y(0,j);
@@ -60,5 +63,6 @@ private:
     size_t nr;
 };
 
+}
 
 #endif // LATTICE_FOREIGN_CONSTRAINT_H

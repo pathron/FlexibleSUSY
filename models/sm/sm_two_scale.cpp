@@ -3,8 +3,11 @@
 
 #include <cassert>
 
+namespace flexiblesusy {
+
 StandardModel<Two_scale>::StandardModel()
    : yu(3, 3), yd(3, 3), ye(3, 3), g(3)
+   , precision(1.0e-3)
 {
    setPars(numStandardModelPars);
    setMu(0.0);
@@ -33,6 +36,13 @@ StandardModel<Two_scale>::StandardModel(const DoubleMatrix& SMu, const DoubleMat
 
 StandardModel<Two_scale>::~StandardModel()
 {
+}
+
+int StandardModel<Two_scale>::run_to(double scale, double eps)
+{
+   if (eps < 0.0)
+      eps = precision;
+   return RGE::runto(scale, eps);
 }
 
 const StandardModel<Two_scale>& StandardModel<Two_scale>::operator=(const StandardModel<Two_scale>& s)
@@ -184,7 +194,7 @@ void StandardModel<Two_scale>::set(const DoubleVector& y)
 
 std::ostream& operator <<(std::ostream& left, const StandardModel<Two_scale>& s)
 {
-   left << "SM parameters at Q: " << s.getScale()
+   left << "SM parameters at Q: " << s.get_scale()
         << '\n'
         << " Y^U" << s.displayYukawaMatrix(StandardModel<Two_scale>::YU)
         << " Y^D" << s.displayYukawaMatrix(StandardModel<Two_scale>::YD)
@@ -200,7 +210,7 @@ std::ostream& operator <<(std::ostream& left, const StandardModel<Two_scale>& s)
 }
 
 // Outputs derivatives (DRbar scheme) in the form of ds
-StandardModel<Two_scale> StandardModel<Two_scale>::calcBeta() const
+StandardModel<Two_scale> StandardModel<Two_scale>::calc_beta() const
 {
    static const double oneO16Pisq = 1.0 / (16.0 * PI * PI);
    DoubleMatrix dyu(3, 3), dyd(3, 3), dye(3, 3);
@@ -238,5 +248,7 @@ StandardModel<Two_scale> StandardModel<Two_scale>::calcBeta() const
 
 DoubleVector StandardModel<Two_scale>::beta() const
 {
-   return calcBeta().display();
+   return calc_beta().display();
+}
+
 }

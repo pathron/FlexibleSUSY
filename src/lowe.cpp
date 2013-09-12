@@ -8,13 +8,15 @@
 
 #include "lowe.h"
 
+namespace softsusy {
+
 ///  external object temp used to get objects into external routines, however:
 ///  don't use it!
 static QedQcd *tempLe;
 
 QedQcd::QedQcd()
   : a(2), mf(9), mtPole(PMTOP), mbPole(PMBOTTOM), mbMb(MBOTTOM), 
-    mtauPole(MTAU) { 
+    mtauPole(MTAU) {
   setPars(11);
   // Default object: 1998 PDB defined in 'def.h'
   mf(1) = MUP; mf(2) = MCHARM; 
@@ -518,3 +520,4 @@ void massFermions(const QedQcd & r, DoubleMatrix & mDon,
   mEle(2, 2) = r.displayMass(mMuon);    
 }
 
+} // namespace softsusy

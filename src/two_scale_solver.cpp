@@ -24,11 +24,15 @@
 #include "two_scale_model.hpp"
 #include "two_scale_running_precision.hpp"
 #include "logger.hpp"
+#include "error.hpp"
 
 #include <cmath>
 #include <algorithm>
 #include <iterator>
+#include <limits>
 #include <cassert>
+
+namespace flexiblesusy {
 
 /**
  * Create empty two scale solver.
@@ -40,6 +44,7 @@ RGFlow<Two_scale>::RGFlow()
    , initial_guesser(NULL)
    , running_precision_calculator(NULL)
    , running_precision(1.0e-3)
+   , model_at_this_scale(NULL)
 {
 }
 
@@ -69,7 +74,7 @@ void RGFlow<Two_scale>::solve()
       ++iteration;
    }
 
-   apply_lowest_constaint();
+   apply_lowest_constraint();
 
    if (!accuracy_reached)
       throw NoConvergenceError(max_iterations);
@@ -118,23 +123,26 @@ void RGFlow<Two_scale>::initial_guess()
 
 void RGFlow<Two_scale>::run_up()
 {
-   VERBOSE_MSG("> running tower up ...");
-   for (size_t m = 0; m < models.size(); ++m) {
+   VERBOSE_MSG("> running tower up (iteration " << iteration << ") ...");
+   const size_t number_of_models = models.size();
+   for (size_t m = 0; m < number_of_models; ++m) {
       TModel* model = models[m];
+      model->model->set_precision(get_precision());
       VERBOSE_MSG("> \tselecting model " << model->model->name());
       // apply all constraints
-      for (size_t c = 0; c < model->upwards_constraints.size(); ++c) {
+      const size_t n_upwards_constraints = model->upwards_constraints.size();
+      for (size_t c = 0; c < n_upwards_constraints; ++c) {
          Constraint<Two_scale>* constraint = model->upwards_constraints[c];
          const double scale = constraint->get_scale();
          VERBOSE_MSG("> \t\tselecting constraint " << c << " at scale " << scale);
          VERBOSE_MSG("> \t\t\trunning model to scale " << scale);
-         if (model->model->run_to(scale, get_precision()))
-            throw NonPerturbativeRunningError(model->model, scale);
+         if (model->model->run_to(scale))
+            throw NonPerturbativeRunningError(scale);
          VERBOSE_MSG("> \t\t\tapplying constraint");
          constraint->apply();
       }
       // apply matching condition if this is not the last model
-      if (m != models.size() - 1) {
+      if (m != number_of_models - 1) {
          VERBOSE_MSG("> \tmatching to model " << models[m + 1]->model->name());
          Matching<Two_scale>* mc = model->matching_condition;
          mc->match_low_to_high_scale_model();
@@ -147,25 +155,26 @@ void RGFlow<Two_scale>::run_down()
 {
    assert(models.size() > 0 && "model size must not be zero");
    VERBOSE_MSG("< running tower down ...");
-   for (long m = models.size() - 1; m >= 0; --m) {
+   const size_t number_of_models = models.size();
+   for (long m = number_of_models - 1; m >= 0; --m) {
       TModel* model = models[m];
       VERBOSE_MSG("< \tselecting model " << model->model->name());
       // apply all constraints:
       // If m is the last model, do not apply the highest constraint,
       // because it was already appied when we ran up.
-      const size_t c_begin = (m + 1 == (long)models.size() ? 1 : 0);
-      const size_t number_of_constraints = model->downwards_constraints.size();
-      for (size_t c = c_begin; c < number_of_constraints; ++c) {
+      const size_t c_begin = (m + 1 == (long)number_of_models ? 1 : 0);
+      const size_t c_end = model->downwards_constraints.size();
+      for (size_t c = c_begin; c < c_end; ++c) {
          Constraint<Two_scale>* constraint = model->downwards_constraints[c];
          const double scale = constraint->get_scale();
          VERBOSE_MSG("< \t\tselecting constraint " << c << " at scale " << scale);
          VERBOSE_MSG("< \t\t\trunning model to scale " << scale);
-         if (model->model->run_to(scale, get_precision()))
-            throw NonPerturbativeRunningError(model->model, scale);
+         if (model->model->run_to(scale))
+            throw NonPerturbativeRunningError(scale);
          // If m is the lowest energy model, do not apply the lowest
          // constraint, because it will be applied when we run up next
          // time.
-         if (m != 0 || c + 1 != number_of_constraints) {
+         if (m != 0 || c + 1 != c_end) {
             VERBOSE_MSG("< \t\t\tapplying constraint");
             constraint->apply();
          }
@@ -180,12 +189,13 @@ void RGFlow<Two_scale>::run_down()
    VERBOSE_MSG("< running down finished");
 }
 
-void RGFlow<Two_scale>::apply_lowest_constaint()
+void RGFlow<Two_scale>::apply_lowest_constraint()
 {
    if (models.empty())
       return;
 
    TModel* model = models[0];
+   model_at_this_scale = model->model;
 
    if (model->downwards_constraints.empty())
       return;
@@ -194,8 +204,8 @@ void RGFlow<Two_scale>::apply_lowest_constaint()
    const double scale = constraint->get_scale();
    VERBOSE_MSG("| selecting constraint 0 at scale " << scale);
    VERBOSE_MSG("| \trunning model " << model->model->name() << " to scale " << scale);
-   if (model->model->run_to(scale, get_precision()))
-      throw NonPerturbativeRunningError(model->model, scale);
+   if (model->model->run_to(scale))
+      throw NonPerturbativeRunningError(scale);
    VERBOSE_MSG("| \tapplying constraint");
    constraint->apply();
 }
@@ -341,10 +351,81 @@ unsigned int RGFlow<Two_scale>::get_max_iterations() const
    return convergence_tester->max_iterations();
 }
 
-std::string RGFlow<Two_scale>::NonPerturbativeRunningError::what() const
+void RGFlow<Two_scale>::reset()
 {
-   std::stringstream message;
-   message << "RGFlow<Two_scale>::NonPerturbativeRunningError: non-perturbative"
-           << " running of model " << model->name() << " to scale " << scale;
-   return message.str();
+   for (size_t m = 0; m < models.size(); ++m)
+      delete models[m];
+   models.clear();
+
+   iteration = 0;
+   convergence_tester = NULL;
+   initial_guesser = NULL;
+   running_precision_calculator = NULL;
+   running_precision = 1.0e-3;
+   model_at_this_scale = NULL;
 }
+
+int RGFlow<Two_scale>::run_to(double scale)
+{
+   // find model which is defined at `scale'
+   model_at_this_scale = NULL;
+   const size_t number_of_models = models.size();
+
+   for (size_t m = 0; m < models.size(); ++m) {
+      TModel* model = models[m];
+      double highest_scale, lowest_scale;
+
+      if (!model) {
+         ERROR("RGFlow<Two_scale>::run_to: pointer to model " << m
+               << " is zero");
+         return 1;
+      }
+
+      if (m != number_of_models - 1) {
+         // if this is not the last model, the matching condition is
+         // the highest scale
+         Matching<Two_scale>* mc = model->matching_condition;
+         if (!mc) {
+            ERROR("RGFlow<Two_scale>::run_to: pointer to matching condition"
+                  " of model " << m << " is zero");
+            return 1;
+         }
+         highest_scale = mc->get_scale();
+      } else {
+         // otherwise the last constraint is at the highest scale
+         if (model->upwards_constraints.empty())
+            highest_scale = std::numeric_limits<double>::max();
+         else
+            highest_scale = model->upwards_constraints.back()->get_scale();
+      }
+
+      if (m > 0) {
+         // if this is not the first model, the previous matching
+         // condition is the lowest scale
+         lowest_scale = models[m-1]->matching_condition->get_scale();
+      } else {
+         // otherwise the first constraint is at the lowest scale
+         if (model->upwards_constraints.empty())
+            lowest_scale = 0.;
+         else
+            lowest_scale = model->upwards_constraints[0]->get_scale();
+      }
+
+      if (lowest_scale <= scale && scale <= highest_scale) {
+         model_at_this_scale = model->model;
+         break;
+      }
+   }
+
+   if (model_at_this_scale)
+      return model_at_this_scale->run_to(scale);
+
+   return 1;
+}
+
+Two_scale_model* RGFlow<Two_scale>::get_model() const
+{
+   return model_at_this_scale;
+}
+
+} // namespace flexiblesusy

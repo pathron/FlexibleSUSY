@@ -25,6 +25,8 @@
 #include <cmath>
 #include <limits>
 
+namespace flexiblesusy {
+
 template <class T>
 class Convergence_tester_skeleton : public Convergence_tester<Two_scale> {
 public:
@@ -34,6 +36,7 @@ public:
    virtual bool accuracy_goal_reached();
    virtual double get_accuracy_goal() const;
    virtual unsigned int max_iterations() const;
+   void set_max_iterations(unsigned);           ///< set maximum number of iterations
 
 protected:
    bool is_equal(double, double) const;         ///< test equality of two doubles
@@ -49,6 +52,7 @@ private:
    T* model;               ///< pointer to model
    T last_iteration_model; ///< model state at last iteration
    unsigned int it_count;  ///< iteration
+   unsigned int max_it;    ///< maximum number of iterations
    double accuracy_goal;   ///< accuracy goal
 };
 
@@ -58,6 +62,7 @@ Convergence_tester_skeleton<T>::Convergence_tester_skeleton(T* model_, double ac
    , model(model_)
    , last_iteration_model()
    , it_count(0)
+   , max_it(static_cast<int>(-log(accuracy_goal_) / log(10.0) * 10))
    , accuracy_goal(accuracy_goal_)
 {
 }
@@ -81,7 +86,10 @@ bool Convergence_tester_skeleton<T>::accuracy_goal_reached()
                  << " GeV (" << rel_scale_difference()
                  << "%), parameter comparison might fail");
       }
-      precision_reached = max_rel_diff() < accuracy_goal;
+      const double current_accuracy = max_rel_diff();
+      precision_reached = current_accuracy < accuracy_goal;
+      VERBOSE_MSG("Convergence_tester_skeleton: current accuracy = "
+                  << current_accuracy << ", accuracy goal = " << accuracy_goal);
    }
 
    // save old model parameters
@@ -122,9 +130,16 @@ const T* Convergence_tester_skeleton<T>::get_last_iteration_model() const
 }
 
 template <class T>
+void Convergence_tester_skeleton<T>::set_max_iterations(unsigned max_it_)
+{
+   if (max_it_ > 0)
+      max_it = max_it_;
+}
+
+template <class T>
 unsigned int Convergence_tester_skeleton<T>::max_iterations() const
 {
-   return static_cast<int>(-log(accuracy_goal) / log(10.0) * 10);
+   return max_it;
 }
 
 template <class T>
@@ -136,17 +151,19 @@ bool Convergence_tester_skeleton<T>::scale_has_changed() const
 template <class T>
 double Convergence_tester_skeleton<T>::scale_difference() const
 {
-   return model->getScale() - last_iteration_model.getScale();
+   return model->get_scale() - last_iteration_model.get_scale();
 }
 
 template <class T>
 double Convergence_tester_skeleton<T>::rel_scale_difference() const
 {
    const double diff = scale_difference();
-   const double last_scale = last_iteration_model.getScale();
+   const double last_scale = last_iteration_model.get_scale();
    if (!is_zero(last_scale))
       return diff / last_scale;
    return std::numeric_limits<double>::infinity();
+}
+
 }
 
 #endif

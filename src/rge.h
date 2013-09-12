@@ -15,10 +15,11 @@
 
 #include "def.h"
 #include "utils.h"
-class DoubleVector; 
 #include "linalg.h"
 #include "numerics.h"
-using namespace softsusy;
+#include "rk_legacy.hpp"
+
+namespace softsusy {
 
 /// Describes a set of parameters and RGEs in general. 
 class RGE
@@ -86,10 +87,6 @@ public:
 /// dependent variables y of an RGE, will calculate the derivitives dydx.
 DoubleVector allDerivs(double, const DoubleVector &);
 
+} // namespace softsusy
+
 #endif
-
-
-
-
-
-

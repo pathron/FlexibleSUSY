@@ -4,59 +4,95 @@
 # Author: Alexander Voigt
 
 PROGRAM_NAME=FlexibleSUSY
-PROGRAM_VERSION=0.2
+PROGRAM_VERSION=0.3
 
 # directory of this script
 BASEDIR=$(dirname $0)
+
+# absolute path to this script
+ABSBASEDIR=$(cd $BASEDIR; pwd)
+
+# platform information
+linuxdist=""
+debmultiarch=""
 
 # default library directories
 default_lib_paths="/usr/lib /usr/local/lib"
 default_inc_paths="/usr/include /usr/local/include"
 
 # configure log file
-logfile="config.log"
+logfile="$BASEDIR/config.log"
+statusfile="$BASEDIR/config.status"
 
 # whether we are in 32-bit or 64-bit environment
 machine_word_size=""
 
 # target makefile
 MAKEFILE=$BASEDIR/Makefile
-MAKEFILE_TMPL=$BASEDIR/config/Makefile.template
+MAKEFILE_TMPL=$BASEDIR/config/Makefile.in
+
+# target config script
+FSCONFIG=$BASEDIR/flexiblesusy-config
+FSCONFIG_TMPL=$BASEDIR/config/flexiblesusy-config.in
+
+# target config header
+CONFIGHDR=$BASEDIR/config/config.h
+CONFIGHDR_TMPL=$BASEDIR/config/config.h.in
 
 # options
+deprecated_options=""
+options="                    \
+   enable_colors             \
+   enable_debug              \
+   enable_looptools          \
+   enable_silent             \
+   enable_static_libs        \
+   enable_verbose            \
+"
+enable_colors="no"
+enable_debug=""
+enable_looptools="no"
+enable_silent="no"
+enable_static_libs="yes"
+enable_verbose="no"
+
 boost_lib_dir=""
 boost_inc_dir=""
+eigen_inc_dir=""
 BOOSTFLAGS=""
 gsl_config="gsl-config"
 lapack_lib_dir=""
-tvmet_config="tvmet-config"
+looptools_lib_dir=""
+looptools_inc_dir=""
 GSLFLAGS=""
 CPPFLAGS=""
-CXXFLAGS="-ggdb -O2 -Wall -pedantic -Wextra -Wcast-qual\
- -Wcast-align -Woverloaded-virtual -Wnon-virtual-dtor"
-FFLAGS="-g -O2 -frecursive"
-TVMETFLAGS=""
+CXXFLAGS="-std=c++11 -O2 -Wall -pedantic -Wextra -Wcast-qual\
+ -Wcast-align -Woverloaded-virtual -Wnon-virtual-dtor\
+ -Wno-unused-local-typedefs"
+FFLAGS="-O2 -frecursive"
 FLIBS=""
-BOOSTLIBS=""
+BOOSTTESTLIBS=""
 BOOSTTHREADLIBS=""
 LIBEXT=".a"
 CXX="g++"
+EIGENFLAGS=""
 FC="gfortran"
 GSLLIBS=""
 LAPACKLIBS=""
-TVMETLIBS=""
 MAKELIB="ar cru"
 MATH="math"
 # available RG algorithms
 ALGORITHMS="all"
 available_algorithms="two_scale lattice"
+# models that will be compiled
+MODELS="all"
 
 #_____________________________________________________________________
 write_configure_parameters() {
     # This function writes all parameters [$*] to config.status
     configargs="$*"
     configargs=`echo $configargs | sed 's,\\\,\\\\,g'`
-    echo "$configargs" > config.status
+    echo "$configargs" > $statusfile
 }
 
 #_____________________________________________________________________
@@ -66,7 +102,7 @@ message() {
         echo "message: Too few arguments"
         return 1
     fi
-    echo "$* ... "
+    echo "$*"
     logmsg "$*"
 }
 
@@ -93,6 +129,36 @@ guess_machine_word_size() {
 	*64) machine_word_size="64"; return 0 ;;
 	*)   message "Warning: could not guess machine word size"; return 1 ;;
     esac
+}
+
+contains() {
+    # Check if string $1 contains $2
+    if test $# -lt 2 ; then
+        echo "contains: Too few arguments"
+        return 1
+    fi
+    string="$1"
+    substring="$2"
+    for f in ${string}; do
+        if test "x$f" = "x$substring" ; then
+            return 0 # found
+        fi
+    done
+    return 1 # not found
+}
+
+contains_not() {
+    # Check if string $1 contains $2
+    if test $# -lt 2 ; then
+        echo "contains: Too few arguments"
+        return 1
+    fi
+    contains "$1" "$2"
+    if [ $? -eq 0 ]; then
+        return 1
+    else
+        return 0
+    fi
 }
 
 #_____________________________________________________________________
@@ -145,6 +211,13 @@ check_library() {
             libdirs="$libdirs $libdir32"
 	done
     fi
+    # look first in the DEB_HOST_MULTIARCH directories
+    if test "x$debmultiarch" != "x" ; then
+	for p in ${libdirs}; do
+            multiarch_libdir=`echo "$p" | sed "s|lib$|lib/$debmultiarch|"`
+            libdirs="$multiarch_libdir $libdirs"
+	done
+    fi
 
     for p in ${libdirs}; do
         for l in ${libs}; do
@@ -194,17 +267,26 @@ check_header() {
     # Write a message
     checking_msg "$hdr"
 
+    hdrs=""
+    for i in $hdr ; do
+        for ext in "" .h .hpp ; do
+            hdrs="$hdrs $i$ext"
+        done
+    done
+
     found_dir=""
     found_hdr=""
 
     for p in ${hdrdirs}; do
-        hdrlist=`echo $p/$hdr` # expands wildcard
-        for n in ${hdrlist} ; do
-            if test -f $n ; then
-                found_dir=$p
-                found_hdr=$hdr
-                break
-            fi
+        for h in ${hdrs}; do
+            hdrlist=`echo $p/$h` # expands wildcard
+            for n in ${hdrlist} ; do
+                if test -f $n ; then
+                    found_dir=$p
+                    found_hdr=$hdr
+                    break 3
+                fi
+            done
         done
     done
 
@@ -308,7 +390,7 @@ check_symbol() {
                 fi
              done
         else
-            logmsg "$d/$symbollib readable"
+            logmsg "  $d/$symbollib readable"
             symbolfile=$d/$symbollib
             break
         fi
@@ -419,25 +501,75 @@ check_algorithms() {
 }
 
 #_____________________________________________________________________
-check_boost_libs() {
+check_models() {
+    models=`echo $MODELS | tr ',' ' '`
+    MODELS=""
+    for a in ${models}; do
+        case "$a" in
+            all)
+                MODELS=`find $BASEDIR/models/* -maxdepth 0 -type d -print0 | tr '\0' ' ' | sed -e 's|^\./||' -e 's| \./| |g' -e 's| *$||g'`
+                break ;;
+            *)
+                if test -d "$BASEDIR/models/$a" ; then
+                    MODELS="$MODELS models/$a"
+                    continue
+                else
+                    message "Error: model directory \"$BASEDIR/models/$a\" does not exist!"
+                    message "Please create the directory and put a model file in it."
+                    message "You can use \`./createmodel --models=<model>' to create one."
+                    exit 1
+                fi ;;
+        esac
+    done
+}
+
+#_____________________________________________________________________
+check_platform() {
+    # checks which platform we have
+    linuxdist=""
+    debmultiarch=""
+
+    exists_in_path "lsb_release"
+    if [ -n "$cmd" ] ; then
+        if lsb_release -d | grep -i 'ubuntu\|debian\|mint' > /dev/null 2>& 1; then
+            linuxdist="multiarch"
+        fi
+    fi
+
+    if test "x$linuxdist" = "xmultiarch"; then
+        if `which dpkg-architecture > /dev/null 2>&1` ; then
+            if `dpkg-architecture -qDEB_HOST_MULTIARCH > /dev/null 2>&1` ; then
+                checking_msg "dpkg-architecture"
+                debmultiarch=`dpkg-architecture -qDEB_HOST_MULTIARCH 2> /dev/null`
+                result "$debmultiarch"
+            fi
+        else
+            result "`basename $0`: dpkg-architecture MUST be installed"
+            exit 1
+        fi
+    fi
+}
+
+#_____________________________________________________________________
+check_boost_test_libs() {
     check_library "libboost_unit_test_framework" "$boost_lib_dir" \
 	"$default_lib_paths"
     if test "x$found_lib" = "x" ; then
         message "Warning: libboost_unit_test_framework must be installed"
         message "  to compile and run the tests, see http://www.boost.org"
     else
-        BOOSTLIBS_=-lboost_unit_test_framework
+        BOOSTTESTLIBS_=-lboost_unit_test_framework
         if [ -z "$boost_lib_dir" ]; then
             # assume that the linker will look in the default paths
-            BOOSTLIBS="$BOOSTLIBS_"
+            BOOSTTESTLIBS="$BOOSTTESTLIBS_"
         else
-            BOOSTLIBS="-L$boost_lib_dir $BOOSTLIBS_"
+            BOOSTTESTLIBS="-L$boost_lib_dir $BOOSTTESTLIBS_"
         fi
     fi
 }
 
 #_____________________________________________________________________
-check_boost_incl() {
+check_boost_test_incl() {
     check_header "boost/test/unit_test.hpp" "$boost_inc_dir" \
 	"$default_inc_paths"
     if test "x$found_hdr" = "x" ; then
@@ -453,19 +585,42 @@ check_boost_incl() {
 
 #_____________________________________________________________________
 check_boost_thread_libs() {
-    check_library "libboost_thread" "$boost_lib_dir" \
-	"$default_lib_paths"
-    if test "x$found_lib" = "x" ; then
-        message "Warning: libboost_thread must be installed"
+    check_library "libboost_thread libboost_thread-mt" \
+	"$boost_lib_dir" "$default_lib_paths"
+    if [ -z "$found_lib" ]; then
+        message "Error: libboost_thread or libboost_thread-mt must be installed"
         message "  to enable multithreading in the lattice method, see http://www.boost.org"
+        message "  You can disable the lattice method with the --with-algorithms= flag."
+        exit 1
+    fi
+    BOOSTTHREADLIBS_=-l$(echo -n "$found_lib" | sed 's/^lib\(.*\)\..*$/\1/')
+
+    check_library "libboost_system libboost_system-mt" \
+	"$boost_lib_dir" "$default_lib_paths"
+    if [ -z "$found_lib" ]; then
+        message "Error: libboost_system or libboost_system-mt must be installed"
+        message "  to enable multithreading in the lattice method, see http://www.boost.org"
+        message "  You can disable the lattice method with the --with-algorithms= flag."
+        exit 1
+    fi
+    BOOSTTHREADLIBS_="$BOOSTTHREADLIBS_ "-l$(
+	echo -n "$found_lib" | sed 's/^lib\(.*\)\..*$/\1/')
+
+    check_library "libpthread" "" "$default_lib_paths"
+    if [ -z "$found_lib" ]; then
+        message "Error: libpthread must be installed to enable multithreading"
+        message "  in the lattice method.  You can disable the lattice method"
+        message "  with the --with-algorithms= flag."
+        exit 1
+    fi
+    BOOSTTHREADLIBS_="$BOOSTTHREADLIBS_ "-l$(
+        echo -n "$found_lib" | sed 's/^lib\(.*\)\..*$/\1/')
+
+    if [ -z "$boost_lib_dir" ]; then
+        # assume that the linker will look in the default paths
+        BOOSTTHREADLIBS="$BOOSTTHREADLIBS_"
     else
-        BOOSTTHREADLIBS_=-lboost_thread
-        if [ -z "$boost_lib_dir" ]; then
-            # assume that the linker will look in the default paths
-            BOOSTTHREADLIBS="$BOOSTTHREADLIBS_"
-        else
-            BOOSTTHREADLIBS="-L$boost_lib_dir $BOOSTTHREADLIBS_"
-        fi
+        BOOSTTHREADLIBS="-L$boost_lib_dir $BOOSTTHREADLIBS_"
     fi
 }
 
@@ -474,8 +629,10 @@ check_boost_thread_incl() {
     check_header "boost/thread/thread.hpp" "$boost_inc_dir" \
 	"$default_inc_paths"
     if test "x$found_hdr" = "x" ; then
-        message "Warning: boost/thread/thread.hpp must be installed"
+        message "Error: boost/thread/thread.hpp must be installed"
         message "  to enable multithreading in the lattice method, see http://www.boost.org"
+        message "  You can disable the lattice method with the --with-algorithms= flag."
+        exit 1
     else
         # assume that the compiler will look in the default paths
         if [ -n "$boost_inc_dir" ]; then
@@ -485,12 +642,38 @@ check_boost_thread_incl() {
 }
 
 #_____________________________________________________________________
+check_cxx() {
+    checking_msg "C++ compiler $CXX"
+    exists_in_path "$CXX"
+    if [ -z "$cmd" ] ; then
+        result "not found"
+        message "Error: A C++ compiler must be installed to compile the models!"
+        exit 1
+    else
+        result "found $cmd"
+    fi
+}
+
+#_____________________________________________________________________
+check_eigen_incl() {
+    eigen_inc_paths="$default_inc_paths /usr/include/eigen3 \
+                     /usr/local/include/eigen3"
+    check_header "Eigen/Core" "$eigen_inc_dir" "$eigen_inc_paths"
+    if test "x$found_hdr" = "x" ; then
+        message "Error: Eigen 3 must be installed, see http://eigen.tuxfamily.org"
+        exit 1
+    else
+        EIGENFLAGS="-I$found_dir"
+    fi
+}
+
+#_____________________________________________________________________
 check_gsl_config() {
     checking_msg "GSL configuration $gsl_config"
     exists_in_path "$gsl_config"
     if [ -z "$cmd" ] ; then
         result "not found"
-        message "Error: GSL needs to be installed to use the lattice algorithm!"
+        message "Error: Gnu Scientific Library (GSL) needs to be installed!"
         message "  Either add the path to the \`gsl-config' program to \$PATH or"
         message "  use $0 --with-gsl-config=<path to gsl-config>"
         exit 1
@@ -502,19 +685,16 @@ check_gsl_config() {
 }
 
 #_____________________________________________________________________
-check_tvmet_config() {
-    checking_msg "tvmet configuration $tvmet_config"
-    exists_in_path "$tvmet_config"
+check_fc() {
+    checking_msg "Fortran compiler $FC"
+    exists_in_path "$FC"
     if [ -z "$cmd" ] ; then
         result "not found"
-        message "Error: tvmet needs to be installed to use the lattice algorithm!"
-        message "  Either add the path to the \`tvmet-config' program to \$PATH or"
-        message "  use $0 --with-tvmet-config=<path to tvmet-config>"
+        message "Error: A Fortran compiler must be installed to compile the\
+ two-loop MSSM Higgs contributions"
         exit 1
     else
         result "found $cmd"
-        TVMETFLAGS=`$cmd --includes --cxxflags`
-        TVMETLIBS=`$cmd --libs`
     fi
 }
 
@@ -522,7 +702,14 @@ check_tvmet_config() {
 check_fortran_libs() {
     case "$FC" in
         gfortran)
-            FLIBS="-lgfortran -lm" ;;
+            gfortran_lib_search_paths=`gfortran -print-search-dirs | sed -n -e '/libraries:/s/libraries: *=//p' | tr ':' ' '`
+            check_library "libgfortran" "$gfortran_lib_search_paths" "$default_lib_paths"
+            if test "x$found_lib" = "x" ; then
+                message "Error: libgfortran not found in $gfortran_lib_search_paths $default_lib_paths"
+                exit 1
+            else
+                FLIBS="-L$found_dir -lgfortran -lm"
+            fi ;;
         g77|f77)
             FLIBS="-lg2c -lm" ;;
     esac
@@ -533,8 +720,11 @@ check_lapack_libs_using_options() {
     check_library "liblapack" "$lapack_lib_dir" \
 	"$default_lib_paths"
     if test "x$found_lib" = "x" ; then
-        message "Warning: liblapack must be installed"
+        message "Error: liblapack must be installed"
         message "  to run the lattice algorithm, see http://www.netlib.org/lapack"
+        message "  You can disable the lattice algorithm with the"
+        message "  --with-algorithms= flag"
+        exit 1
     else
         LAPACKLIBS_=-llapack
         if [ -z "$lapack_lib_dir" ]; then
@@ -544,6 +734,41 @@ check_lapack_libs_using_options() {
             LAPACKLIBS="-L$lapack_lib_dir $LAPACKLIBS_"
         fi
 	check_symbol dgbsv_ "$found_lib" "$found_dir"
+    fi
+}
+
+#_____________________________________________________________________
+check_looptools_libs() {
+    check_library "libooptools" "$looptools_lib_dir" \
+	"$default_lib_paths"
+    if test "x$found_lib" = "x" ; then
+        message "Error: libooptools must be installed if you want"
+        message "  to use LoopTools, see http://www.feynarts.de/looptools/"
+        exit 1
+    else
+        LOOPTOOLSLIBS_="-looptools"
+        if [ -z "$looptools_lib_dir" ]; then
+            # assume that the linker will look in the default paths
+            LOOPTOOLSLIBS="$LOOPTOOLSLIBS_"
+        else
+            LOOPTOOLSLIBS="-L$looptools_lib_dir $LOOPTOOLSLIBS_"
+        fi
+    fi
+}
+
+#_____________________________________________________________________
+check_looptools_incl() {
+    check_header "clooptools.h" "$looptools_inc_dir" \
+	"$default_inc_paths"
+    if test "x$found_hdr" = "x" ; then
+        message "Error: clooptools.h must be installed if you want"
+        message "  to use LoopTools, see http://www.feynarts.de/looptools/"
+        exit 1
+    else
+        # assume that the compiler will look in the default paths
+        if [ -n "$looptools_inc_dir" ]; then
+            LOOPTOOLSFLAGS="-I$looptools_inc_dir"
+        fi
     fi
 }
 
@@ -588,72 +813,156 @@ check_lapack_libs() {
 }
 
 #_____________________________________________________________________
-check_math_cmd() {
-    checking_msg "Mathematica kernel $MATH"
-    exists_in_path "$MATH"
+check_makelib() {
+    checking_msg "build library command $MAKELIB"
+    # strip arguments from the actual command
+    makelib_cmd=`echo $MAKELIB | awk '{ print $1; }'`
+
+    # check if $makelib_cmd can create shared libraries
+    if test "x$enable_static_libs" = "xno" ; then
+        if test "x$makelib_cmd" = "xar" ; then
+            message "\n   Error: $makelib_cmd cannot be used to create shared libraries!"
+            message "   Please use --make-lib-cmd=\"gcc -shared -o\" or something similar."
+            exit 1
+        fi
+    fi
+
+    exists_in_path "$makelib_cmd"
     if [ -z "$cmd" ] ; then
         result "not found"
-        message "Warning: Mathematica needs to be installed to run the meta code!"
+        message "Error: A program which builds libraries must be installed!"
+        exit 1
     else
         result "found $cmd"
     fi
 }
 
 #_____________________________________________________________________
-define() {
-    # $@: list of extra define statemens
-    if [ -n "$@" ]; then
-        if [ -z "$extra_defines" ]; then
-            extra_defines="-D$@"
-        else
-            extra_defines="$extra_defines -D$@"
-        fi
+check_math_cmd() {
+    checking_msg "Mathematica kernel $MATH"
+    exists_in_path "$MATH"
+    if [ -z "$cmd" ] ; then
+        result "not found"
+        message "Error: Mathematica needs to be installed to run the meta code!"
+        exit 1
+    else
+        result "found $cmd"
     fi
 }
 
 #_____________________________________________________________________
 enable_defines() {
-    if [ -n "$extra_defines" ]; then
-        message "adding defines $extra_defines to CPPFLAGS"
-        CPPFLAGS="$extra_defines $CPPFLAGS"
+    if test "x$enable_colors" = "xyes" ; then
+        message "Enabling colored output -DCOLOR_PRINTOUT"
+        CPPFLAGS="$CPPFLAGS -DCOLOR_PRINTOUT"
+    fi
+
+    if test "x$enable_debug" = "xyes" ; then
+        message "Enabling debug mode -DDEBUG"
+        CPPFLAGS="$CPPFLAGS -DDEBUG"
+        CXXFLAGS="$CXXFLAGS -g"
+        FFLAGS="$FFLAGS -g"
+    fi
+
+    if test "x$enable_debug" = "xno" ; then
+        message "Disabling debug mode and removing assertions -UDEBUG -DNDEBUG"
+        CPPFLAGS="$CPPFLAGS -UDEBUG -DNDEBUG"
+    fi
+
+    if test "x$enable_looptools" = "xyes" ; then
+        message "Enabling usage of LoopTools -DENABLE_LOOPTOOLS"
+        CPPFLAGS="$CPPFLAGS -DENABLE_LOOPTOOLS"
+    fi
+
+    if test "x$enable_silent" = "xyes" ; then
+        message "Enabling silent mode -DSILENT"
+        CPPFLAGS="$CPPFLAGS -DSILENT"
+    fi
+
+    if test "x$enable_static_libs" = "xno" ; then
+        # check if -fPIC is in CXXFLAGS and FFLAGS
+        if test "x$CXX" = "xg++" -o "x$CXX" = "xclang++" ; then
+            if contains_not "$CXXFLAGS" "-fPIC" ; then
+                message "  Warning: could not find -fPIC in CXXFLAGS, appending it"
+                CXXFLAGS="$CXXFLAGS -fPIC"
+            fi
+        fi
+        if test "x$FC" = "xgfortran" ; then
+            if contains_not "$FFLAGS" "-fPIC" ; then
+                message "  Warning: could not find -fPIC in FFLAGS, appending it"
+                FFLAGS="$FFLAGS -fPIC"
+            fi
+        fi
+        # check the library extension
+        if test "x$LIBEXT" = "x.a" ; then
+            message "  Warning: library extension $LIBEXT is reserved for static libraries."
+            message "    Please consider using .so as library extension, or similar, e.g."
+            message "    --libext=\".so\""
+        fi
+    fi
+
+    if test "x$enable_verbose" = "xyes" ; then
+        if test "x$enable_silent" = "xyes" ; then
+            message "Warning: ignoring --enable-verbose because silent mode is enabled!"
+        else
+            message "Enabling verbose mode -DVERBOSE"
+            CPPFLAGS="$CPPFLAGS -DVERBOSE"
+        fi
     fi
 }
 
 #_____________________________________________________________________
 help() {
-    echo "Usage: ./`basename $0` [options]"
-    echo "Options:"
-    echo "--enable-colors          enable colored output"
-    echo "--enable-debug           enable debug messages"
-    echo "--enable-silent          suppress all command line output"
-    echo "--enable-verbose         enable verbose messages"
-    echo "--with-algorithms=       comma separated list of RG solver algorithms"
-    echo "                         (default: $ALGORITHMS)"
-    echo "                         possible values: all $available_algorithms"
-    echo "--with-boost-libdir=     directory to search for BOOST libraries"
-    echo "--with-boost-incdir=     directory to search for BOOST headers"
-    echo "--with-cxx=              C++ compiler (default: $CXX)"
-    echo "--with-cxxflags=         C++ compiler flags (default: $CXXFLAGS)"
-    echo "--with-fc=               Fortran compiler (default: $FC)"
-    echo "--with-fflags=           Fortran compiler flags (default: $FFLAGS)"
-    echo "--with-gsl-config=       Path to gsl-config (default: $gsl_config)"
-    echo "--with-lapack-libdir=    directory to search for LAPACK and BLAS"
-    echo "                         libraries"
-    echo "--with-math-cmd=         Mathematic kernel (default: $MATH)"
-    echo "--with-tvmet-config=     Path to tvmet-config (default: $tvmet_config)"
-    echo "--help,-h                print this help message"
-    echo "--libext                 library extension (default: $LIBEXT)"
-    echo "--make-lib-cmd=          command to make library (default: $MAKELIB)"
-    echo "--version,-v             print version information"
+cat <<EOF
+Usage: ./`basename $0` [options]
+Options:
+
+  --help,-h         Print this help message
+  --libext          Library extension (default: $LIBEXT)
+  --make-lib-cmd    Command to make library (default: $MAKELIB)
+  --version,-v      Print version information
+
+enable/disable options, prefix with either --enable- or --disable-
+
+  colors            Colored output
+  debug             Debug messages and assertions
+  looptools         Use LoopTools to compute the loop functions
+  silent            Suppress all command line output
+  static-libs       Create static libraries (default: $enable_static_libs)
+  verbose           Verbose messages
+
+with options, prefix with --with-, enables corresponding support
+
+  algorithms        Comma separated list of RG solver algorithms
+                    (default: $ALGORITHMS)
+                    possible values: all $available_algorithms
+  boost-libdir      Path to search for BOOST libraries
+  boost-incdir      Path to search for BOOST headers
+  eigen-incdir      Path to search for Eigen headers
+  cxx               C++ compiler (default: $CXX)
+  cxxflags          C++ compiler flags (default: $CXXFLAGS)
+  fc                Fortran compiler (default: $FC)
+  fflags            Fortran compiler flags (default: $FFLAGS)
+  gsl-config        Path to gsl-config (default: $gsl_config)
+  lapack-libdir     Path to search for LAPACK and BLAS libraries
+  looptools-libdir  Path to search for LoopTools libraries
+  looptools-incdir  Path to search for LoopTools headers
+  math-cmd          Mathematic kernel (default: $MATH)
+  models            Comma separated list of models to be build
+                    (default: $MODELS)
+                    possible values: all <model1>,<model2>,...
+EOF
 }
 
 #_____________________________________________________________________
 version() {
-    echo "$PROGRAM_NAME $PROGRAM_VERSION"
-    echo "$PROGRAM_NAME is free software: you can redistribute it and/or modify"
-    echo "it under the terms of the GNU General Public License as published by"
-    echo "the Free Software Foundation, either version 3 of the License, or"
-    echo "(at your option) any later version.  See http://www.gnu.org/licenses/"
+cat <<EOF
+$PROGRAM_NAME $PROGRAM_VERSION
+$PROGRAM_NAME is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.  See http://www.gnu.org/licenses/
+EOF
 }
 
 rm -f $logfile
@@ -667,21 +976,60 @@ if test $# -gt 0 ; then
         esac
 
         case $1 in
-            --enable-colors)         define "COLOR_PRINTOUT" ;;
-            --enable-debug)          define "DEBUG" ;;
-            --enable-silent)         define "SILENT" ;;
-            --enable-verbose)        define "VERBOSE" ;;
+            --enable-*)
+                f=`echo $1 | sed -e 's/--//' -e 's/-/_/g'`
+                eval prev='$'`echo ${f}`
+                if test "x${prev}" = "xyes"; then
+                    echo "INFO: $1: already enabled by default."
+                fi
+                if test ! "x`echo ${deprecated_options} | grep ${f}`" = "x"; then
+                    echo "WARNING: option $1 is deprecated and ignored"'!'
+                fi
+                eval ${f}=yes
+                for c in $options ; do
+                    if test "x$c" = "x$f" ; then
+                        f=""
+                    fi
+                done
+                for c in $deprecated_options ; do
+                    if test "x$c" = "x$f" ; then
+                        f=""
+                    fi
+                done
+                if test "x$f" != "x" ; then
+                    echo "Invalid option '$1'. Try $0 --help" ; exit 1 ;
+                fi
+                ;;
+            --disable-*)
+                f=`echo $1 | sed -e 's/--disable/enable/' -e 's/-/_/g'`
+                eval prev='$'`echo ${f}`
+                if test "x${prev}" = "xno"; then
+                    echo "INFO: $1: already disabled by default."
+                fi
+                eval ${f}=no
+                for c in $options ; do
+                    if test "x$c" = "x$f" ; then
+                        f=""
+                    fi
+                done
+                if test "x$f" != "x" ; then
+                    echo "Invalid option '$1'. Try $0 --help" ; exit 1 ;
+                fi
+                ;;
             --with-algorithms=*)     ALGORITHMS=$optarg ;;
             --with-boost-libdir=*)   boost_lib_dir=$optarg ;;
             --with-boost-incdir=*)   boost_inc_dir=$optarg ;;
             --with-cxx=*)            CXX=$optarg ;;
             --with-cxxflags=*)       CXXFLAGS=$optarg ;;
+            --with-eigen-incdir=*)   eigen_inc_dir=$optarg ;;
             --with-fc=*)             FC=$optarg ;;
             --with-fflags=*)         FFLAGS=$optarg ;;
             --with-gsl-config=*)     gsl_config=$optarg ;;
             --with-lapack-libdir=*)  lapack_lib_dir=$optarg ;;
+            --with-looptools-libdir=*) looptools_lib_dir=$optarg ;;
+            --with-looptools-incdir=*) looptools_inc_dir=$optarg ;;
             --with-math-cmd=*)       MATH=$optarg ;;
-            --with-tvmet-config=*)   tvmet_config=$optarg ;;
+            --with-models=*)         MODELS=$optarg ;;
             --help|-h)               help; exit 0 ;;
             --libext=*)              LIBEXT=$optarg ;;
             --make-lib-cmd=*)        MAKELIB=$optarg ;;
@@ -693,40 +1041,76 @@ if test $# -gt 0 ; then
 fi
 
 guess_machine_word_size
+check_platform
 
 check_algorithms
-check_boost_incl
-check_boost_libs
-check_boost_thread_incl
-check_boost_thread_libs
+check_boost_test_incl
+check_boost_test_libs
+check_cxx
+check_fc
+check_eigen_incl
 check_fortran_libs
+check_gsl_config
 if use_algorithm "lattice"; then
-    check_gsl_config
+    check_boost_thread_incl
+    check_boost_thread_libs
     check_lapack_libs
-    check_tvmet_config
 fi
+if test "x$enable_looptools" = "xyes"; then
+    check_looptools_incl
+    check_looptools_libs
+fi
+check_makelib
 check_math_cmd
+check_models
 
 enable_defines
 
 sed -e "s|@VERSION@|$PROGRAM_VERSION|" \
     -e "s|@PKGNAME@|$PROGRAM_NAME|"    \
-    -e "s|@FLIBS@|$FLIBS|"             \
+    -e "s|@ABSBASEDIR@|$ABSBASEDIR|"   \
     -e "s|@ALGORITHMS@|$ALGORITHMS|"   \
-    -e "s|@BOOSTLIBS@|$BOOSTLIBS|"     \
+    -e "s|@BOOSTTESTLIBS@|$BOOSTTESTLIBS|"     \
     -e "s|@BOOSTTHREADLIBS@|$BOOSTTHREADLIBS|"     \
     -e "s|@BOOSTFLAGS@|$BOOSTFLAGS|"   \
     -e "s|@CPPFLAGS@|$CPPFLAGS|"       \
     -e "s|@CXXFLAGS@|$CXXFLAGS|"       \
     -e "s|@CXX@|$CXX|"                 \
     -e "s|@FC@|$FC|"                   \
+    -e "s|@EIGENFLAGS@|$EIGENFLAGS|"   \
+    -e "s|@FFLAGS@|$FFLAGS|"           \
+    -e "s|@FLIBS@|$FLIBS|"             \
+    -e "s|@FSCONFIG@|$FSCONFIG|"       \
     -e "s|@GSLLIBS@|$GSLLIBS|"         \
     -e "s|@GSLFLAGS@|$GSLFLAGS|"       \
     -e "s|@LAPACKLIBS@|$LAPACKLIBS|"   \
-    -e "s|@TVMETLIBS@|$TVMETLIBS|"     \
-    -e "s|@TVMETFLAGS@|$TVMETFLAGS|"   \
+    -e "s|@ENABLE_LOOPTOOLS@|$enable_looptools|" \
+    -e "s|@LOOPTOOLSLIBS@|$LOOPTOOLSLIBS|"    \
+    -e "s|@LOOPTOOLSFLAGS@|$LOOPTOOLSFLAGS|"  \
+    -e "s|@MODELS@|$MODELS|"           \
     -e "s|@MAKELIB@|$MAKELIB|"         \
+    -e "s|@ENABLE_STATIC_LIBS@|$enable_static_libs|" \
     -e "s|@MATH@|$MATH|"               \
     -e "s|@LIBEXT@|$LIBEXT|"           \
-    -e "s|@FFLAGS@|$FFLAGS|"           \
     < $MAKEFILE_TMPL > $MAKEFILE
+
+sed -e "s|@VERSION@|$PROGRAM_VERSION|" \
+    -e "s|@PKGNAME@|$PROGRAM_NAME|"    \
+    -e "s|@CPPFLAGS@|$CPPFLAGS|"       \
+    -e "s|@CXXFLAGS@|$CXXFLAGS|"       \
+    -e "s|@CXX@|$CXX|"                 \
+    -e "s|@FC@|$FC|"                   \
+    -e "s|@FFLAGS@|$FFLAGS|"           \
+    -e "s|@FLIBS@|$FLIBS|"             \
+    -e "s|@MAKELIB@|$MAKELIB|"         \
+    -e "s|@MATH@|$MATH|"               \
+    -e "s|@MODELS@|$MODELS|"           \
+    < $FSCONFIG_TMPL > $FSCONFIG
+
+sed -e "s|@VERSION@|$PROGRAM_VERSION|" \
+    -e "s|@PKGNAME@|$PROGRAM_NAME|"    \
+    < $CONFIGHDR_TMPL > $CONFIGHDR
+
+echo "$PROGRAM_VERSION" > $BASEDIR/config/version
+
+chmod a+x $FSCONFIG

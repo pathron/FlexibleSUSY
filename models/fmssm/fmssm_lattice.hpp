@@ -3,7 +3,9 @@
 
 
 #include "fmssm.hpp"
-#include "lattice_solver.hpp"
+#include "lattice_model.hpp"
+
+namespace flexiblesusy {
 
 class Lattice;
 
@@ -16,17 +18,21 @@ public:
     virtual std::string name() const { return "FMSSM"; }
     virtual void print(std::ostream& s) const;
 
-    Real dx(const Real a, const Real *x, size_t i) const;
-    void ddx(const Real a, const Real *x, size_t i, Real *ddx) const;
+    void  dx(Real a, const Eigen::VectorXd& x, Eigen::VectorXd& dx,
+	     size_t nloops) const;
+    void ddx(Real a, const Eigen::VectorXd& x, Eigen::MatrixXd& ddx,
+	     size_t nloops) const;
 
-    struct Translator : public RGFlow<Lattice>::Translator {
+    struct Translator : public Lattice_translator {
 	Translator(RGFlow<Lattice> *f, size_t T, size_t m) :
-	    RGFlow<Lattice>::Translator::Translator(f, T, m) {}
+	    Lattice_translator::Lattice_translator(f, T, m)
+	    {}
 	#include "models/fmssm/fmssm_lattice_translator.inc"
     };
 
     Translator operator()(size_t m) const { return Translator(f, T, m); }
 };
 
+}
 
 #endif // fmssm_lattice_hpp

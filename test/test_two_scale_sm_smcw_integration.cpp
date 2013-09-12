@@ -8,11 +8,14 @@
 #include "smcw_two_scale_convergence_tester.hpp"
 #include "linalg.h"
 #include "coupling_monitor.hpp"
+#include "error.hpp"
 
 #define BOOST_TEST_DYN_LINK
 #define BOOST_TEST_MODULE test_two_scale_sm_smcw_integration
 
 #include <boost/test/unit_test.hpp>
+
+using namespace flexiblesusy;
 
 #define YU StandardModel<Two_scale>::YU
 #define YD StandardModel<Two_scale>::YD
@@ -33,7 +36,7 @@ public:
    virtual void match_low_to_high_scale_model() {
       // ensure that both models are at the matching scale
       sm->run_to(get_scale());
-      smcw->setScale(sm->getScale());
+      smcw->setScale(sm->get_scale());
       // copy parameters
       smcw->setYukawaMatrix(YU, sm->displayYukawaMatrix(YU));
       smcw->setYukawaMatrix(YD, sm->displayYukawaMatrix(YD));
@@ -44,7 +47,7 @@ public:
    virtual void match_high_to_low_scale_model() {
       // ensure that both models are at the matching scale
       smcw->run_to(get_scale());
-      BOOST_REQUIRE(sm->getScale() == smcw->getScale());
+      BOOST_REQUIRE(sm->get_scale() == smcw->get_scale());
       // copy parameters
       sm->setYukawaMatrix(YU, smcw->displayYukawaMatrix(YU));
       sm->setYukawaMatrix(YD, smcw->displayYukawaMatrix(YD));
@@ -76,7 +79,7 @@ public:
    virtual void match_low_to_high_scale_model() {
       // ensure that both models are at the matching scale
       sm->run_to(get_scale());
-      smcw->setScale(sm->getScale());
+      smcw->setScale(sm->get_scale());
       // copy parameters
       smcw->setYukawaMatrix(YU, sm->displayYukawaMatrix(YU));
       smcw->setYukawaMatrix(YD, sm->displayYukawaMatrix(YD));
@@ -87,7 +90,7 @@ public:
    virtual void match_high_to_low_scale_model() {
       // ensure that both models are at the matching scale
       smcw->run_to(get_scale());
-      BOOST_REQUIRE(sm->getScale() == smcw->getScale());
+      BOOST_REQUIRE(sm->get_scale() == smcw->get_scale());
       // copy parameters
       sm->setYukawaMatrix(YU, smcw->displayYukawaMatrix(YU));
       sm->setYukawaMatrix(YD, smcw->displayYukawaMatrix(YD));
@@ -214,7 +217,7 @@ BOOST_AUTO_TEST_CASE( test_sm_smcw_constraints )
    }
 
    // to make the parameter comparison work, run sm to the same scale as smcw
-   sm.run_to(smcw.getScale());
+   sm.run_to(smcw.get_scale());
 
    // check that the SM parameters are the same in both models
    for (int i = 1; i <= 3; ++i)
@@ -287,7 +290,7 @@ BOOST_AUTO_TEST_CASE( test_sm_smcw_convergence )
                  << " iterations");
    BOOST_CHECK_EQUAL(solver.number_of_iterations_done(), 3u);
 
-#if 1
+#if 0
    // create data: all gauge couplings at different scales
    sm.run_to(Electroweak_constants::MZ);
    smcw.run_to(3000);

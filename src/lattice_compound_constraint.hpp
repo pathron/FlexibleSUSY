@@ -5,6 +5,7 @@
 #include "compound_constraint.hpp"
 #include "lattice_constraint.hpp"
 
+namespace flexiblesusy {
 
 class Lattice;
 
@@ -28,6 +29,8 @@ public:
     virtual void operator()() { for (auto c: components) (*c)(); }
     virtual void relocate(const std::vector<size_t>& site_map)
     { for (auto c: components) c->relocate(site_map); }
+    using Constraint<Lattice>::init;
+    using Constraint<Lattice>::relocate;
 protected:
     virtual void activate() {}
     std::vector<Constraint<Lattice>*> components;
@@ -50,10 +53,12 @@ public:
     virtual void free_rows()
     { for (auto c: components) c->free_rows(); }
     virtual void operator()() { for (auto c: components) (*c)(); }
+    using Matching<Lattice>::init;
 protected:
     virtual void activate() {}
     std::vector<Matching<Lattice>*> components;
 };
 
+}
 
 #endif // lattice_compound_constraint_hpp

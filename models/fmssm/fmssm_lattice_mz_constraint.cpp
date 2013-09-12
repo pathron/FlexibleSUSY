@@ -1,13 +1,13 @@
 #include "mathdefs.hpp"
-#include "tvmet_supplements.h"
 #include "consts.hpp"
 #include "SM.hpp"
 #include "fmssm_oneloop.hpp"
 #include "fmssm_lattice_mz_constraint.hpp"
 
 
-using namespace std;
+namespace flexiblesusy {
 
+using namespace std;
 
 Fmssm_mz_constraint_::Fmssm_mz_constraint_() :
     fix_scale_to_mz(mZ),
@@ -30,19 +30,21 @@ Fmssm_mz_constraint::Fmssm_mz_constraint(double tanBeta) :
     CM33 VCKM = standard_VCKM(60*deg);
 
     CM33 MUMW;
-    MUMW = muMW, 0,    0,
-	   0,    mcMW, 0,
-	   0,    0,    mtMW;
+    MUMW << muMW, 0,    0,
+	    0,    mcMW, 0,
+	    0,    0,    mtMW;
     CM33 MDMW;
-    MDMW = mdMW, 0,    0,
-	   0,    msMW, 0,
-	   0,    0,    mbMW;
+    MDMW << mdMW, 0,    0,
+	    0,    msMW, 0,
+	    0,    0,    mbMW;
     CM33 MEMW;
-    MEMW = me,   0,    0,
-	   0,    mmu,  0,
-	   0,    0,    mtau;
+    MEMW << me,   0,    0,
+	    0,    mmu,  0,
+	    0,    0,    mtau;
 
-    ycs.Yu = tvmet::T(VCKM) * MUMW / vu;
+    ycs.Yu = VCKM.transpose() * MUMW / vu;
     ycs.Yd = MDMW / vd;
     ycs.Ye = MEMW / vd;
+}
+
 }

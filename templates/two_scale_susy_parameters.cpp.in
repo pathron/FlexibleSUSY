@@ -1,0 +1,104 @@
+// ====================================================================
+// This file is part of FlexibleSUSY.
+//
+// FlexibleSUSY is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published
+// by the Free Software Foundation, either version 3 of the License,
+// or (at your option) any later version.
+//
+// FlexibleSUSY is distributed in the hope that it will be useful, but
+// WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+// General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with FlexibleSUSY.  If not, see
+// <http://www.gnu.org/licenses/>.
+// ====================================================================
+
+// File generated at @DateAndTime@
+
+#include "@ModelName@_two_scale_susy_parameters.hpp"
+#include "wrappers.hpp"
+
+#include <iostream>
+
+namespace flexiblesusy {
+
+#define CLASSNAME @ModelName@_susy_parameters
+#define INPUT(parameter) input.parameter
+
+@ModelName@_susy_parameters::@ModelName@_susy_parameters(const @ModelName@_input_parameters& input_)
+   : Beta_function()
+   @parameterDefaultInit@
+   , input(input_)
+{
+   set_number_of_parameters(numberOfParameters);
+}
+
+@ModelName@_susy_parameters::@ModelName@_susy_parameters(
+   double scale_, double loops_, double thresholds_,
+   const @ModelName@_input_parameters& input_
+   @cCtorParameterList@
+)
+   : Beta_function()
+   @parameterCopyInit@
+   , input(input_)
+{
+   set_number_of_parameters(numberOfParameters);
+   set_scale(scale_);
+   set_loops(loops_);
+   set_thresholds(thresholds_);
+}
+
+Eigen::ArrayXd @ModelName@_susy_parameters::beta() const
+{
+   return calc_beta().display();
+}
+
+@ModelName@_susy_parameters @ModelName@_susy_parameters::calc_beta() const
+{
+@beta@
+
+   return @ModelName@_susy_parameters(get_scale(), get_loops(), get_thresholds(), input,
+                    @betaParameterList@);
+}
+
+void @ModelName@_susy_parameters::clear()
+{
+@clearParameters@
+}
+
+@anomDimFunctions@
+
+const Eigen::ArrayXd @ModelName@_susy_parameters::display() const
+{
+   Eigen::ArrayXd pars(numberOfParameters);
+
+@display@
+
+   return pars;
+}
+
+void @ModelName@_susy_parameters::print(std::ostream& ostr) const
+{
+   ostr << "susy parameters:\n";
+@printParameters@
+}
+
+void @ModelName@_susy_parameters::set(const Eigen::ArrayXd& v)
+{
+@set@
+}
+
+const @ModelName@_input_parameters& @ModelName@_susy_parameters::get_input() const
+{
+   return input;
+}
+
+void @ModelName@_susy_parameters::set_input(const @ModelName@_input_parameters& input_)
+{
+   input = input_;
+}
+
+} // namespace flexiblesusy

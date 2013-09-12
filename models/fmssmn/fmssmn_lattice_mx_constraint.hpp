@@ -22,6 +22,8 @@
 #include "lattice_compound_constraint.hpp"
 #include "fmssmn_lattice_constraints.hpp"
 
+namespace flexiblesusy {
+
 struct Fmssmn_mx_constraint_ {
     Fmssmn_mx_constraint_();
     Fmssmn_constraint_on_mx mxc;
@@ -29,7 +31,7 @@ struct Fmssmn_mx_constraint_ {
     Fmssmn_constraint_on_higgs_masses mhc;
     Fmssmn_constraint_on_gaugino_masses mgc;
     Fmssmn_constraint_on_sfermion_masses mfc;
-    Fmssmn_constraint_on_trilinears tfc;
+    Fmssmn_constraint_trilinear_factors tfc;
 };
 
 class Fmssmn_mx_constraint :
@@ -38,5 +40,7 @@ class Fmssmn_mx_constraint :
 public:
     Fmssmn_mx_constraint();
 };
+
+}
 
 #endif // FMSSMN_LATTICE_MX_CONSTRAINT_H

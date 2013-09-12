@@ -3,19 +3,22 @@
 #include "mssm_two_scale.hpp"
 #include "mssm_two_scale_initial_guesser.hpp"
 #include "mssm_two_scale_sugra_constraint.hpp"
-#include "mssm_two_scale_msusy_constraint.hpp"
-#include "mssm_two_scale_mz_constraint.hpp"
+#include "mssm_two_scale_susy_scale_constraint.hpp"
+#include "mssm_two_scale_low_scale_constraint.hpp"
 #include "mssm_two_scale_convergence_tester.hpp"
 #include "two_scale_running_precision.hpp"
 #include "softsusy.h"
 #include "two_scale_solver.hpp"
 #include "logger.hpp"
 #include "stopwatch.hpp"
+#include "error.hpp"
 
 #define BOOST_TEST_DYN_LINK
 #define BOOST_TEST_MODULE test_two_scale_mssm_solver
 
 #include <boost/test/unit_test.hpp>
+
+using namespace flexiblesusy;
 
 BOOST_AUTO_TEST_CASE( test_softsusy_mssm_solver )
 {
@@ -73,10 +76,6 @@ void test_equality(const sPhysical& a, const sPhysical& b, double tolerance)
    BOOST_CHECK_CLOSE(a.thetab      , b.thetab      , tolerance);
    BOOST_CHECK_CLOSE(a.thetatau    , b.thetatau    , tolerance);
    BOOST_CHECK_CLOSE(a.thetaH      , b.thetaH      , tolerance);
-   BOOST_CHECK_CLOSE(a.t1OV1Ms     , b.t1OV1Ms     , tolerance);
-   BOOST_CHECK_CLOSE(a.t2OV2Ms     , b.t2OV2Ms     , tolerance);
-   BOOST_CHECK_CLOSE(a.t1OV1Ms1loop, b.t1OV1Ms1loop, tolerance);
-   BOOST_CHECK_CLOSE(a.t2OV2Ms1loop, b.t2OV2Ms1loop, tolerance);
 
    // sneutrino masses
    for (int i = a.msnu.displayStart();
@@ -146,8 +145,8 @@ public:
       : mx(0.0), softSusy() {}
    ~SoftSusy_tester() {}
    double get_mx() const { return mx; }
-   sPhysical get_physical() { return softSusy.displayPhys(); }
-   void test(const Mssm_parameter_point& pp) {
+   sPhysical get_physical() const { return softSusy.displayPhys(); }
+   void test(const Mssm_parameter_point& pp, const QedQcd& oneset) {
       Stopwatch stopwatch;
       stopwatch.start(); // record time for SoftSusy to solve the MSSM
 
@@ -156,7 +155,7 @@ public:
 #ifdef VERBOSE
       softsusy::PRINTOUT = 1;
 #endif
-      mx = softSusy.lowOrg(sugraBcs, pp.mxGuess, pp.get_soft_pars(), pp.signMu, pp.tanBeta, pp.oneset, true);
+      mx = softSusy.lowOrg(sugraBcs, pp.mxGuess, pp.get_soft_pars(), pp.signMu, pp.tanBeta, oneset, true);
       softsusy::PRINTOUT = 0;
 
       stopwatch.stop();
@@ -186,17 +185,21 @@ public:
       : mx(0.0), mssm() {}
    ~Two_scale_tester() {}
    double get_mx() const { return mx; }
-   sPhysical get_physical() { return mssm.displayPhys(); }
-   void test(const Mssm_parameter_point& pp) {
+   sPhysical get_physical() const { return mssm.displayPhys(); }
+   void test(const Mssm_parameter_point& pp, const QedQcd& oneset) {
       Stopwatch stopwatch;
       stopwatch.start(); // record time for the two scale method to solve the MSSM
 
+      softsusy::TOLERANCE = 1.0e-4;
       // setup the MSSM with the two scale method
-      Mssm_sugra_constraint mssm_sugra_constraint(pp.mxGuess, pp.m0, pp.m12, pp.a0, pp.signMu);
-      Mssm_mz_constraint mssm_mz_constraint(pp.tanBeta);
-      Mssm_msusy_constraint mssm_msusy_constraint(pp.get_soft_pars(), 1000.0, pp.signMu);
+      Mssm_sugra_constraint mssm_sugra_constraint(pp);
+      Mssm_low_scale_constraint mssm_mz_constraint(pp);
+      Mssm_susy_scale_constraint mssm_msusy_constraint(pp);
       Mssm_convergence_tester mssm_convergence_tester(&mssm, 1.0e-4);
-      Mssm_initial_guesser initial_guesser(&mssm, pp.oneset, pp.mxGuess, pp.tanBeta, pp.signMu, pp.get_soft_pars(), false);
+      Mssm_initial_guesser initial_guesser(&mssm, pp, mssm_mz_constraint,
+                                           mssm_msusy_constraint,
+                                           mssm_sugra_constraint);
+      initial_guesser.set_QedQcd(oneset);
       Two_scale_increasing_precision two_scale_increasing_precision(10.0, 1.0e-5);
 
       std::vector<Constraint<Two_scale>*> mssm_upward_constraints;
@@ -235,11 +238,13 @@ private:
  */
 void test_point(const Mssm_parameter_point& pp)
 {
+   QedQcd oneset;
+
    Two_scale_tester two_scale_tester;
-   BOOST_REQUIRE_NO_THROW(two_scale_tester.test(pp));
+   BOOST_REQUIRE_NO_THROW(two_scale_tester.test(pp, oneset));
 
    SoftSusy_tester softSusy_tester;
-   BOOST_REQUIRE_NO_THROW(softSusy_tester.test(pp));
+   BOOST_REQUIRE_NO_THROW(softSusy_tester.test(pp, oneset));
 
    // check equality of physical parameters
    test_equality(softSusy_tester.get_physical(), two_scale_tester.get_physical(), 0.1);
@@ -268,32 +273,38 @@ BOOST_AUTO_TEST_CASE( test_slow_convergence_point )
 {
    // slowly convergent point taken from arXiv:1211.3231 Fig. 7
    Mssm_parameter_point pp;
-   pp.oneset.setPoleMt(173.5);
    pp.tanBeta = 10.0;
    pp.a0 = 0.0;
    pp.m12 = 337.5;
    pp.m0 = 3400.0;
+   QedQcd oneset;
+   const double alphasMZ = 0.1187, mtop = 173.5, mbmb = 4.2;
+   oneset.setAlpha(ALPHAS, alphasMZ);
+   oneset.setPoleMt(mtop);
+   oneset.setMass(mBottom, mbmb);
+   oneset.toMz();
 
    BOOST_MESSAGE("testing slow convergent " << pp);
    Two_scale_tester two_scale_tester;
-   BOOST_CHECK_THROW(two_scale_tester.test(pp), RGFlow<Two_scale>::NoConvergenceError);
+   BOOST_CHECK_THROW(two_scale_tester.test(pp, oneset), NoConvergenceError);
    SoftSusy_tester softSusy_tester;
-   BOOST_CHECK_THROW(softSusy_tester.test(pp), SoftSusy_NoConvergence_error);
+   BOOST_CHECK_THROW(softSusy_tester.test(pp, oneset), SoftSusy_NoConvergence_error);
 }
 
 BOOST_AUTO_TEST_CASE( test_non_perturbative_point )
 {
    // non-perturbative point
    Mssm_parameter_point pp;
-   pp.oneset.setPoleMt(173.5);
    pp.tanBeta = 100.0;
    pp.a0 = 0.0;
    pp.m12 = 337.5;
    pp.m0 = 3400.0;
+   QedQcd oneset;
+   oneset.setPoleMt(173.5);
 
    BOOST_MESSAGE("testing non-perturbative " << pp);
    Two_scale_tester two_scale_tester;
-   BOOST_CHECK_THROW(two_scale_tester.test(pp), RGFlow<Two_scale>::NonPerturbativeRunningError);
+   BOOST_CHECK_THROW(two_scale_tester.test(pp, oneset), NonPerturbativeRunningError);
    SoftSusy_tester softSusy_tester;
-   BOOST_CHECK_THROW(softSusy_tester.test(pp), SoftSusy_NonPerturbative_error);
+   BOOST_CHECK_THROW(softSusy_tester.test(pp, oneset), SoftSusy_NonPerturbative_error);
 }

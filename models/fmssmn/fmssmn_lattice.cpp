@@ -6,20 +6,26 @@ extern "C" double ddxfmssmn_(const double& a, const double *x, const int& i,
 			     double *ddx);
 
 
+namespace flexiblesusy {
+
+using namespace Eigen;
+
 Fmssmn<Lattice>::Fmssmn() : Lattice_model(214)
 {
 }
 
-Real Fmssmn<Lattice>::dx(const Real a, const Real *x, size_t i) const
+void Fmssmn<Lattice>::dx
+(Real a, const VectorXd& x, VectorXd& dx, size_t) const
 {
-    int i_ = i;
-    return dxfmssmn_(a, x, i_);
+    for (int i = 0; i < dx.size(); i++)
+	dx[i] = dxfmssmn_(a, x.data(), i);
 }
 
-void Fmssmn<Lattice>::ddx(const Real a, const Real *x, size_t i, Real *ddx)const
+void Fmssmn<Lattice>::ddx
+(const Real a, const VectorXd& x, MatrixXd& ddx, size_t) const
 {
-    int i_ = i;
-    ddxfmssmn_(a, x, i_, ddx);
+    for (int i = 0; i < ddx.cols(); i++)
+	ddxfmssmn_(a, x.data(), i, ddx.col(i).data());
 }
 
 void Fmssmn<Lattice>::calculate_spectrum()
@@ -28,4 +34,6 @@ void Fmssmn<Lattice>::calculate_spectrum()
 
 void Fmssmn<Lattice>::print(std::ostream& s) const
 {
+}
+
 }

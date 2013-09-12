@@ -2,7 +2,7 @@
 #include <string>
 
 #include "consts.hpp"
-#include "mssm_parameter_point.hpp"
+// #include "mssm_parameter_point.hpp"
 #include "fmssm_oneloop.hpp"
 #include "fmssm_lattice.hpp"
 #include "fmssm_lattice_numerical_msusy_constraint.hpp"
@@ -20,6 +20,7 @@
 
 using namespace std;
 
+namespace flexiblesusy {
 
 class Fmssm_fmssmn_initial_guesser : public Initial_guesser<Lattice> {
 public:
@@ -133,37 +134,41 @@ class Fmssmn_cmssmn_constraint : public Fmssmn_mx_constraint {
 public:
     Fmssmn_cmssmn_constraint(double m0, double m12, double a0, const CM33& Yn){
 	mgc.M1 = mgc.M2 = mgc.M3 = m12;
-	mfc.m2Q = sqr(m0), 0, 0,
-	    	  0, sqr(m0), 0,
-	    	  0, 0, sqr(m0);
+	mfc.m2Q << sqr(m0), 0, 0,
+	    	   0, sqr(m0), 0,
+	    	   0, 0, sqr(m0);
 	mfc.m2U = mfc.m2D = mfc.m2L = mfc.m2N = mfc.m2E = mfc.m2Q;
 	mhc.m2Hu_fin = mhc.m2Hd_fin = sqr(m0);
 	// to be set by initial guesser
 	// mhc.m2Hu_ini = m2Hu_ini;
 	// mhc.m2Hd_ini = m2Hd_ini;
-	tfc.Au = a0, a0, a0,
-	    	 a0, a0, a0,
-	    	 a0, a0, a0;
+	tfc.Au << a0, a0, a0,
+	    	  a0, a0, a0,
+	    	  a0, a0, a0;
 	tfc.Ad = tfc.An = tfc.Ae = tfc.Au;
 	ync.Yn = Yn;
     }
 };
 
+}
+
+using namespace flexiblesusy;
 
 int main(int argc, char *argv[])
 {
-   Mssm_parameter_point pp;
-   pp.m0  = 400*GeV;
-   pp.m12 = 300*GeV;
-   pp.a0 =  pp.m0;
-   pp.tanBeta = 10;
-   Real mu = pp.m0;
-   Real b  = pp.m0;
+   // Mssm_parameter_point pp;
+   Real pp_m0  = 400*GeV;
+   Real pp_m12 = 300*GeV;
+   Real pp_a0 =  pp_m0;
+   Real pp_tanBeta = 10;
+   Real pp_mxGuess = MX1L();
+   Real mu = pp_m0;
+   Real b  = pp_m0;
 
    Fmssm<Lattice> fmssm;
 
-   Fmssm_mz_constraint_n fmssm_mz_constraint(pp.tanBeta);
-   Fmssm_msusy_constraint_n fmssm_msusy_constraint(pp.tanBeta);
+   Fmssm_mz_constraint_n fmssm_mz_constraint(pp_tanBeta);
+   Fmssm_msusy_constraint_n fmssm_msusy_constraint(pp_tanBeta);
    // Fmssm_convergence_tester fmssm_convergence_tester(1.0e-4);
 
    std::vector<Constraint<Lattice>*> fmssm_constraints;
@@ -196,23 +201,23 @@ int main(int argc, char *argv[])
        });
 
    CM33 UPMNS;			// tribimaximal mixing
-   UPMNS =  sqrt(2.0/3),  sqrt(1.0/3),	    0.0   ,
-       	   -sqrt(1.0/6),  sqrt(1.0/3), sqrt(1.0/2),
-       	    sqrt(1.0/6), -sqrt(1.0/3), sqrt(1.0/2);
+   UPMNS <<  sqrt(2.0/3),  sqrt(1.0/3),	    0.0   ,
+       	    -sqrt(1.0/6),  sqrt(1.0/3), sqrt(1.0/2),
+       	     sqrt(1.0/6), -sqrt(1.0/3), sqrt(1.0/2);
    CM33 YnDiag;
-   YnDiag = 0.2, 0, 0,
-       	    0, 0.6, 0,
-       	    0, 0, 1.2;
+   YnDiag << 0.2, 0, 0,
+       	     0, 0.6, 0,
+       	     0, 0, 1.2;
    CM33 Yn;
    Yn = UPMNS * YnDiag;
    Fmssmn_cmssmn_constraint fmssmn_cmssmn_constraint
-       (pp.m0, pp.m12, pp.a0, Yn);
+       (pp_m0, pp_m12, pp_a0, Yn);
    std::vector<Constraint<Lattice>*> fmssmn_constraints;
    fmssmn_constraints.push_back(&fmssmn_cmssmn_constraint);
 
    // LATTICE: guess of initial profile requires knowledge of entire
    // EFT tower
-   Fmssm_fmssmn_initial_guesser initial_guesser(pp.mxGuess, mu, b,
+   Fmssm_fmssmn_initial_guesser initial_guesser(pp_mxGuess, mu, b,
 						fmssm_mz_constraint,
 						fmssm_msusy_constraint,
 						matching_scale,
@@ -234,7 +239,7 @@ int main(int argc, char *argv[])
        if (argv1.find("1") != string::npos) solver.disable_multithreading();
    }
 
-   INFO("Running: " << pp);
+   // INFO("Running: " << pp);
    try {
       solver.solve();
    } catch (Error& e) {

@@ -24,6 +24,8 @@
 #include "fmssm_lattice_constraints.hpp"
 
 
+namespace flexiblesusy {
+
 // auxiliary class for initializing own members before the base class
 // see http://www.boost.org/doc/libs/1_53_0/libs/utility/base_from_member.html
 struct Fmssm_mx_constraint_ {
@@ -32,7 +34,7 @@ struct Fmssm_mx_constraint_ {
     Fmssm_constraint_on_higgs_masses mhc;
     Fmssm_constraint_on_gaugino_masses mgc;
     Fmssm_constraint_on_sfermion_masses mfc;
-    Fmssm_constraint_on_trilinears tfc;
+    Fmssm_constraint_trilinear_factors tfc;
 };
 
 class Fmssm_mx_constraint :
@@ -42,5 +44,6 @@ public:
     Fmssm_mx_constraint();
 };
 
+}
 
 #endif // FMSSM_LATTICE_MX_CONSTRAINT_H

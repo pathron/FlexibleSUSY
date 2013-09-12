@@ -22,6 +22,8 @@
 
 #include <cassert>
 
+namespace flexiblesusy {
+
 StandardModel_exp_constraint::StandardModel_exp_constraint()
    : Constraint<Two_scale>()
    , sm(NULL)
@@ -42,18 +44,18 @@ void StandardModel_exp_constraint::apply()
    assert(sm && "pointer to StandardModel<Two_scale> must not be zero");
 
    VERBOSE_MSG("Applying SM experimental constraints at scale "
-               << sm->getScale());
-   if (std::fabs(Electroweak_constants::MZ - sm->getScale()) > 1.0)
+               << sm->get_scale());
+   if (std::fabs(Electroweak_constants::MZ - sm->get_scale()) > 1.0)
       WARNING("Applying the experimental constraints "
-              "of StandardModel<Two_scale> at scale " << sm->getScale()
+              "of StandardModel<Two_scale> at scale " << sm->get_scale()
               << " != MZ is not save!");
 
    sm->setYukawaElement(StandardModel<Two_scale>::YU, 3, 3, Electroweak_constants::yt);
    sm->setYukawaElement(StandardModel<Two_scale>::YD, 3, 3, Electroweak_constants::yb);
    sm->setYukawaElement(StandardModel<Two_scale>::YE, 3, 3, Electroweak_constants::ytau);
-   sm->setGaugeCoupling(1, sqrt(4 * M_PI * Electroweak_constants::alpha1));
-   sm->setGaugeCoupling(2, sqrt(4 * M_PI * Electroweak_constants::alpha2));
-   sm->setGaugeCoupling(3, sqrt(4 * M_PI * Electroweak_constants::alpha3));
+   sm->setGaugeCoupling(1, Electroweak_constants::g1);
+   sm->setGaugeCoupling(2, Electroweak_constants::g2);
+   sm->setGaugeCoupling(3, Electroweak_constants::g3);
 }
 
 /**
@@ -68,4 +70,6 @@ double StandardModel_exp_constraint::get_scale() const
 void StandardModel_exp_constraint::set_model(Two_scale_model* model)
 {
    sm = cast_model<StandardModel<Two_scale> >(model);
+}
+
 }
