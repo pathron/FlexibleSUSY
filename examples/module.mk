@@ -5,9 +5,11 @@ EXAMPLES_SRC :=
 
 ifeq ($(shell $(FSCONFIG) --with-smssm),yes)
 EXAMPLES_SRC += \
-		$(DIR)/run_softsusy.cpp \
+		$(DIR)/run_softsusy.cpp
+ifeq ($(shell $(FSCONFIG) --with-snmssm),yes)
+EXAMPLES_SRC += \
 		$(DIR)/run_softpoint.cpp
-
+endif
 ifneq ($(findstring two_scale,$(ALGORITHMS)),)
 EXAMPLES_SRC += \
 		$(DIR)/run_smssm.cpp
@@ -115,7 +117,7 @@ endif
 $(DIR)/run_softsusy.x: $(DIR)/run_softsusy.o $(LIBSMSSM) $(LIBFLEXI) $(LIBLEGACY)
 		$(CXX) -o $@ $(abspath $^) $(FLIBS)
 
-$(DIR)/run_softpoint.x: $(DIR)/run_softpoint.o $(LIBSMSSM) $(LIBFLEXI) $(LIBLEGACY)
+$(DIR)/run_softpoint.x: $(DIR)/run_softpoint.o $(LIBSNMSSM) $(LIBSMSSM) $(LIBFLEXI) $(LIBLEGACY)
 		$(CXX) -o $@ $(abspath $^) $(FLIBS)
 
 ALLDEP += $(EXAMPLES_DEP)

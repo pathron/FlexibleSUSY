@@ -23,7 +23,6 @@ TEST_SRC += \
 endif
 ifeq ($(shell $(FSCONFIG) --with-smssm --with-MSSM),yes yes)
 TEST_SRC += \
-		$(DIR)/test_benchmark.cpp \
 		$(DIR)/test_loopfunctions.cpp \
 		$(DIR)/test_MSSM_high_scale_constraint.cpp \
 		$(DIR)/test_MSSM_higgs_iteration.cpp \
@@ -31,8 +30,23 @@ TEST_SRC += \
 		$(DIR)/test_MSSM_low_scale_constraint.cpp \
 		$(DIR)/test_MSSM_susy_scale_constraint.cpp \
 		$(DIR)/test_MSSM_model.cpp \
-		$(DIR)/test_MSSM_slha_output.cpp \
 		$(DIR)/test_MSSM_spectrum.cpp
+endif
+ifeq ($(shell $(FSCONFIG) --with-smssm --with-snmssm --with-MSSM),yes yes yes)
+TEST_SRC += \
+		$(DIR)/test_benchmark.cpp \
+		$(DIR)/test_MSSM_slha_output.cpp
+endif
+ifeq ($(shell $(FSCONFIG) --with-snmssm --with-NMSSM),yes yes)
+TEST_SRC += \
+		$(DIR)/test_NMSSM_beta_functions.cpp \
+		$(DIR)/test_NMSSM_ewsb.cpp \
+		$(DIR)/test_NMSSM_high_scale_constraint.cpp \
+		$(DIR)/test_NMSSM_initial_guesser.cpp \
+		$(DIR)/test_NMSSM_low_scale_constraint.cpp \
+		$(DIR)/test_NMSSM_one_loop_spectrum.cpp \
+		$(DIR)/test_NMSSM_susy_scale_constraint.cpp \
+		$(DIR)/test_NMSSM_tree_level_spectrum.cpp
 endif
 ifeq ($(shell $(FSCONFIG) --with-sm),yes)
 TEST_SRC += \
@@ -201,6 +215,22 @@ $(DIR)/test_MSSM_slha_output.x: $(DIR)/test_MSSM_slha_output.o $(LIBMSSM) $(LIBS
 		$(CXX) -o $@ $< $(LIBMSSM) $(LIBSMSSM) $(LIBFLEXI) $(LIBLEGACY) $(BOOSTTESTLIBS) $(GSLLIBS)
 
 $(DIR)/test_MSSM_spectrum.x: $(LIBSMSSM) $(LIBMSSM) $(LIBFLEXI) $(LIBLEGACY)
+
+$(DIR)/test_NMSSM_beta_functions.x: $(LIBSMSSM) $(LIBSNMSSM) $(LIBNMSSM) $(LIBFLEXI) $(LIBLEGACY)
+
+$(DIR)/test_NMSSM_ewsb.x: $(LIBSMSSM) $(LIBSNMSSM) $(LIBNMSSM) $(LIBFLEXI) $(LIBLEGACY)
+
+$(DIR)/test_NMSSM_high_scale_constraint.x: $(LIBSMSSM) $(LIBSNMSSM) $(LIBNMSSM) $(LIBFLEXI) $(LIBLEGACY)
+
+$(DIR)/test_NMSSM_initial_guesser.x: $(LIBSNMSSM) $(LIBSMSSM) $(LIBNMSSM) $(LIBFLEXI) $(LIBLEGACY)
+
+$(DIR)/test_NMSSM_low_scale_constraint.x: $(LIBSNMSSM) $(LIBSMSSM) $(LIBNMSSM) $(LIBFLEXI) $(LIBLEGACY)
+
+$(DIR)/test_NMSSM_one_loop_spectrum.x: $(LIBSMSSM) $(LIBSNMSSM) $(LIBNMSSM) $(LIBFLEXI) $(LIBLEGACY)
+
+$(DIR)/test_NMSSM_susy_scale_constraint.x: $(LIBSMSSM) $(LIBSNMSSM) $(LIBNMSSM) $(LIBFLEXI) $(LIBLEGACY)
+
+$(DIR)/test_NMSSM_tree_level_spectrum.x: $(LIBSMSSM) $(LIBSNMSSM) $(LIBNMSSM) $(LIBFLEXI) $(LIBLEGACY)
 
 # general test rule which links all libraries needed for a generated model
 $(DIR)/test_%.x: $(DIR)/test_%.o
