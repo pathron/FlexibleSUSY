@@ -220,6 +220,10 @@ CanReduceSolution[solution_List, signs_List] :=
            Return[signCheck && unsignedCheck];
           ];
 
+ReduceSolution[{}, signs_List] := {};
+
+ReduceSolution[{{}}, signs_List] := {};
+
 ReduceSolution[solution_List, signs_List] :=
     Module[{signedParameters, reducedSolution},
            signedParameters = signs /. FlexibleSUSY`Sign -> Identity;
@@ -240,20 +244,28 @@ MakeParameterUnique[par_]          :=
 MakeParametersUnique[parameters_List] :=
     Flatten[MakeParameterUnique /@ parameters];
 
-SolveTreeLevelEwsb[equations_List, parametersFixedByEWSB_List] :=
-    Module[{result = "", simplifiedEqs, parameters,
-            solution, signs, reducedSolution, i, par, expr, parStr,
-            uniqueParameters},
+FindSolution[equations_List, parametersFixedByEWSB_List] :=
+    Module[{simplifiedEqs, uniqueParameters, solution},
            simplifiedEqs = SimplifyEwsbEqs[equations, parametersFixedByEWSB];
            simplifiedEqs = (# == 0)& /@ simplifiedEqs;
-           parameters = parametersFixedByEWSB;
            (* replace non-symbol parameters by unique symbols *)
-           uniqueParameters = MakeParametersUnique[parameters];
-           solution = Solve[simplifiedEqs /. uniqueParameters, parameters /. uniqueParameters];
+           uniqueParameters = MakeParametersUnique[parametersFixedByEWSB];
+           solution = TimeConstrained[
+               Solve[simplifiedEqs /. uniqueParameters,
+                     parametersFixedByEWSB /. uniqueParameters],
+               FlexibleSUSY`FSSolveEWSBTimeConstraint,
+               {}
+              ];
            (* substitute back unique parameters *)
            uniqueParameters = Reverse /@ uniqueParameters;
-           solution = solution /. uniqueParameters;
-           signs = Cases[FindFreePhase /@ parametersFixedByEWSB, FlexibleSUSY`Sign[_]];
+           solution /. uniqueParameters
+          ];
+
+SolveTreeLevelEwsb[equations_List, parametersFixedByEWSB_List] :=
+    Module[{result = "",
+            solution, signs, reducedSolution, i, par, expr, parStr},
+           signs = Cases[FindFreePhase /@ allParameters, FlexibleSUSY`Sign[_]];
+           solution = FindSolution[equations, parametersFixedByEWSB];
            (* Try to reduce the solution *)
            If[CanReduceSolution[solution, signs],
               reducedSolution = ReduceSolution[solution, signs];
