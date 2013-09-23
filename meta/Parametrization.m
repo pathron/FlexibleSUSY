@@ -28,6 +28,7 @@ ParameterRules::usage;
 HasIndicesQ::usage;
 UpdateValues::usage;
 CouplingDimensions::usage;
+KillIm::usage;
 Sphericalize::usage;
 
 sarahOperatorReplacementRules::usage;
@@ -289,6 +290,18 @@ SingleCase[args__] := Module[{
     },
     Assert[Length[cases] === 1];
     First[cases]
+];
+
+KillIm[parameterRules_] := Module[{
+	matrices = Union@Cases[
+	    Variables[parameterRules[[All, 2]]] /. Re|Im -> Identity,
+	    m_[_, _] :> m],
+	apparentlyYukawas,
+	apparentlyTrilinears,
+	i, j
+    },
+    (cnj[#] = #; adj[#] = trp[#])& /@ matrices;
+    parameterRules /. _Im -> 0
 ];
 
 Sphericalize[parameterRules_] := Module[{
