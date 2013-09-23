@@ -55,4 +55,35 @@ TestEquality[IndentText["abc\n\ndef",1], " abc\n\n def"];
 TestEquality[IndentText["abc\n\n\ndef",1], " abc\n\n\n def"];
 TestEquality[IndentText["abc\n\n\n\ndef",1], " abc\n\n\n\n def"];
 
+Print["testing WrapText[] ..."];
+
+TestEquality[WrapText["a"  ,1,0], "a\n"];
+TestEquality[WrapText["a\n",1,0], "a\n"];
+TestEquality[WrapText["a  ",1,0], "a\n"];
+TestEquality[WrapText["a b",2,0], "a\nb\n"];
+TestEquality[WrapText["a b c",1,0], "a\nb\nc\n"];
+TestEquality[WrapText["abc def",3,0], "abc\ndef\n"];
+TestEquality[WrapText["abc def",4,0], "abc\ndef\n"];
+
+(* test indentation *)
+TestEquality[WrapText[" abc,def",5,0], " abc,\n def\n"];
+TestEquality[WrapText[" abc,def",6,0], " abc,\n def\n"];
+TestEquality[WrapText[" abc def",5,0], " abc\n def\n"];
+
+(* test indentation + offset *)
+TestEquality[WrapText[" abc,def",5,1], " abc,\n  def\n"];
+TestEquality[WrapText[" abc,def",6,1], " abc,\n  def\n"];
+
+(* test string constants *)
+TestEquality[WrapText[" _ab;_,def",5,0], " _ab;\n _,\n def\n"];
+TestEquality[WrapText[" \"ab;\",def",5,0], " \"ab;\"\n ,def\n"];
+TestEquality[WrapText[" \"ab\"\"cd\"",5,0], " \"ab\"\n \"cd\"\n"];
+TestEquality[WrapText[" \"ab\\\"\\\"cd\"",5,0], " \"ab\\\"\\\"cd\"\n"];
+
+(* test multi-char operators *)
+TestEquality[WrapText[" abc:de",5,0], " abc:\n de\n"];
+TestEquality[WrapText[" abc::de",5,0], " abc\n ::de\n"];
+TestEquality[WrapText[" abc+def",5,0], " abc+\n def\n"];
+TestEquality[WrapText[" abc+=def",5,0], " abc\n +=\n def\n"];
+
 PrintTestSummary[];

@@ -110,9 +110,9 @@ Module[{
 	 FileNameJoin[{outputDir, modelName <> "_lattice_model.cpp"}]}};
     WriteOut`ReplaceInFiles[replacementFiles,
 	Join[templateRules, {
-	"@enumParameters@"  -> enumParameters,
-	"@abbrDecls@"	    -> abbrDecls,
-	"@betaDecls@"	    -> betaDecls
+	"@enumParameters@"  -> WrapText@IndentText[enumParameters, 2],
+	"@abbrDecls@"	    -> IndentText[abbrDecls, 2],
+	"@betaDecls@"	    -> IndentText[betaDecls, 2]
     }]];
     defChunks = Join[abbrDefs, betaDefs];
     nDefChunks = Length[defChunks];
@@ -126,7 +126,7 @@ Module[{
 	     betaCFile}},
 	    Join[templateRules, {
 		"@abbrDefs@"	    -> "",
-		"@betaDefs@"	    -> #1
+		"@betaDefs@"	    -> WrapText[#1]
 	    }]];
 	betaCFile)&,
     defChunks];
