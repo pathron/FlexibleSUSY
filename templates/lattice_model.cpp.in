@@ -47,9 +47,8 @@ std::string CLASSNAME::name() const
    return "@ModelName@";
 }
 
-int CLASSNAME::run_to(double, double)
+void CLASSNAME::run_to(double, double)
 {
-   return 0;
 }
 
 void CLASSNAME::print(std::ostream&) const

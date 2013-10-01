@@ -1,8 +1,10 @@
 
 BeginPackage["FlexibleSUSY`", {"SARAH`", "AnomalousDimension`", "BetaFunction`", "TextFormatting`", "CConversion`", "TreeMasses`", "EWSB`", "Traces`", "SelfEnergies`", "Phases`", "LoopMasses`", "WriteOut`", "Constraint`", "ThresholdCorrections`", "ConvergenceTester`", "Lattice`"}];
 
+FS`Version = StringTrim[Import[FileNameJoin[{Global`$flexiblesusyConfigDir,"version"}], "String"]];
+
 Print["***********************************************************"];
-Print["FlexibleSUSY ", Get[FileNameJoin[{Global`$flexiblesusyConfigDir,"version"}]]];
+Print["FlexibleSUSY ", FS`Version];
 Print["by P. Athron, Jae-hyeon Park, D. Stöckinger, A. Voigt, 2013"];
 Print["***********************************************************"];
 Print[""];
@@ -33,6 +35,7 @@ LowScaleInput;
 InitialGuessAtLowScale;
 InitialGuessAtHighScale;
 OnlyLowEnergyFlexibleSUSY;
+TreeLevelEWSBSolution;
 Pole;
 FSMinimize;
 FSFindRoot;
@@ -64,6 +67,29 @@ PrintHeadline[text_] :=
           Print[text];
           Print["---------------------------------"];
          ];
+
+DecomposeVersionString[version_String] :=
+    ToExpression /@ StringSplit[version, "."];
+
+ToVersionString[{major_Integer, minor_Integer, patch_Integer}] :=
+    ToString[major] <> "." <> ToString[minor] <> "." <> ToString[patch];
+
+CheckSARAHVersion[] :=
+    Module[{minimRequired, sarahVersion},
+           minimRequired = {4,0,0};
+           sarahVersion = DecomposeVersionString[SA`Version];
+           If[sarahVersion[[1]] < minimRequired[[1]] ||
+              (sarahVersion[[1]] == minimRequired[[1]] &&
+               sarahVersion[[2]] < minimRequired[[2]]) ||
+              (sarahVersion[[1]] == minimRequired[[1]] &&
+               sarahVersion[[2]] == minimRequired[[2]] &&
+               sarahVersion[[3]] < minimRequired[[2]]),
+              Print["Error: SARAH version ", SA`Version, " no longer supported!"];
+              Print["Please use version ", ToVersionString[minimRequired],
+                    " or higher"];
+              Quit[1];
+             ];
+          ];
 
 CheckModelFileSettings[] :=
     Module[{},
@@ -136,6 +162,9 @@ CheckModelFileSettings[] :=
              ];
            If[Head[SARAH`EXTPAR] =!= List,
               SARAH`EXTPAR = {};
+             ];
+           If[Head[FlexibleSUSY`TreeLevelEWSBSolution] =!= List,
+              FlexibleSUSY`TreeLevelEWSBSolution = {};
              ];
           ];
 
@@ -294,7 +323,8 @@ WriteConvergenceTesterClass[particles_List, files_List] :=
           ];
 
 WriteModelClass[massMatrices_List, vevs_List, ewsbEquations_List,
-                parametersFixedByEWSB_List, nPointFunctions_List, phases_List,
+                parametersFixedByEWSB_List, ewsbSolution_List, freePhases_List,
+                nPointFunctions_List, phases_List,
                 enablePoleMassThreads_,
                 files_List, diagonalizationPrecision_List] :=
     Module[{massGetters = "", k,
@@ -351,9 +381,9 @@ WriteModelClass[massMatrices_List, vevs_List, ewsbEquations_List,
              ];
            oneLoopTadpoles              = Cases[nPointFunctions, SelfEnergies`Tadpole[___]];
            calculateOneLoopTadpoles     = SelfEnergies`FillArrayWithOneLoopTadpoles[oneLoopTadpoles];
-           calculateTreeLevelTadpoles   = EWSB`FillArrayWithEWSBEqs[vevs, parametersFixedByEWSB];
+           calculateTreeLevelTadpoles   = EWSB`FillArrayWithEWSBEqs[vevs, parametersFixedByEWSB, freePhases];
            ewsbInitialGuess             = EWSB`FillInitialGuessArray[parametersFixedByEWSB];
-           solveEwsbTreeLevel           = EWSB`SolveTreeLevelEwsb[ewsbEquations, parametersFixedByEWSB];
+           solveEwsbTreeLevel           = EWSB`CreateTreeLevelEwsbSolver[ewsbSolution];
            {selfEnergyPrototypes, selfEnergyFunctions} = SelfEnergies`CreateNPointFunctions[nPointFunctions];
            phasesDefinition             = Phases`CreatePhasesDefinition[phases];
            phasesGetterSetters          = Phases`CreatePhasesGetterSetters[phases];
@@ -669,7 +699,8 @@ MakeFlexibleSUSY[OptionsPattern[]] :=
             susyBetaFunctions, susyBreakingBetaFunctions,
             numberOfSusyParameters, anomDim,
             ewsbEquations, massMatrices, phases, vevs,
-            diagonalizationPrecision, allParticles, freePhases, fixedParameters,
+            diagonalizationPrecision, allParticles, freePhases, ewsbSolution,
+            fixedParameters, treeLevelEwsbOutputFile,
 
 	    Lat$gaugeCouplings,
 	    Lat$vevs,
@@ -688,6 +719,7 @@ MakeFlexibleSUSY[OptionsPattern[]] :=
               Print["Error: Model`Name is not defined.  Did you call SARAH`Start[\"Model\"]?"];
               Quit[1];
              ];
+           CheckSARAHVersion[];
            FSEigenstates = OptionValue[Eigenstates];
            FSSolveEWSBTimeConstraint = OptionValue[SolveEWSBTimeConstraint];
            (* load model file *)
@@ -854,12 +886,48 @@ MakeFlexibleSUSY[OptionsPattern[]] :=
               Quit[1];
              ];
 
-           freePhases = EWSB`FindFreePhasesInEWSB[ewsbEquations, ParametersToSolveTadpoles];
-           (* remove free phases which are already defined in FlexibleSUSY`InputParameters *)
-           freePhases = Complement[freePhases, FlexibleSUSY`InputParameters];
+           If[FlexibleSUSY`TreeLevelEWSBSolution === {},
+              (* trying to find an analytic solution for the EWSB eqs. *)
+              treeLevelEwsbOutputFile = FileNameJoin[{Global`$flexiblesusyOutputDir,
+                                                      FlexibleSUSY`FSModelName <> "_tree_level_EWSB_solution.m"}];
+              Print["Solving EWSB equations ..."];
+              {ewsbSolution, freePhases} = EWSB`FindSolutionAndFreePhases[ewsbEquations,
+                                                                          ParametersToSolveTadpoles,
+                                                                          treeLevelEwsbOutputFile];
+              If[ewsbSolution === {},
+                 Print["Warning: could not find an analytic solution to the EWSB eqs."];
+                 Print["   An iterative algorithm will be used.  You can try to set"];
+                 Print["   the solution by hand in the model file like this:"];
+                 Print[""];
+                 Print["   TreeLevelEWSBSolution = {"];
+                 For[i = 1, i <= Length[ParametersToSolveTadpoles], i++,
+                     Print["      { ", ParametersToSolveTadpoles[[i]], ", ... }" <>
+                           If[i != Length[ParametersToSolveTadpoles], ",", ""]];
+                    ];
+                 Print["   };\n"];
+                 Print["   The tree-level EWSB solution was written to the file:"];
+                 Print["      ", treeLevelEwsbOutputFile];
+                ];
+              ,
+              If[Length[FlexibleSUSY`TreeLevelEWSBSolution] != Length[ewsbEquations],
+                 Print["Error: not enough EWSB solutions given!"];
+                 Quit[1];
+                ];
+              If[Sort[#[[1]]& /@ FlexibleSUSY`TreeLevelEWSBSolution] =!= Sort[ParametersToSolveTadpoles],
+                 Print["Error: Parameters given in TreeLevelEWSBSolution, do not match"];
+                 Print["   the Parameters given in ParametersToSolveTadpoles!"];
+                 Quit[1];
+                ];
+              Print["Using user-defined EWSB eqs. solution"];
+              freePhases = {};
+              ewsbSolution = FlexibleSUSY`TreeLevelEWSBSolution;
+             ];
+           If[freePhases =!= {},
+              Print["Note: adding free phases: ", freePhases];
+             ];
 
            Print["Creating class for input parameters ..."];
-           WriteInputParameterClass[FlexibleSUSY`InputParameters, freePhases,
+           WriteInputParameterClass[FlexibleSUSY`InputParameters, Complement[freePhases, FlexibleSUSY`InputParameters],
                                     If[FlexibleSUSY`OnlyLowEnergyFlexibleSUSY =!= True, {},
                                        {#[[2]], #[[3]]}& /@ FlexibleSUSY`FSUnfixedParameters],
                                     FlexibleSUSY`DefaultParameterPoint,
@@ -1009,7 +1077,7 @@ MakeFlexibleSUSY[OptionsPattern[]] :=
            PrintHeadline["Creating model"];
            Print["Creating class for model ..."];
            WriteModelClass[massMatrices, vevs, ewsbEquations,
-                           ParametersToSolveTadpoles,
+                           ParametersToSolveTadpoles, ewsbSolution, freePhases,
                            nPointFunctions, phases, OptionValue[EnablePoleMassThreads],
                            {{FileNameJoin[{Global`$flexiblesusyTemplateDir, "model.hpp.in"}],
                              FileNameJoin[{Global`$flexiblesusyOutputDir, FlexibleSUSY`FSModelName <> "_model.hpp"}]},

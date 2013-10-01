@@ -149,7 +149,7 @@ static int close(Real m1, Real m2, Real tol)
     return fabs(max(m1,m2)-min(m1,m2)) <= tol * max(fabs(m1),fabs(m2));
 }
 
-int Lattice_RKRGE::evolve_to(Real to, Adapter& a, Real eps)
+void Lattice_RKRGE::evolve_to(Real to, Adapter& a, Real eps)
 {
     Real tol;
     if (eps < 0.0) tol = TOLERANCE;
@@ -160,7 +160,7 @@ int Lattice_RKRGE::evolve_to(Real to, Adapter& a, Real eps)
 	for (size_t j = 0; j < a.n; j++)
 	    a.D(i,j) = i==j ? 1 : 0;
     // from == to with high precision
-    if (close(from, to, EPSTOL)) return 0;
+    if (close(from, to, EPSTOL)) return;
 
     Real guess = (from - to) * 0.1; //first step size
     Real hmin = (from - to) * tol * 1.0e-5;
@@ -170,24 +170,21 @@ int Lattice_RKRGE::evolve_to(Real to, Adapter& a, Real eps)
     Adapter db;
     VectorXd dbx(a.n);
 
-    int err = integrateOdes(*a.v, from, to, tol, guess, hmin,
-	    [=,&ddx,&b,&db,&dbx](Real, const ArrayXd& xD) -> ArrayXd {
-		b.set(xD, a.n);
+    integrateOdes(*a.v, from, to, tol, guess, hmin,
+	[=,&ddx,&b,&db,&dbx](Real, const ArrayXd& xD) -> ArrayXd {
+	    b.set(xD, a.n);
 
-		ArrayXd dxD(xD.size());
-		db.set(dxD, b.n);
+	    ArrayXd dxD(xD.size());
+	    db.set(dxD, b.n);
 
-		f->efts[T].w-> dx(f->a, b.x, dbx, f->nloops);
-		db.x = dbx;
-		f->efts[T].w->ddx(f->a, b.x, ddx , f->nloops);
-		db.D = ddx.transpose() * b.D;
+	    f->efts[T].w-> dx(f->a, b.x, dbx, f->nloops);
+	    db.x = dbx;
+	    f->efts[T].w->ddx(f->a, b.x, ddx, f->nloops);
+	    db.D = ddx.transpose() * b.D;
 
-		return dxD;
-	    }, odeStepper);
-
-    if (err == 0) a.x(0) = to;
-
-    return err;
+	    return dxD;
+	}, odeStepper);
+    a.x(0) = to;
 }
 
 }

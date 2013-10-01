@@ -243,7 +243,7 @@ public:
     using IntraTheoryConstraint::init;
 
 private:
-    int evolve_to(Real t_new, Adapter& a, Real eps = -1);
+    void evolve_to(Real t_new, Adapter& a, Real eps = -1);
 
     Eigen::ArrayXd  xD0, xD1;
     Adapter          a0,  a1;
