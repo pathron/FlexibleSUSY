@@ -29,6 +29,8 @@ HasIndicesQ::usage;
 UpdateValues::usage;
 CouplingDimensions::usage;
 KillIm::usage;
+KillFlavorMixing::usage;
+KillSmallYukawas::usage;
 Sphericalize::usage;
 
 sarahOperatorReplacementRules::usage;
@@ -295,16 +297,23 @@ SingleCase[args__] := Module[{
 KillIm[parameterRules_] := Module[{
 	matrices = Union@Cases[
 	    Variables[parameterRules[[All, 2]]] /. Re|Im -> Identity,
-	    m_[_, _] :> m],
-	apparentlyYukawas,
-	apparentlyTrilinears,
-	i, j
+	    m_[_, _] :> m]
     },
-    (cnj[#] = #; adj[#] = trp[#])& /@ matrices;
+    (cnj[#] = #; If[adj[#] === #, trp[#] = #, adj[#] = trp[#]])& /@ matrices;
     parameterRules /. _Im -> 0
 ];
 
-Sphericalize[parameterRules_] := Module[{
+KillFlavorMixing[parameterRules_] := Module[{
+	matrices = Union@Cases[
+	    Variables[parameterRules[[All, 2]]] /. Re|Im -> Identity,
+	    m_[_, _] :> m],
+	i, j
+    },
+    (trp[#] = #; If[adj[#] === #, cnj[#] = #, adj[#] = cnj[#]])& /@ matrices;
+    parameterRules /. ((Re|Im)[_[i_, j_]] /; i =!= j) -> 0
+];
+
+KillSmallYukawas[parameterRules_] := Module[{
 	matrices = Union@Cases[
 	    Variables[parameterRules[[All, 2]]] /. Re|Im -> Identity,
 	    m_[_, _] :> m],
@@ -316,12 +325,15 @@ Sphericalize[parameterRules_] := Module[{
 	Select[matrices, ApparentlyYukawaQ];
     apparentlyTrilinears =
 	Select[matrices, ApparentlyYukawaTrilinearQ];
-    (trp[#] = #; cnj[#] = #; adj[#] = #)& /@ matrices;
+    (trp[#] = #)& /@
+	Join[apparentlyYukawas, apparentlyTrilinears];
     parameterRules /.
-	_Im | (Re[_[i_, j_]] /; i =!= j) |
 	Alternatives@@(Except[#@@CouplingDimensions[#], #[_,_]]& /@
 		       Join[apparentlyYukawas, apparentlyTrilinears]) -> 0
 ];
+
+Sphericalize[parameterRules_] :=
+    KillSmallYukawas @ KillFlavorMixing @ KillIm @ parameterRules;
 
 ApparentlyYukawaQ[matrix_Symbol] :=
     StringMatchQ[SymbolName[matrix], "Y" ~~ ___];
@@ -366,7 +378,7 @@ adj[adj[m_]] := m;
 
 cnj[adj[m_]] := trp[m];
 cnj[trp[m_]] := adj[m];
-cnj[SARAH`trace[m__]] := cnj /@ SARAH`trace[m];
+cnj[t_SARAH`trace] := cnj /@ t;
 
 (* SARAH`getDimParameters[T] === {3, 3} *)
 
