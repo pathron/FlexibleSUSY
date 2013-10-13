@@ -92,6 +92,7 @@ FindColorGaugeCoupling::usage="returns symbol of color gauge coupling";
 FindLeftGaugeCoupling::usage="returns symbol of weak (left) gauge coupling";
 FindHyperchargeGaugeCoupling::usage="returns symbol of hypercharge gauge coupling";
 
+FindDependenceNums::usage;
 CreateDependenceNumPrototypes::usage="";
 CreateDependenceNumFunctions::usage="";
 

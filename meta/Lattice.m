@@ -25,6 +25,7 @@ BeginPackage["Lattice`", {
     "BetaFunction`",
     "Parametrization`",
     "Traces`",
+    "TreeMasses`",
     "CConversion`",
     "TextFormatting`",
     "WriteOut`",
@@ -62,12 +63,14 @@ Format[Lattice`Private`M[f_], CForm] :=
 
 WriteRGECode[
     sarahAbbrs_List, betaFunctions_List, anomDims_List,
+    fsMassMatrices_,
     gaugeCouplingRules_, otherParameterRules_, templateRules_,
     modelName_, templateDir_, outputDir_] :=
 
 Block[{
 	drv,
-	ToEnumSymbol
+	ToEnumSymbol,
+	DeclaredRealQ
     },
     Format[d:drv[_, _], CForm] := Format[DrvToCFormString[d], OutputForm];
 
@@ -83,6 +86,10 @@ Module[{
 	defChunks, nDefChunks,
 	replacementFiles, cFiles,
 	betaCFile, betaCFiles,
+	massMatrices = FixDiagonalization[fsMassMatrices] /.
+	    sarahOperatorReplacementRules,
+	eigenVarsDefs, eigenVarsStmts,
+	dependenceNumDecls, dependenceNumDefs,
 	p
     },
     parameters = RealVariables[parameterRules];
@@ -95,16 +102,23 @@ Module[{
     abbrDerivRules = DifferentiateRules[abbrRules, parameters, abbrRules];
     {trivialAbbrRules, nonTrivialAbbrRules} =
 	SeparateTrivialRules@Flatten[{abbrRules, abbrDerivRules}];
-    {abbrDecls, abbrDefs} = ToCCode[
-        RuleToC[#]& /@ nonTrivialAbbrRules, 2^21],
+    {abbrDecls, abbrDefs} = CFxnsToCCode[
+        AbbrRuleToC /@ nonTrivialAbbrRules, 2^21],
     "Differentiating abbreviations... "];
     betaFunctionRules = Transpose[
 	ScaleByA[#, gaugeCouplings]& /@
 	SortBy[betaFunctionRules,
 	       (# /. {{BETA[_Integer, p_] -> _, ___}, ___} :>
 		Position[parameters, p])&]];
-    {betaDecls, betaDefs} = ToCCode[Flatten[
+    {betaDecls, betaDefs} = CFxnsToCCode[Flatten[
 	BetaFunctionRulesToC[betaFunctionRules, enumRules, abbrRules]], 2^21];
+    {dependenceNumDecls, dependenceNumDefs} = CFxnsToCCode[
+	DepNumRuleToC /@ ParametrizeDependenceNums[
+	    FindDependenceNums[], parameterRules]];
+
+    {eigenVarDefs, eigenVarStmts} = CMassesToCCode[
+	FSMassMatrixToC /@
+	ParametrizeMasses[massMatrices, parameterRules]];
 
     replacementFiles = {
 	{FileNameJoin[{templateDir, "lattice_info.hpp.in"}],
@@ -112,12 +126,20 @@ Module[{
 	{FileNameJoin[{templateDir, "lattice_model.hpp.in"}],
 	 FileNameJoin[{outputDir, modelName <> "_lattice_model.hpp"}]},
 	{FileNameJoin[{templateDir, "lattice_model.cpp.in"}],
-	 FileNameJoin[{outputDir, modelName <> "_lattice_model.cpp"}]}};
+	 FileNameJoin[{outputDir, modelName <> "_lattice_model.cpp"}]},
+	{FileNameJoin[{templateDir, "lattice_model_interactions.cpp.in"}],
+	 FileNameJoin[{outputDir, modelName <> "_lattice_model_interactions.cpp"}]}};
     WriteOut`ReplaceInFiles[replacementFiles,
 	Join[templateRules, {
-	"@enumParameters@"  -> WrapText@IndentText[enumParameters, 2],
 	"@abbrDecls@"	    -> IndentText[abbrDecls, 2],
-	"@betaDecls@"	    -> IndentText[betaDecls, 2]
+	"@betaDecls@"	    -> IndentText[betaDecls, 2],
+	"@dependenceNumDecls@" -> IndentText[dependenceNumDecls, 4],
+	"@dependenceNumDefs@"  -> WrapText[StringJoin@dependenceNumDefs],
+	"@eigenVarDefs@"    -> IndentText[eigenVarDefs, 4],
+	"@eigenVarStmts@"   -> WrapText[eigenVarStmts],
+	"@enumParameters@"  -> WrapText@IndentText[enumParameters, 2],
+	"@vertexDecls@"	    -> "",
+	"@vertexDefs@"	    -> ""
     }]];
     defChunks = Join[abbrDefs, betaDefs];
     nDefChunks = Length[defChunks];
@@ -139,6 +161,197 @@ Module[{
 	betaCFiles];
     WriteMakefile[templateDir, outputDir, cFiles, templateRules]
 ]];
+
+ParametrizeDependenceNums[depNums_List, parameterRules_] :=
+    ParametrizeDependenceNum[#, parameterRules]& /@ depNums;
+
+ParametrizeDependenceNum[lhs_ -> rhs_, parameterRules_] := Module[{
+	expanded = (rhs /. parameterRules)
+    },
+    If[RealQ[expanded], DeclaredRealQ[lhs[]] = True];
+    lhs -> expanded
+];
+
+ParametrizeMasses[massMatrices_, parameterRules_] := Module[{
+	matrices = Cases[parameterRules, HoldPattern[_ -> _?MatrixQ]][[All,1]]
+    },
+    ReleaseHold[Hold[massMatrices] /.
+	(m_[i__Integer] /; MemberQ[matrices, m]) :> m[[i]] /.
+	parameterRules //. matrixOpRules]
+];
+
+CMassesToCCode[cmasses_] :=
+    StringJoin /@ Transpose[
+	({{EigenDef, "\n"}, {SetStmt, "\n"}} /. List@@#)& /@
+	Flatten[cmasses]];
+
+FSMassMatrixToC[FSMassMatrix[{m_?RealQ}, f_, _]] :=
+    MassToC[m, f, "double"];
+
+FSMassMatrixToC[FSMassMatrix[{m_}, f_, _]] :=
+    MassToC[m, f, "std::complex<double>"];
+
+FSMassMatrixToC[FSMassMatrix[m_?RealMatrixQ, f_, {u_Symbol, v_Symbol}]] :=
+    SVDToC[m, f, u, v, "double"];
+
+FSMassMatrixToC[FSMassMatrix[m_?MatrixQ, f_, {u_Symbol, v_Symbol}]] :=
+    SVDToC[m, f, u, v, "std::complex<double>"];
+
+FSMassMatrixToC[FSMassMatrix[m_?RealMatrixQ, f_, z_Symbol]] :=
+    HermitianToC[m, f, z, "double"];
+
+FSMassMatrixToC[FSMassMatrix[m_?MatrixQ, f_, z_Symbol]] :=
+    HermitianToC[m, f, z, "std::complex<double>"];
+
+MassToC[m_, f_, cType_] := Module[{
+	ev = ToCMassName[f]
+    },
+    CMass[
+	EigenDef -> cType <> " " <> ev <> ";",
+	SetStmt -> "  " <> ev <> " = " <> CExpToCFormString@ToCExp[m, x] <> ";"
+    ]
+];
+
+SVDToC[m_, f_, u_, u_, scalarType_] := Module[{
+	d, ev
+    },
+    {d, d} = Dimensions[m];
+    ev = ToCMassName[f];
+    CMass[
+	EigenDef ->
+	    CEigenArrayType[d] <> " " <> ev <> ";\n" <>
+	    CEigenMatrixType["std::complex<double>", d, d] <> " " <>
+	    ToValidCSymbolString[u] <> ";",
+	SetStmt ->
+	    "  {\n" <>
+	    CDefTmpMatrix[m, scalarType, "tmpMat"] <> "\n" <>
+	    "    reorder_diagonalize_symmetric(tmpMat, " <> ev <> ", " <>
+		ToValidCSymbolString[u] <> ");\n" <>
+	    "    " <> ToValidCSymbolString[u] <> ".transposeInPlace();\n" <>
+	    "  }"
+    ]
+];
+
+SVDToC[m_, f_, u_, v_, scalarType_] := Module[{
+	d1, d2, ds, ev
+    },
+    ds = Min[{d1, d2} = Dimensions[m]];
+    ev = ToCMassName[f];
+    CMass[
+	EigenDef ->
+	    CEigenArrayType[ds] <> " " <> ev <> ";\n" <>
+	    CEigenMatrixType[scalarType, d1, d1] <> " " <>
+	    ToValidCSymbolString[u] <> ";\n" <>
+	    CEigenMatrixType[scalarType, d2, d2] <> " " <>
+	    ToValidCSymbolString[v] <> ";",
+	SetStmt ->
+	    "  {\n" <>
+	    CDefTmpMatrix[m, scalarType, "tmpMat"] <> "\n" <>
+	    "    reorder_svd(tmpMat, " <> ev <> ", " <>
+		ToValidCSymbolString[u] <> ", " <> ToValidCSymbolString[v] <>
+		");\n" <>
+	    "    " <> ToValidCSymbolString[u] <> ".transposeInPlace();\n" <>
+	    "  }"
+    ]
+];
+
+HermitianToC[m_, f_, z_, scalarType_] := Module[{
+	d, ev
+    },
+    {d, d} = Dimensions[m];
+    ev = ToCMassName[f];
+    CMass[
+	EigenDef ->
+	    CEigenArrayType[d] <> " " <> ev <> ";\n" <>
+	    CEigenMatrixType[scalarType, d, d] <> " " <>
+	    ToValidCSymbolString[z] <> ";",
+	SetStmt ->
+	    "  {\n" <>
+	    CDefTmpMatrix[m, scalarType, "tmpMat"] <> "\n" <>
+	    "    diagonalize_hermitian(tmpMat, " <> ev <> ", " <>
+		ToValidCSymbolString[z] <> ");\n" <>
+	    "    " <> ToValidCSymbolString[z] <> ".adjointInPlace();\n" <>
+	    "  }"
+    ]
+];
+
+CEigenMatrixType[scalarType_String, d1_Integer, d2_Integer] :=
+    "Eigen::Matrix<" <> scalarType <> ", " <>
+    ToString[d1] <> ", " <> ToString[d2] <> ">";
+
+CEigenArrayType[scalarType_String, len_Integer] :=
+    "Eigen::Array<" <> scalarType <> ", " <> ToString[len] <> ", 1>";
+
+CEigenArrayType[len_Integer] := CEigenArrayType["double", len];
+
+ToCMassName[field_Symbol] := ToValidCSymbolString[FlexibleSUSY`M[field]];
+
+CDefTmpMatrix[m_, scalarType_, name_] := Module[{
+	d1, d2, i1, i2,
+	re = If[scalarType === "double", ReExpandCExp, Expand]
+    },
+    {d1, d2} = Dimensions[m];
+    "    " <> CEigenMatrixType[scalarType, d1, d2] <> " " <> name <> ";\n" <>
+    "    " <> name <> " <<\n" <>
+    Riffle[Table[
+	Riffle[Table[{
+	    "    /*", ToString[i1 - 1], ",", ToString[i2 - 1], "*/ ",
+	    CExpToCFormString @ re @ ToCExp[m[[i1,i2]], x]}, {i2, d2}], ",\n"],
+	{i1, d1}], ",\n"] <> ";"
+];
+
+FixDiagonalization[fsMassMatrices_List] := FixDiagonalization/@fsMassMatrices;
+
+(*
+   Diagonalization conventions of SARAH:
+
+      SVD: m = u^T diag v,
+	where u and v are the 1st and the 2nd mixing matrices from
+	DEFINITION[_][MatterSector]
+
+      hermitian: m = z^dagger diag z
+
+   According to the SARAH documentation, the specification of the
+   neutraliino mass matrix is indistinguishable from that of a
+   hermitian matrix even though it must be diagonalized as
+
+      symmetric: m = u^T diag u
+
+   This leads to the following amendment:
+ *)
+FixDiagonalization[FSMassMatrix[m_, f_, z_Symbol]?MajoranaMassMatrixQ] :=
+    FSMassMatrix[m, f, {z, z}];
+
+FixDiagonalization[m_FSMassMatrix] := m;
+
+MajoranaMassMatrixQ[FSMassMatrix[_?MatrixQ, _, _]?MajoranaMassQ] := True;
+
+MajoranaMassMatrixQ[_FSMassMatrix] := False;
+
+MajoranaMassQ[FSMassMatrix[_, _?MajoranaQ, _]] := True;
+
+MajoranaMassQ[_FSMassMatrix] := False;
+
+MajoranaQ[field_] := MemberQ[SARAH`MajoranaPart, field];
+
+RealQ[z_] := PossibleZeroQ[ConjugateExpand[z - Conjugate[z]]];
+
+RealMatrixQ[m_?MatrixQ] := And @@ (RealQ /@ Flatten[m]);
+
+RealMatrixQ[_] := False;
+
+conjugateExpandDispatch = Dispatch[{
+    (* Schwarz reflection principle? *)
+    Conjugate[z:(_Plus|_Times|
+		 _Power|
+		 _Sin|_ArcSin|
+		 _Cos|_ArcCos|
+		 _Tan|_ArcTan)] :> Conjugate /@ z,
+    Conjugate[z:(_SARAH`Mass|_SARAH`Mass2)] :> z,
+    Conjugate[z_?DeclaredRealQ] :> z
+}];
+
+ConjugateExpand[z_] := z //. conjugateExpandDispatch;
 
 WriteMakefile[templateDir_, outputDir_, cppFiles_, templateRules_] :=
     Makefile`ReplaceInMakefiles[{
@@ -198,13 +411,13 @@ SetRule[lhs_ -> rhs_] := lhs = rhs;
 SeparateTrivialRules[rules_] := Flatten /@
     Last@Reap[Sow[#, NumericQ@Expand@Last[#]]& /@ rules, {True, False}];
 
-ToCCode[cfxns_, chunkSize_:Infinity] := Module[{
+CFxnsToCCode[cfxns_, chunkSize_:Infinity] := Module[{
 	decls, defs
     },
     {decls, defs} = Transpose[
 	({{ReturnType, " ", Name, Args, {" ATTR(",Attributes,")"}, ";\n"},
-	  {ReturnType, " CLASSNAME::", Name, Args, "\n", Body, "\n"}} /.
-	 List@@# /. {___, Attributes, ___} -> {})& /@
+	  {ReturnType, " ", Scope, Name, Args, "\n", Body, "\n"}} /.
+	 List@@# /. {Scope -> "CLASSNAME::", {___, Attributes, ___} -> {}})& /@
 	Flatten[cfxns]];
     {StringJoin[decls], StringGroup[defs, chunkSize]}
 ];
@@ -218,7 +431,19 @@ StringGroup[strings_List, chunkSize_] := Module[{
 	flattened]
 ];
 
-RuleToC[lhs_ -> rhs_] :=
+DepNumRuleToC[lhs_ -> rhs_] :=
+CFxn[
+    ReturnType -> If[RealQ[rhs], "double", "std::complex<double>"],
+    Scope -> "CLASSNAME::Interactions::",
+    Name -> CExpToCFormString@ToCExp[lhs],
+    Args -> "() const",
+    Attributes -> "pure",
+    Body -> "{\n" <>
+    "  return " <> CExpToCFormString@ToCExp[rhs, x] <> ";\n" <>
+    "}\n"
+];
+
+AbbrRuleToC[lhs_ -> rhs_] :=
 CFxn[
     ReturnType -> "double",
     Name -> CExpToCFormString@ToCExp[lhs],
@@ -356,6 +581,16 @@ ToCExp[parametrization_, array_Symbol] := ToCExp[parametrization] /.
     p:(Lattice`Private`Re|Lattice`Private`Im)[_] /; ValueQ@ToEnumSymbol[p] :>
 	array@ToEnumSymbol[p] /.
     ap:(Lattice`Private`Re|Lattice`Private`Im)[abbr_Symbol] :> ap[array];
+
+ReExpandCExp[cexp_] := Module[{
+	expanded = Expand[cexp]
+    },
+    If[Position[expanded, I] === {}, expanded,
+       WriteString["stdout",
+		   "Failed to eliminate I from real expression: ", cexp,
+		   ",\ntaking its real part\n"];
+       Re[expanded]]
+];
 
 Differentiate[exp_, x_, abbrRules_] :=
     D[exp, x, NonConstants -> abbrRules[[All,1]]] /.

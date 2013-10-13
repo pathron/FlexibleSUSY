@@ -1,0 +1,45 @@
+// ====================================================================
+// This file is part of FlexibleSUSY.
+//
+// FlexibleSUSY is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published
+// by the Free Software Foundation, either version 3 of the License,
+// or (at your option) any later version.
+//
+// FlexibleSUSY is distributed in the hope that it will be useful, but
+// WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+// General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with FlexibleSUSY.  If not, see
+// <http://www.gnu.org/licenses/>.
+// ====================================================================
+
+// File generated at @DateAndTime@
+
+#include "linalg2.hpp"
+#include "wrappers.hpp"
+#include "@ModelName@_lattice_model.hpp"
+#include "@ModelName@_lattice_info.hpp"
+
+namespace flexiblesusy {
+
+using namespace @ModelName@_lattice_info;
+
+#define CLASSNAME @ModelName@<Lattice>
+
+CLASSNAME::Interactions::Interactions() : x(nullptr, 0)
+{
+}
+
+void CLASSNAME::Interactions::set(const Eigen::VectorXd& x_)
+{
+  new (&x) Eigen::Map<const Eigen::VectorXd>(x_.data(), x_.size());
+
+@eigenVarStmts@
+}
+
+@vertexDefs@
+@dependenceNumDefs@
+} // namespace flexiblesusy

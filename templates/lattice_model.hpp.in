@@ -48,7 +48,20 @@ public:
   virtual void print(std::ostream&) const;
   virtual void set_precision(double);
 
-  // lattice specific methods
+  // lattice specific code
+
+  // interactions
+  class Interactions {
+  public:
+    Interactions();
+    void set(const Eigen::VectorXd& x);
+@vertexDecls@
+  private:
+    Eigen::Map<const Eigen::VectorXd> x;
+
+@eigenVarDefs@
+@dependenceNumDecls@
+  } interactions;
 
   // beta functions
 @betaDecls@
