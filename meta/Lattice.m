@@ -52,8 +52,13 @@ Format[drv[ap_, p_], CForm] :=
 DrvToCFormString[drv[ap_, p_]] :=
     "d"<>ToString[CForm[HoldForm[ap]]] <> "d"<>ToString[CForm[HoldForm[p]]];
 
-Format[REf[z_], CForm] := Format["RE" <> ToValidCSymbolString[z], OutputForm];
-Format[IMf[z_], CForm] := Format["IM" <> ToValidCSymbolString[z], OutputForm];
+Format[Lattice`Private`Re[z_], CForm] :=
+    Format["RE" <> ToValidCSymbolString[z], OutputForm];
+Format[Lattice`Private`Im[z_], CForm] :=
+    Format["IM" <> ToValidCSymbolString[z], OutputForm];
+
+Format[Lattice`Private`M[f_], CForm] :=
+    Format["M" <> ToValidCSymbolString[f], OutputForm];
 
 WriteRGECode[
     sarahAbbrs_List, betaFunctions_List, anomDims_List,
@@ -125,8 +130,7 @@ Module[{
 	    {FileNameJoin[{templateDir, "lattice_model_betafunctions.cpp.in"}],
 	     betaCFile}},
 	    Join[templateRules, {
-		"@abbrDefs@"	    -> "",
-		"@betaDefs@"	    -> WrapText[#1]
+		"@abbrBetaDefs@"    -> WrapText[#1]
 	    }]];
 	betaCFile)&,
     defChunks];
@@ -336,13 +340,22 @@ Module[{
     ]& /@ enumRules
 ];
 
-ToCExp[parametrization_] :=
-    parametrization /. Re[z_] :> REf[z] /. Im[z_] :> IMf[z];
+toCExpDispatch = Dispatch[{
+    Re[z_] :> Lattice`Private`Re[z],
+    Im[z_] :> Lattice`Private`Im[z],
+    SARAH`Mass  -> Lattice`Private`M,
+    SARAH`Mass2 -> Lattice`Private`M2
+}];
+
+ToCExp[parametrization_] := parametrization //. toCExpDispatch;
 
 ToCExp[parametrization_, array_Symbol] := ToCExp[parametrization] /.
-    d:drv[(REf|IMf)[_], (REf|IMf)[_]] :> Symbol[DrvToCFormString[d]][array] /.
-    p:(REf|IMf)[_] /; ValueQ@ToEnumSymbol[p] :> array@ToEnumSymbol[p] /.
-    ap:(REf|IMf)[abbr_Symbol] :> ap[array];
+    d:drv[(Lattice`Private`Re|Lattice`Private`Im)[_],
+	  (Lattice`Private`Re|Lattice`Private`Im)[_]] :>
+	Symbol[DrvToCFormString[d]][array] /.
+    p:(Lattice`Private`Re|Lattice`Private`Im)[_] /; ValueQ@ToEnumSymbol[p] :>
+	array@ToEnumSymbol[p] /.
+    ap:(Lattice`Private`Re|Lattice`Private`Im)[abbr_Symbol] :> ap[array];
 
 Differentiate[exp_, x_, abbrRules_] :=
     D[exp, x, NonConstants -> abbrRules[[All,1]]] /.
@@ -391,19 +404,11 @@ Module[{
 ParametrizeBetanLRules[name_, betanL_, n_, partRules_] := Module[{
 	equations
     },
-    WriteString["stdout", "BETA[",n ,", ", name, "]... "];
-    equations = ParametrizeBetanL[name, betanL, n, partRules];
-    EquationsToRules /@ equations
-]
-
-ParametrizeBetanLRules[name_, betanL_, n_, partRules_] := Module[{
-	equations
-    },
 Done[
     equations = ParametrizeBetanL[name, betanL, n, partRules];
     EquationsToRules /@ equations,
 	" BETA[",n ,", ", name, "]... "
-]]
+]];
 
 EquationsToRules[equations:HoldPattern@And[(BETA[_Integer, _] == _)..]] :=
     List@@equations /. Equal -> Rule;

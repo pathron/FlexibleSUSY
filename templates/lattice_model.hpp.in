@@ -21,12 +21,12 @@
 #ifndef @ModelName@_LATTICE_H
 #define @ModelName@_LATTICE_H
 
+#include <iosfwd>
+
 #include "lattice_model.hpp"
 #include "@ModelName@_model.hpp"
 // Q: needed here? see below
 #include "@ModelName@_input_parameters.hpp"
-
-#include <iosfwd>
 
 namespace flexiblesusy {
 
@@ -50,10 +50,10 @@ public:
 
   // lattice specific methods
 
-  // trace abbreviations
-@abbrDecls@
   // beta functions
 @betaDecls@
+  // trace abbreviations
+@abbrDecls@
 };
 
 } // namespace flexiblesusy

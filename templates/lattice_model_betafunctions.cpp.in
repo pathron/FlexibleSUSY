@@ -28,8 +28,6 @@ using namespace @ModelName@_lattice_info;
 
 #define CLASSNAME @ModelName@<Lattice>
 
-@abbrDefs@
-
-@betaDefs@
+@abbrBetaDefs@
 
 } // namespace flexiblesusy

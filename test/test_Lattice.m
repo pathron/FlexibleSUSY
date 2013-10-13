@@ -35,8 +35,8 @@ TestEquality[Lattice`Private`TraceSameQ[
 
 Print["testing CExpToCFormString[] ..."];
 
-REf := Lattice`Private`REf;
-IMf := Lattice`Private`IMf;
+REf := Lattice`Private`Re;
+IMf := Lattice`Private`Im;
 drv := Lattice`Private`drv;
 CExpToCFormString := Lattice`Private`CExpToCFormString;
 
