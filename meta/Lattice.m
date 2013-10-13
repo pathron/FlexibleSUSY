@@ -585,25 +585,21 @@ ListSameUptoRotationQ[a_List, b_List] :=
     Length[a] === Length[b] &&
     Or @@ Table[b === RotateLeft[a, i], {i, 0, Length[a]-1}];
 
-matrixOpRules := {
+matrixOpRules = Dispatch[{
     SARAH`MatMul :> Dot,
     Parametrization`trp :> Transpose,
     Parametrization`cnj :> Conjugate,
     Parametrization`adj :> ConjugateTranspose,
     SARAH`trace[m__] :> Tr[Dot[m]]
-};
+}];
 
 cExpToCFormStringDispatch = Dispatch[{
-        Power[a_?NumericQ,n_?NumericQ] :> N[Power[a,n]],
-        Sqrt[a_?NumericQ]        :> N[Sqrt[a]],
-        Rational[a_?NumericQ, b_?NumericQ] :> N[Rational[a,b]],
 (*
-        Power[a_,0.5]            :> Sqrt[a] /.
-        Power[a_,-0.5]           :> 1/Sqrt[a] /.
+    p:Power[_?NumericQ, _?NumericQ] :> N[p],
 *)
-        Power[a_,2]              :> Global`Sqr[a],
-        Power[a_,-2]             :> 1/Global`Sqr[a]
-    }];
+    Power[a_,2]			    :> Global`Sqr[a],
+    Power[a_,-2]		    :> 1/Global`Sqr[a]
+}];
 
 CExpToCFormString[expr_] :=
     ToString[expr //. cExpToCFormStringDispatch, CForm];
