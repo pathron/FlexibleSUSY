@@ -61,6 +61,9 @@ Format[Lattice`Private`Im[z_], CForm] :=
 Format[Lattice`Private`M[f_], CForm] :=
     Format["M" <> ToValidCSymbolString[f], OutputForm];
 
+Format[Lattice`Private`M2[f_], CForm] :=
+    Format["M2" <> ToValidCSymbolString[f], OutputForm];
+
 WriteRGECode[
     sarahAbbrs_List, betaFunctions_List, anomDims_List,
     fsMassMatrices_,
@@ -285,7 +288,15 @@ CEigenArrayType[scalarType_String, len_Integer] :=
 
 CEigenArrayType[len_Integer] := CEigenArrayType["double", len];
 
-ToCMassName[field_Symbol] := ToValidCSymbolString[FlexibleSUSY`M[field]];
+ToCMassName[field_Symbol] := ToString @ CForm @ MassN[field];
+
+MassN[field_ /; FieldMassDimension[field] === 3/2] := Lattice`Private`M[field];
+
+MassN[field_ /; FieldMassDimension[field] === 1] := Lattice`Private`M2[field];
+
+FieldMassDimension[_?IsFermion] := 3/2;
+
+FieldMassDimension[_] := 1;
 
 CDefTmpMatrix[m_, scalarType_, name_] := Module[{
 	d1, d2, i1, i2,
@@ -569,8 +580,14 @@ Module[{
 toCExpDispatch = Dispatch[{
     Re[z_] :> Lattice`Private`Re[z],
     Im[z_] :> Lattice`Private`Im[z],
-    SARAH`Mass  -> Lattice`Private`M,
-    SARAH`Mass2 -> Lattice`Private`M2
+    HoldPattern[SARAH`Mass [f_ /; FieldMassDimension[f] === 3/2]] :>
+	Lattice`Private`M[f],
+    HoldPattern[SARAH`Mass [f_ /; FieldMassDimension[f] === 1  ]] :>
+	Sqrt[Lattice`Private`M2[f]],
+    HoldPattern[SARAH`Mass2[f_ /; FieldMassDimension[f] === 1  ]] :>
+	Lattice`Private`M2[f],
+    HoldPattern[SARAH`Mass2[f_ /; FieldMassDimension[f] === 3/2]] :>
+	Lattice`Private`M[f]^2
 }];
 
 ToCExp[parametrization_] := parametrization //. toCExpDispatch;
