@@ -73,9 +73,13 @@ IndentText[text_String, spaces_Integer:3] :=
                                   "\n" -> "\n" <> whiteSpace } ]];
           ];
 
+global$IterationLimit = $IterationLimit;
+
 WrapText[text_String, maxWidth_Integer:79, indentation_Integer:2] := Block[{
     maxLength = maxWidth,
-    relSkip = indentation
+    relSkip = indentation,
+    $IterationLimit = Max[Global`$flexiblesusyCSrcChunkSize / 32,
+			  global$IterationLimit]
   },
   StringJoin[WrapLine /@ StringSplit[text, "\n"]]
 ];
