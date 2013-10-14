@@ -86,4 +86,8 @@ TestEquality[WrapText[" abc::de",5,0], " abc\n ::de\n"];
 TestEquality[WrapText[" abc+def",5,0], " abc+\n def\n"];
 TestEquality[WrapText[" abc+=def",5,0], " abc\n +=\n def\n"];
 
+(* there was a bug such that this was split into three lines *)
+TestEquality[WrapText["void some_func(Eigen::VectorXd& dx) const", 30, 0],
+		      "void some_func(Eigen::\nVectorXd& dx) const\n"];
+
 PrintTestSummary[];

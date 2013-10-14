@@ -150,8 +150,15 @@ SowStrings[curLen_Integer, str_String] :=
     curLen + StringLength[str] <= maxLength, Sow[str],
     Head[StringReplace[str,
 		       RegularExpression[
-			   "^((?:.{0," <> ToString[maxLength - curLen - 1] <>
-			   "}|.*?)(?:" <> splitRegex <>
+			   "^(.{0," <> ToString[maxLength - curLen - 1] <>
+			   "}(?:" <> splitRegex <>
+			   "|[^[:space:]](?=[[:space:]])))[[:space:]]*(.*)"] :>
+		       (Sow["$1"]; remainder = "$2"; True)]] =!= String,
+      SowStrings[absSkip, remainder],
+    curLen > absSkip, SowStrings[absSkip, str],
+    Head[StringReplace[str,
+		       RegularExpression[
+			   "^(.*?(?:" <> splitRegex <>
 			   "|[^[:space:]](?=[[:space:]])))[[:space:]]*(.*)"] :>
 		       (Sow["$1"]; remainder = "$2"; True)]] =!= String,
       SowStrings[absSkip, remainder],
