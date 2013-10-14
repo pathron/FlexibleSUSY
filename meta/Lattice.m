@@ -103,7 +103,7 @@ Module[{
     {trivialAbbrRules, nonTrivialAbbrRules} =
 	SeparateTrivialRules@Flatten[{abbrRules, abbrDerivRules}];
     {abbrDecls, abbrDefs} = CFxnsToCCode[
-        AbbrRuleToC /@ nonTrivialAbbrRules, 2^21],
+        AbbrRuleToC /@ nonTrivialAbbrRules, Global`$flexiblesusyCSrcChunkSize],
     "Differentiating abbreviations... "];
     betaFunctionRules = Transpose[
 	ScaleByA[#, gaugeCouplings]& /@
@@ -111,7 +111,8 @@ Module[{
 	       (# /. {{BETA[_Integer, p_] -> _, ___}, ___} :>
 		Position[parameters, p])&]];
     {betaDecls, betaDefs} = CFxnsToCCode[Flatten[
-	BetaFunctionRulesToC[betaFunctionRules, enumRules, abbrRules]], 2^21];
+	BetaFunctionRulesToC[betaFunctionRules, enumRules, abbrRules]],
+	Global`$flexiblesusyCSrcChunkSize];
     {dependenceNumDecls, dependenceNumDefs} = CFxnsToCCode[
 	DepNumRuleToC /@ ParametrizeDependenceNums[
 	    FindDependenceNums[], parameterRules]];

@@ -1,3 +1,4 @@
+$flexiblesusyCSrcChunkSize = 2^21;
 
 BeginPackage["TextFormatting`"];
 
