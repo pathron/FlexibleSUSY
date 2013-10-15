@@ -925,6 +925,8 @@ check_fortran_libs() {
 
 #_____________________________________________________________________
 check_lapack_libs_using_options() {
+    local symbol
+
     check_library "liblapack" "$lapack_lib_dir" \
 	"$default_lib_paths"
     if test "x$found_lib" = "x" ; then
@@ -941,7 +943,9 @@ check_lapack_libs_using_options() {
         else
             LAPACKLIBS="-L$lapack_lib_dir $LAPACKLIBS_"
         fi
-	check_symbol dgbsv_ "$found_lib" "$found_dir"
+	for symbol in dgbsv_ zgesvd_ dgesvd_ zheev_ dsyev_; do
+	    check_symbol "$symbol" "$found_lib" "$found_dir"
+	done
     fi
 }
 
@@ -1016,7 +1020,8 @@ find_symbol_using_pkgconfig() {
 
 #_____________________________________________________________________
 check_lapack_libs() {
-    if find_symbol_using_pkgconfig lapack dgbsv_; then
+    if find_symbol_using_pkgconfig lapack \
+	dgbsv_ zgesvd_ dgesvd_ zheev_ dsyev_; then
 	LAPACKLIBS="$linker_flags"
     else
 	check_lapack_libs_using_options
