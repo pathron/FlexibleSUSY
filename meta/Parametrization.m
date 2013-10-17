@@ -272,7 +272,7 @@ SelfDependentQ[solution_, couplingPattern_] :=
     DependsOnQ[couplingPattern, solution];
 
 DependsOnQ[couplingPattern_, exp_] :=
-    Cases[exp, couplingPattern, {0, Infinity}] =!= {};
+    !FreeQ[exp, couplingPattern, Heads -> False];
 
 CouplingPattern[indexedCoupling : couplingHead_?CouplingHeadQ[__]] :=
     couplingHead @@ Table[_, {Length[indexedCoupling]}];
@@ -284,8 +284,7 @@ CouplingHeadQ[couplingHead_] := CouplingDimensions[couplingHead] =!= Undefined;
 IndexedCoupling[pattern_, term_] := SingleCase[term, pattern, {0, Infinity}];
 
 HasBlankQ[pattern_] :=
-    Cases[pattern, _Blank | _BlankSequence | _BlankNullSequence,
-	  {0, Infinity}, Heads -> True] =!= {};
+    !FreeQ[pattern, _Blank | _BlankSequence | _BlankNullSequence];
 
 SingleCase[args__] := Module[{
 	cases = Cases[args]

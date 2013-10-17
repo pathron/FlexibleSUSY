@@ -119,7 +119,6 @@ Module[{
     {dependenceNumDecls, dependenceNumDefs} = CFxnsToCCode[
 	DepNumRuleToC /@ ParametrizeDependenceNums[
 	    FindDependenceNums[], parameterRules]];
-
     {eigenVarDefs, eigenVarStmts} = CMassesToCCode[
 	FSMassMatrixToC /@
 	ParametrizeMasses[massMatrices, parameterRules]];
@@ -603,7 +602,7 @@ ToCExp[parametrization_, array_Symbol] := ToCExp[parametrization] /.
 ReExpandCExp[cexp_] := Module[{
 	expanded = Expand[cexp]
     },
-    If[Position[expanded, I] === {}, expanded,
+    If[FreeQ[expanded, I], expanded,
        WriteString["stdout",
 		   "Failed to eliminate I from real expression: ", cexp,
 		   ",\ntaking its real part\n"];

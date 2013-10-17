@@ -1103,6 +1103,7 @@ MakeFlexibleSUSY[OptionsPattern[]] :=
                            },
                            diagonalizationPrecision];
 
+	   On[Assert];
 	   Parametrization`UpdateValues[];
 	   Lat$gaugeCouplings = First/@SARAH`BetaGauge;
 	   Lat$vevs = First/@SARAH`BetaVEV;
