@@ -45,6 +45,8 @@ trp::usage;
 cnj::usage;
 adj::usage;
 
+SingleCase::usage;
+
 Begin["`Private`"]
 
 SuperpotentialParameterRules[parameters_, convertedSuperpotential_] :=

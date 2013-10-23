@@ -95,6 +95,9 @@ Module[{
 	dependenceNumDecls, dependenceNumDefs,
 	p
     },
+    (UnitaryMatrixQ[#] = True)& /@
+        Flatten@DeleteCases[massMatrices[[All,3]], Null];
+    UnitaryMatrixQ[_] := False;
     parameters = RealVariables[parameterRules];
     enumRules = EnumRules[parameters];
     enumParameters = EnumParameters[enumRules];
@@ -164,6 +167,311 @@ Module[{
 	betaCFiles];
     WriteMakefile[templateDir, outputDir, cFiles, templateRules]
 ]];
+
+NPointFunctionsToC[nPointFunctions_] := Module[{
+	vertexRules = VertexRules[nPointFunctions]
+    },
+    vertexRules
+];
+
+VertexRules[nPointFunctions_, massMatrices_] := Module[{
+	cpPatterns = Union[
+	    ToCpPattern /@ RenumberCpIndices /@ Cases[
+		nPointFunctions, _SARAH`Cp|_SARAH`Cp[_], {0, Infinity}],
+	    SameTest -> MatchQ]
+    },
+    (# -> VertexExp[#, nPointFunctions, massMatrices])& /@ cpPatterns
+];
+
+VertexExp[cpPattern_, nPointFunctions_, massMatrices_] := Module[{
+	cp = ToCp[cpPattern],
+	cpContraction,
+	rotatedCp,
+	sarahVertex,
+	fields, vertices,
+	lorentz, vertex
+    },
+    cpContraction = InTermsOfRotatedCp[cp, massMatrices];
+    rotatedCp =
+	SingleCase[cpContraction, _SARAH`Cp|_SARAH`Cp[_], {0,Infinity}];
+    sarahVertex =
+	SARAH`Vertex[SelfEnergies`Private`GetParticleList[rotatedCp]];
+    Assert[MatchQ[sarahVertex, {_, __}]];
+    fields = First[sarahVertex];
+    vertices = Rest[sarahVertex];
+    lorentz = SelfEnergies`Private`GetLorentzStructure[rotatedCp];
+    vertex = SelfEnergies`Private`FindLorentzStructure[vertices, lorentz];
+    TreeMasses`ReplaceDependencies[Block[{
+	    SARAH`sum
+	    (* corrupts a polynomial (monomial + monomial + ...) summand *)
+	},
+	ExpandSarahSum @ SimplifyContraction[
+	    cpContraction /. rotatedCp ->
+		ResolveColorFactor[
+		    vertex, fields, cpPattern, nPointFunctions[[All,2]]]]]
+    ] /. Parameters`ApplyGUTNormalization[]
+];
+
+simplifyContractionDispatch = Dispatch[{
+    HoldPattern[
+	SARAH`sum[i_, 1, d_, x_ z_?UnitaryMatrixQ[i_, j_]]
+	/; HasContractionQ[x, Susyno`LieGroups`conj[z[i, _]]] &&
+	SARAH`getDim[z] === d] :>
+    (x /. Susyno`LieGroups`conj[z[i, k_]] :> SARAH`Delta[j, k]),
+
+    HoldPattern[
+	SARAH`sum[i_,1,d_, x_ Susyno`LieGroups`conj[z_?UnitaryMatrixQ[i_,j_]]]
+	/; HasContractionQ[x, z[i, _]] &&
+	SARAH`getDim[z] === d] :>
+    (x /. z[i, k_] :> SARAH`Delta[j, k]),
+
+    HoldPattern[
+	SARAH`sum[i_, 1, d_, x_ z_?UnitaryMatrixQ[j_, i_]]
+	/; HasContractionQ[x, Susyno`LieGroups`conj[z[_, i]]] &&
+	SARAH`getDim[z] === d] :>
+    (x /. Susyno`LieGroups`conj[z[k_, i]] :> SARAH`Delta[j, k]),
+
+    HoldPattern[
+	SARAH`sum[i_,1,d_, x_ Susyno`LieGroups`conj[z_?UnitaryMatrixQ[j_,i_]]]
+	/; HasContractionQ[x, z[_, i]] &&
+	SARAH`getDim[z] === d] :>
+    (x /. z[k_, i] :> SARAH`Delta[j, k]),
+
+    s:HoldPattern[
+    (SARAH`sum[i_, 1, d_, x_ z_?UnitaryMatrixQ[i_, j_]]
+     /; HasMixedContractionQ[x, Susyno`LieGroups`conj[z[i, _]]]) |
+    (SARAH`sum[i_, 1, d_, x_ Susyno`LieGroups`conj[z_?UnitaryMatrixQ[i_, j_]]]
+     /; HasMixedContractionQ[x, z[i, _]]) |
+    (SARAH`sum[i_, 1, d_, x_ z_?UnitaryMatrixQ[j_, i_]]
+     /; HasMixedContractionQ[x, Susyno`LieGroups`conj[z[_, i]]]) |
+    (SARAH`sum[i_, 1, d_, x_ Susyno`LieGroups`conj[z_?UnitaryMatrixQ[j_, i_]]]
+     /; HasMixedContractionQ[x, z[_, i]]) /;
+    SARAH`getDim[z] === d] :> ExpandSarahSum[s]
+}];
+
+SimplifyContraction[expr_] := expr //. simplifyContractionDispatch;
+
+HasContractionQ[x_, form_] :=
+    !MatchQ[FindContraction[x, form], Unindexed|Indexed|Mixed];
+
+HasMixedContractionQ[x_, form_] := FindContraction[x, form] === Mixed;
+
+FindContraction[x_, form:_?UnitaryMatrixQ[___, i_Symbol,___]] :=
+    FindContraction[x, form, i];
+
+FindContraction[x_, form:HoldPattern@Susyno`LieGroups`conj
+		[_?UnitaryMatrixQ[___, i_Symbol, ___]]] :=
+    FindContraction[x, form, i];
+
+FindContraction[x_Times, form_, index_] := Module[{
+	structure = FindContraction[#, form, index]& /@ List@@x,
+	match
+    },
+    Which[MatchQ[structure, {Unindexed..}], Unindexed,
+	  (match =
+	   Replace[structure,
+		   {{Unindexed... , p:Except[Unindexed], Unindexed...} -> p,
+		    _ -> False}]) =!= False, match,
+	  MatchQ[structure, {___, Mixed, ___}], Mixed,
+	  MatchQ[structure, {___, Except[Unindexed], ___}], Indexed,
+	  True, Print["Lattice`FindContraction[",x,", ",form,", ",index,
+		      "] failed."]; Abort[]]
+];
+
+FindContraction[x_Plus, form_, index_] := Module[{
+	structure = FindContraction[#, form, index]& /@ List@@x,
+	match
+    },
+    Which[MatchQ[structure, {Unindexed..}], Unindexed,
+	  MatchQ[structure, {(f:Except[Unindexed])..}], First[structure],
+	  MatchQ[structure, {___, Except[Unindexed], ___}], Mixed,
+	  True, Print["Lattice`FindContraction[",x,", ",form,", ",index,
+		      "] failed."]; Abort[]]
+];
+
+FindContraction[HoldPattern@SARAH`sum[_, _, _, x_], form_, index_] :=
+    FindContraction[x, form, index];
+
+FindContraction[x_, form_, index_] /; FreeQ[x, index] := Unindexed;
+
+FindContraction[x_, form_, index_] /; MatchQ[x, form] := x;
+
+FindContraction[x_, form_, index_] := Indexed;
+
+ExpandSarahSum[expr_] := expr //.
+    SARAH`sum[a_, b_, c_, x_] /; Head[Expand[x]] === Plus :>
+    (SARAH`sum[a, b, c, #]& /@ Expand[x]);
+
+InTermsOfRotatedCp[cp_, massMatrices_] :=
+    Fold[If[SelfEnergies`Private`IsUnrotated[#2],
+	    InTermsOfRotatedCp[#1, CpType[cp], #2, massMatrices],
+	    #1]&,
+	 cp, SelfEnergies`Private`GetParticleList[cp]];
+
+InTermsOfRotatedCp[cp_, cpType_, uField_, massMatrices_] :=
+    RewriteUnrotatedField[
+	cp, cpType, uField,
+	SingleCase[
+	    massMatrices,
+	    _[_, FieldHead@SelfEnergies`Private`ToRotatedField[uField], z_] ->
+	    z]];
+
+RewriteUnrotatedField[
+    cp_, _,
+    uField:_Symbol[{__}], z_Symbol] :=
+    ContractMixingMatrix[cp, uField, z, Identity];
+
+RewriteUnrotatedField[
+    cp_, _,
+    uField:HoldPattern@Susyno`LieGroups`conj[_Symbol[{__}]], z_Symbol] :=
+    ContractMixingMatrix[cp, uField, z, Susyno`LieGroups`conj];
+
+RewriteUnrotatedField[
+    cp:_SARAH`Cp[PL], FFV,
+    uField:_Symbol[{__}], {u_, v_}] :=
+    ContractMixingMatrix[cp, uField, u, Identity];
+
+RewriteUnrotatedField[
+    cp:_SARAH`Cp[PL], FFV,
+    uField:HoldPattern@SARAH`bar[_Symbol[{__}]], {u_, v_}] :=
+    ContractMixingMatrix[cp, uField, u, Susyno`LieGroups`conj];
+
+RewriteUnrotatedField[
+    cp:_SARAH`Cp[PR], FFV,
+    uField:_Symbol[{__}], {u_, v_}] :=
+    ContractMixingMatrix[cp, uField, v, Susyno`LieGroups`conj];
+
+RewriteUnrotatedField[
+    cp:_SARAH`Cp[PR], FFV,
+    uField:HoldPattern@SARAH`bar[_Symbol[{__}]], {u_, v_}] :=
+    ContractMixingMatrix[cp, uField, v, Identity];
+
+RewriteUnrotatedField[
+    cp:_SARAH`Cp[PL], FFS,
+    uField:_Symbol[{__}], {u_, v_}] :=
+    ContractMixingMatrix[cp, uField, u, Identity];
+
+RewriteUnrotatedField[
+    cp:_SARAH`Cp[PL], FFS,
+    uField:HoldPattern@SARAH`bar[_Symbol[{__}]], {u_, v_}] :=
+    ContractMixingMatrix[cp, uField, v, Identity];
+
+RewriteUnrotatedField[
+    cp:_SARAH`Cp[PR], FFS,
+    uField:_Symbol[{__}], {u_, v_}] :=
+    ContractMixingMatrix[cp, uField, v, Susyno`LieGroups`conj];
+
+RewriteUnrotatedField[
+    cp:_SARAH`Cp[PR], FFS,
+    uField:HoldPattern@SARAH`bar[_Symbol[{__}]], {u_, v_}] :=
+    ContractMixingMatrix[cp, uField, u, Susyno`LieGroups`conj];
+
+ContractMixingMatrix[cp_, uField_, z_, op_] := Module[{
+	uIndices = FieldIndexList[uField],
+	field = SelfEnergies`Private`ToRotatedField[uField],
+	uIndex, i = Unique["gl"],
+	majoranaFix = Identity
+    },
+    (* CHECK: does the first index always denote the flavour? *)
+    uIndex = First[uIndices];
+    (* reconstruct hidden bar applied on a Majorana spinor *)
+    If[MajoranaQ@FieldHead[field] &&
+       CpType[cp] === FFV &&
+       Position[SelfEnergies`Private`GetParticleList[cp], uField][[1,1]] <= 2,
+       majoranaFix = Susyno`LieGroups`conj];
+    SARAH`sum[i, SARAH`getGenStart[field], SARAH`getGen[field],
+	      (cp /. uField -> (field /. {uIndex, r___} -> {i, r}))
+	      majoranaFix @ op @ z[i, uIndex]]
+];
+
+FieldHead[Susyno`LieGroups`conj[field_]] := FieldHead[field];
+
+FieldHead[SARAH`bar[field_]] := FieldHead[field];
+
+FieldHead[field_Symbol[{__}]] := field;
+
+FieldHead[field_Symbol] := field;
+
+ToCpPattern[cp : _SARAH`Cp|_SARAH`Cp[_]] := cp /.
+    ((# -> (# /. Thread[(# -> If[Head[#] === Symbol, Pattern[#, _], #])& /@
+			FieldIndexList[#]]))& /@
+     SelfEnergies`Private`GetParticleList[cp]);
+
+ToCp[cpPattern : _SARAH`Cp|_SARAH`Cp[_]] := cpPattern /. p_Pattern :> First[p];
+
+CpType[cp : _SARAH`Cp|_SARAH`Cp[_]] := RotatedCpType @
+    SelfEnergies`Private`ReplaceUnrotatedFields[cp];
+
+RotatedCpType[SARAH`Cp[fields__]] := SARAH`getVertexType[{fields}];
+
+RotatedCpType[SARAH`Cp[fields__][_]] := SARAH`getVertexType[{fields}];
+
+RenumberCpIndices[cp_] := Block[{
+	fields = SelfEnergies`Private`GetParticleList[cp],
+	UsedSarahIndexQ
+    },
+    UsedSarahIndexQ[_] := False;
+    cp /. ((# -> RenumberFieldIndices[#])& /@ fields)
+];
+
+RenumberFieldIndices[field_] :=
+    field /. ((# -> RenumberSarahIndex[#])& /@ FieldIndexList[field]);
+
+RenumberSarahIndex[index_Symbol?UsedSarahIndexQ] :=
+    RenumberSarahIndex @ Symbol @
+	StringReplace[ToString[index],
+		      RegularExpression["[[:digit:]]+$"] :>
+		      ToString[ToExpression["$0"]+1]];
+
+RenumberSarahIndex[index_Symbol] := (UsedSarahIndexQ[index] = True; index);
+
+RenumberSarahIndex[index_] := index;
+
+(* see SelfEnergies`Private`CreateCouplingFunctions[] *)
+ResolveColorFactor[vertex_, fields_, cpPattern_, exprs_] :=
+    If[UnresolvedColorFactorFreeQ[cpPattern, exprs],
+       vertex,
+       Module[{loopArgs, internalColorIndices = InternalColorIndices[fields]},
+	   loopArgs = {#, 3}& /@ internalColorIndices;
+	   Sum @@ Prepend[loopArgs, vertex]
+       ]];
+
+InternalColorIndices[fields_List] :=
+    Union@Cases[DeleteCases[FieldIndexList /@ fields,
+			    {___,_?SarahExternalGenerationIndexQ,___}],
+		_?SarahColorIndexQ, Infinity];
+
+FieldIndexList[field_] := Flatten@Cases[field, _?VectorQ, {0, Infinity}];
+
+UnresolvedColorFactorFreeQ[cpPattern_, exprs_] := Module[{
+	fstPos = First@Position[exprs, cpPattern],
+	cpInstance,
+	exprInstance
+    },
+    cpInstance = Extract[exprs, fstPos];
+    exprInstance = Extract[exprs, Take[fstPos, 1]];
+    FreeQ[Coefficient[exprInstance //. SARAH`sum[__, ex_] :> ex, cpInstance],
+	  C]
+];
+
+UnrotatedMixingMatrixRules[fields_] := Module[{
+	unrotatedIndexPattern = Alternatives@@Union@Flatten@Cases[
+	    Select[fields, SelfEnergies`Private`IsUnrotated],
+	    _List, Infinity]
+    },
+    z:(_[unrotatedIndexPattern, _] | _[_, unrotatedIndexPattern]) :>
+	SARAH`Delta @@ z
+];
+
+(* CHECK: are the following right semantics of SARAH indices? *)
+SarahExternalGenerationIndexQ[index_Symbol] :=
+    StringMatchQ[ToString[index], RegularExpression["gO[[:digit:]]+"]];
+
+SarahInternalGenerationIndexQ[index_Symbol] :=
+    StringMatchQ[ToString[index], RegularExpression["gI[[:digit:]]+"]];
+
+SarahColorIndexQ[index_Symbol] :=
+    StringMatchQ[ToString[index], RegularExpression["ct[[:digit:]]+"]];
 
 ParametrizeDependenceNums[depNums_List, parameterRules_] :=
     ParametrizeDependenceNum[#, parameterRules]& /@ depNums;
@@ -796,7 +1104,7 @@ ParametrizeTrace[args__] :=
     (Print["Lattice`ParametrizeTrace[",args,"] failed."]; Abort[]);
 
 AbbreviateTraces[exp_] := Module[{
-    	traces = Union@Flatten@Cases[exp, _SARAH`trace, {0, Infinity}],
+	traces = Union@Flatten@Cases[exp, _SARAH`trace, {0, Infinity}],
 	grouped
     },
     grouped =
