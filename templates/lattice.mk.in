@@ -17,12 +17,13 @@
 #  ====================================================================
 
 
-# Q: is CLASSNAME in a makefile always the same as ModelName in a metacode ?
-
 LIB@ModelName@_SRC += \
-	$(DIR)/run_@ModelName@.cpp \
 	$(DIR)/@ModelName@_info.cpp \
 	$(DIR)/@ModelName@_slha_io.cpp \
 	$(DIR)/@ModelName@_physical.cpp \
 	$(DIR)/@ModelName@_utilities.cpp \
 @generatedCppFiles@
+
+EXE@ModelName@_SRC += \
+	$(DIR)/run_@ModelName@.cpp \
+	$(DIR)/scan_@ModelName@.cpp
