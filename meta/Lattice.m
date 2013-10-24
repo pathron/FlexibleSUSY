@@ -439,14 +439,26 @@ RenumberSarahIndex[index_] := index;
 ResolveColorFactor[vertex_, fields_, cpPattern_, exprs_] :=
     If[UnresolvedColorFactorFreeQ[cpPattern, exprs],
        vertex,
-       Module[{loopArgs, internalColorIndices = InternalColorIndices[fields]},
-	   loopArgs = {#, 3}& /@ internalColorIndices;
+       Module[{loopArgs,
+	       internalColorIndices = InternalColorIndices[fields],
+	       externalColorIndices = ExternalColorIndices[fields]},
+	      (* Q: does one need to sum also over external color indices
+		 as in SelfEnergies`Private`CreateCouplingFunctions[]?
+		 A: it is a way to strip the color structure of this class
+		 of vertices *)
+	   loopArgs = Join[{#, 3}& /@ internalColorIndices,
+			   {#, 1}& /@ externalColorIndices];
 	   Sum @@ Prepend[loopArgs, vertex]
        ]];
 
 InternalColorIndices[fields_List] :=
     Union@Cases[DeleteCases[FieldIndexList /@ fields,
 			    {___,_?SarahExternalGenerationIndexQ,___}],
+		_?SarahColorIndexQ, Infinity];
+
+ExternalColorIndices[fields_List] :=
+    Union@Cases[Cases[FieldIndexList /@ fields,
+		      {___,_?SarahExternalGenerationIndexQ,___}],
 		_?SarahColorIndexQ, Infinity];
 
 FieldIndexList[field_] := Flatten@Cases[field, _?VectorQ, {0, Infinity}];
