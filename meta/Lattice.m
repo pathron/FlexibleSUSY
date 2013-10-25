@@ -185,22 +185,27 @@ VertexRules[nPointFunctions_, massMatrices_] := Module[{
 
 VertexExp[cpPattern_, nPointFunctions_, massMatrices_] := Module[{
 	cp = ToCp[cpPattern],
-	rotatedCp,
+	rotatedCp, fieldsInRotatedCp,
 	sarahVertex,
 	fields, vertices,
 	lorentzTag, lorentz, vertex,
+	strippedIndices,
 	contraction
     },
     rotatedCp = SelfEnergies`Private`ReplaceUnrotatedFields[cp];
-    sarahVertex =
-	SARAH`Vertex[SelfEnergies`Private`GetParticleList[rotatedCp]];
+    fieldsInRotatedCp = SelfEnergies`Private`GetParticleList[rotatedCp];
+    sarahVertex = SARAH`Vertex[fieldsInRotatedCp];
     Assert[MatchQ[sarahVertex, {_, __}]];
     fields = First[sarahVertex];
     vertices = Rest[sarahVertex];
     lorentzTag = SelfEnergies`Private`GetLorentzStructure[rotatedCp];
     {vertex, lorentz} = FindVertexWithLorentzStructure[vertices, lorentzTag];
-    vertex = ResolveColorFactor[
-	vertex, fields, cpPattern, nPointFunctions[[All,2]]];
+    strippedIndices = Complement[Flatten[FieldIndexList /@ fields],
+				 Flatten[FieldIndexList /@ fieldsInRotatedCp]];
+    vertex = StripGroupStructure[
+	ResolveColorFactor[
+	    vertex, fields, cpPattern, nPointFunctions[[All,2]]],
+	strippedIndices];
     contraction = Block[{
 	    SARAH`sum
 	    (* corrupts a polynomial (monomial + monomial + ...) summand *)
@@ -213,6 +218,27 @@ VertexExp[cpPattern_, nPointFunctions_, massMatrices_] := Module[{
     -I TreeMasses`ReplaceDependencies[contraction] /.
 	Parameters`ApplyGUTNormalization[]
 ];
+
+StripGroupStructure[expr_, indices_List] := Module[{
+	indexPattern = Alternatives@@indices
+    },
+    expr /. {
+	PatternWithDistinctIndices[SARAH`Delta, 2, indexPattern] -> 1,
+	SARAH`Lam[__] -> 2,
+	SARAH`Sig[__] -> 2,
+	SARAH`fSU2[__] -> 1,
+	SARAH`fSU3[__] -> 1
+    }
+];
+
+PatternWithDistinctIndices[head_, nIndices_, indexPattern_] :=
+ReleaseHold[Block[{
+	patternNames = Table[Unique[], {nIndices}],
+	UnsameQ
+    },
+    With[{condition = UnsameQ @@ patternNames},
+	 head @@ (Pattern[#, indexPattern]& /@ patternNames) /;
+	 Hold[condition]]]];
 
 FindVertexWithLorentzStructure[vertices_List, lorentz_Integer] :=
     vertices[[lorentz]];
