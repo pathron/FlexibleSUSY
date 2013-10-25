@@ -33,6 +33,10 @@
 using namespace std;
 using namespace softsusy;
 
+namespace softsusy {
+   struct drBarPars;
+}
+
 /// returns either sqrt(f) for f>0 or 0 otherwise
 inline double zeroSqrt(double f){ if (f > 0.) return sqrt(f); 
   else return EPSTOL; 
@@ -105,5 +109,6 @@ void printRow(ostream & o, double x);
 /// Returns true if f's a nan. Unfortunately, the behaviour of this function
 /// is not standardised across all platforms yet. 
 bool testNan(double f);
+
 #endif
 
