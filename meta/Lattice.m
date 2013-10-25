@@ -91,6 +91,7 @@ Module[{
 	betaCFile, betaCFiles,
 	massMatrices = FixDiagonalization[fsMassMatrices] /.
 	    sarahOperatorReplacementRules,
+	matrixDefs, matrixStmts,
 	eigenVarsDefs, eigenVarsStmts,
 	dependenceNumDecls, dependenceNumDefs,
 	p
@@ -122,7 +123,9 @@ Module[{
     {dependenceNumDecls, dependenceNumDefs} = CFxnsToCCode[
 	DepNumRuleToC /@ ParametrizeDependenceNums[
 	    FindDependenceNums[], parameterRules]];
-    {eigenVarDefs, eigenVarStmts} = CMassesToCCode[
+    {matrixDefs, matrixStmts} = CMatricesToCCode[
+	MatrixToC /@ Cases[parameterRules, HoldPattern[_ -> _?MatrixQ]]];
+    {eigenVarDefs, eigenVarStmts} = CMatricesToCCode[
 	FSMassMatrixToC /@
 	ParametrizeMasses[massMatrices, parameterRules]];
 
@@ -144,6 +147,8 @@ Module[{
 	"@eigenVarDefs@"    -> IndentText[eigenVarDefs, 4],
 	"@eigenVarStmts@"   -> WrapText[eigenVarStmts],
 	"@enumParameters@"  -> WrapText@IndentText[enumParameters, 2],
+	"@matrixDefs@"	    -> IndentText[matrixDefs, 4],
+	"@matrixStmts@"	    -> WrapText[matrixStmts],
 	"@vertexDecls@"	    -> "",
 	"@vertexDefs@"	    -> ""
     }]];
@@ -528,10 +533,10 @@ ParametrizeMasses[massMatrices_, parameterRules_] := Module[{
 	parameterRules //. matrixOpRules]
 ];
 
-CMassesToCCode[cmasses_] :=
+CMatricesToCCode[cmatrices_] :=
     StringJoin /@ Transpose[
 	({{EigenDef, "\n"}, {SetStmt, "\n"}} /. List@@#)& /@
-	Flatten[cmasses]];
+	Flatten[cmatrices]];
 
 FSMassMatrixToC[FSMassMatrix[{m_?RealQ}, f_, _]] :=
     MassToC[m, f, "double"];
@@ -551,10 +556,28 @@ FSMassMatrixToC[FSMassMatrix[m_?RealMatrixQ, f_, z_Symbol]] :=
 FSMassMatrixToC[FSMassMatrix[m_?MatrixQ, f_, z_Symbol]] :=
     HermitianToC[m, f, z, "std::complex<double>"];
 
+MatrixToC[symbol_ -> m_?RealMatrixQ] :=
+    MatrixToC[m, symbol, "double"];
+
+MatrixToC[symbol_ -> m_?MatrixQ] :=
+    MatrixToC[m, symbol, "std::complex<double>"];
+
+MatrixToC[m_, symbol_, scalarType_] := Module[{
+	d1, d2, name = CExpToCFormString@ToCExp[symbol]
+    },
+    {d1, d2} = Dimensions[m];
+    CMatrix[
+	EigenDef ->
+	    CEigenMatrixType[scalarType, d1, d2] <> " " <> name <> ";",
+	SetStmt ->
+	    CSetMatrix[m, scalarType === "double", name]
+    ]
+];
+
 MassToC[m_, f_, cType_] := Module[{
 	ev = ToCMassName[f]
     },
-    CMass[
+    CMatrix[
 	EigenDef -> cType <> " " <> ev <> ";",
 	SetStmt -> "  " <> ev <> " = " <> CExpToCFormString@ToCExp[m, x] <> ";"
     ]
@@ -565,7 +588,7 @@ SVDToC[m_, f_, u_, u_, scalarType_] := Module[{
     },
     {d, d} = Dimensions[m];
     ev = ToCMassName[f];
-    CMass[
+    CMatrix[
 	EigenDef ->
 	    CEigenArrayType[d] <> " " <> ev <> ";\n" <>
 	    CEigenMatrixType["std::complex<double>", d, d] <> " " <>
@@ -585,7 +608,7 @@ SVDToC[m_, f_, u_, v_, scalarType_] := Module[{
     },
     ds = Min[{d1, d2} = Dimensions[m]];
     ev = ToCMassName[f];
-    CMass[
+    CMatrix[
 	EigenDef ->
 	    CEigenArrayType[ds] <> " " <> ev <> ";\n" <>
 	    CEigenMatrixType[scalarType, d1, d1] <> " " <>
@@ -608,7 +631,7 @@ HermitianToC[m_, f_, z_, scalarType_] := Module[{
     },
     {d, d} = Dimensions[m];
     ev = ToCMassName[f];
-    CMass[
+    CMatrix[
 	EigenDef ->
 	    CEigenArrayType[d] <> " " <> ev <> ";\n" <>
 	    CEigenMatrixType[scalarType, d, d] <> " " <>
@@ -643,11 +666,18 @@ FieldMassDimension[_?IsFermion] := 3/2;
 FieldMassDimension[_] := 1;
 
 CDefTmpMatrix[m_, scalarType_, name_] := Module[{
-	d1, d2, i1, i2,
-	re = If[scalarType === "double", ReExpandCExp, Expand]
+	d1, d2
     },
     {d1, d2} = Dimensions[m];
     "    " <> CEigenMatrixType[scalarType, d1, d2] <> " " <> name <> ";\n" <>
+    CSetMatrix[m, scalarType === "double", name]
+];
+
+CSetMatrix[m_, takeReal_, name_] := Module[{
+	d1, d2, i1, i2,
+	re = If[takeReal, ReExpandCExp, Expand]
+    },
+    {d1, d2} = Dimensions[m];
     "    " <> name <> " <<\n" <>
     Riffle[Table[
 	Riffle[Table[{

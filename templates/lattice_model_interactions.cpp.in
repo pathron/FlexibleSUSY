@@ -37,6 +37,7 @@ void CLASSNAME::Interactions::set(const Eigen::VectorXd& x_)
 {
   new (&x) Eigen::Map<const Eigen::VectorXd>(x_.data(), x_.size());
 
+@matrixStmts@
 @eigenVarStmts@
 }
 

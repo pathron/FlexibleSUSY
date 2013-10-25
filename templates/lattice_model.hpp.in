@@ -59,6 +59,7 @@ public:
   private:
     Eigen::Map<const Eigen::VectorXd> x;
 
+@matrixDefs@
 @eigenVarDefs@
 @dependenceNumDecls@
   } interactions;
