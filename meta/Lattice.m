@@ -445,12 +445,17 @@ RotatedCpType[SARAH`Cp[fields__]] := SARAH`getVertexType[{fields}];
 
 RotatedCpType[SARAH`Cp[fields__][_]] := SARAH`getVertexType[{fields}];
 
-RenumberCpIndices[cp_] := Block[{
-	fields = SelfEnergies`Private`GetParticleList[cp],
+RenumberCpIndices[SARAH`Cp[fields__]] :=
+    SARAH`Cp @@ RenumberFieldIndices[{fields}]
+
+RenumberCpIndices[SARAH`Cp[fields__][l_]] :=
+    (SARAH`Cp @@ RenumberFieldIndices[{fields}])[l]
+
+RenumberFieldIndices[fields_List] := Block[{
 	UsedSarahIndexQ
     },
     UsedSarahIndexQ[_] := False;
-    cp /. ((# -> RenumberFieldIndices[#])& /@ fields)
+    RenumberFieldIndices /@ fields
 ];
 
 RenumberFieldIndices[field_] :=
