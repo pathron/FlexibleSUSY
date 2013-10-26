@@ -61,6 +61,8 @@ Begin["`Private`"];
  *)
 SARAH`ThetaStep /: Power[SARAH`ThetaStep[a_,b_],_] := SARAH`ThetaStep[a,b];
 
+Conjugate[AbsSqr[z_]] ^:= AbsSqr[z];
+
 CreateGetterReturnType[type_] :=
     Print["Error: unknown type: " <> ToString[type]];
 

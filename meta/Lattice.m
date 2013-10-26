@@ -680,7 +680,7 @@ CDefTmpMatrix[m_, scalarType_, name_] := Module[{
 
 CSetMatrix[m_, takeReal_, name_] := Module[{
 	d1, d2, i1, i2,
-	re = If[takeReal, ReExpandCExp, Expand]
+	re = If[takeReal, ReCExp, Identity]
     },
     {d1, d2} = Dimensions[m];
     "    " <> name <> " <<\n" <>
@@ -738,7 +738,8 @@ conjugateExpandDispatch = Dispatch[{
 		 _Sin|_ArcSin|
 		 _Cos|_ArcCos|
 		 _Tan|_ArcTan)] :> Conjugate /@ z,
-    Conjugate[z:(_SARAH`Mass|_SARAH`Mass2)] :> z,
+    Conjugate[SARAH`sum[a_, b_, c_, z_]] :> SARAH`sum[a, b, c, Conjugate[z]],
+    Conjugate[z:(_SARAH`Delta|_SARAH`ThetaStep|_SARAH`Mass|_SARAH`Mass2)] :> z,
     Conjugate[z_?DeclaredRealQ] :> z
 }];
 
@@ -959,6 +960,7 @@ Module[{
 toCExpDispatch = Dispatch[{
     Re[z_] :> Lattice`Private`Re[z],
     Im[z_] :> Lattice`Private`Im[z],
+    Conjugate[z_] z_ :> AbsSqr[z],
     HoldPattern[SARAH`Mass [f_ /; FieldMassDimension[f] === 3/2]] :>
 	Lattice`Private`M[f],
     HoldPattern[SARAH`Mass [f_ /; FieldMassDimension[f] === 1  ]] :>
@@ -969,7 +971,7 @@ toCExpDispatch = Dispatch[{
 	Lattice`Private`M[f]^2
 }];
 
-ToCExp[parametrization_] := parametrization //. toCExpDispatch;
+ToCExp[parametrization_] := Expand[parametrization] //. toCExpDispatch;
 
 ToCExp[parametrization_, array_Symbol] := ToCExp[parametrization] /.
     d:drv[(Lattice`Private`Re|Lattice`Private`Im)[_],
@@ -979,15 +981,39 @@ ToCExp[parametrization_, array_Symbol] := ToCExp[parametrization] /.
 	array@ToEnumSymbol[p] /.
     ap:(Lattice`Private`Re|Lattice`Private`Im)[abbr_Symbol] :> ap[array];
 
-ReExpandCExp[cexp_] := Module[{
-	expanded = Expand[cexp]
-    },
-    If[FreeQ[expanded, I], expanded,
-       WriteString["stdout",
-		   "Failed to eliminate I from real expression: ", cexp,
-		   ",\ntaking its real part\n"];
-       Re[expanded]]
-];
+ReCExp[cexp_?CRealTypeQ] := cexp;
+
+ReCExp[cexp_] := (
+    WriteString["stdout", "Real expression ", cexp,
+		" assumes complex C type,\ntaking its real part\n"];
+    Re[cexp]
+);
+
+CRealTypeQ[z_Plus|z_Times|
+	   z_Power|
+	   z_Sin|z_ArcSin|
+	   z_Cos|z_ArcCos|
+	   z_Tan|z_ArcTan] := And @@ (CRealTypeQ /@ List@@z);
+
+CRealTypeQ[_AbsSqr] := True;
+
+CRealTypeQ[Lattice`Private`SUM[_, _, _, z_] |
+	   HoldPattern@SARAH`sum[_, _, _, z_]] := CRealTypeQ[z];
+
+CRealTypeQ[_SARAH`Delta|_SARAH`ThetaStep] := True;
+
+CRealTypeQ[_SARAH`Mass|_SARAH`Mass2|
+	   _Lattice`Private`M|_Lattice`Private`M2] := True;
+
+CRealTypeQ[_Re|_Im|_Lattice`Private`Re|_Lattice`Private`Im] := True;
+
+CRealTypeQ[_Lattice`Private`x] := True;
+
+CRealTypeQ[_?DeclaredRealQ] := True;
+
+CRealTypeQ[z_?NumericQ] := Element[z, Reals];
+
+CRealTypeQ[cexp_] := False;
 
 Differentiate[exp_, x_, abbrRules_] :=
     D[exp, x, NonConstants -> abbrRules[[All,1]]] /.

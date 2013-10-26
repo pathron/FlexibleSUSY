@@ -68,6 +68,16 @@ inline Complex Conj(const Complex& a)
    return std::conj(a);
 }
 
+inline double Conjugate(double a)
+{
+   return a;
+}
+
+inline Complex Conjugate(const Complex& a)
+{
+   return std::conj(a);
+}
+
 inline double Cos(double x)
 {
    return cos(x);
