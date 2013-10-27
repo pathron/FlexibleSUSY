@@ -36,6 +36,21 @@ ParametrizeBetaFunctions::usage;
 
 Begin["`Private`"]
 
+Unprotect[Real];
+
+Real /: Format[x_Real, CForm] :=
+    Format[ToString@NumberForm[x, Ceiling[$MachinePrecision],
+			       NumberFormat -> CDoubleFormat],
+	   OutputForm];
+
+CDoubleFormat[m_, _, ""] :=
+    StringReplace[m, RegularExpression["\\.$"] -> ".0"];
+
+CDoubleFormat[m_, _, e_] :=
+    Row[{StringReplace[m, RegularExpression["\\.$"] -> ""], "e", e}];
+
+Protect[Real];
+
 Format[x, CForm] := Format["x", OutputForm];
 
 Format[  x[i_], CForm] := Format[  "x["<>ToString[CForm[i]]<>"]", OutputForm];
