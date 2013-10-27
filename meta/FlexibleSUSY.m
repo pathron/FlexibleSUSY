@@ -1132,6 +1132,7 @@ MakeFlexibleSUSY[OptionsPattern[]] :=
 	       SARAH`TraceAbbr /. traceRules,
 	       Join[susyBetaFunctions, susyBreakingBetaFunctions], anomDim,
 	       Lat$massMatrices,
+	       phases,
 	       Lat$gaugeCouplingRules, Complement[Lat$allParameterRules, Lat$gaugeCouplingRules],
 	       GeneralReplacementRules[],
 	       FlexibleSUSY`FSModelName,

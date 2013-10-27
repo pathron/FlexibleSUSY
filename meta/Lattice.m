@@ -26,6 +26,7 @@ BeginPackage["Lattice`", {
     "Parametrization`",
     "Traces`",
     "TreeMasses`",
+    "Phases`",
     "CConversion`",
     "TextFormatting`",
     "WriteOut`",
@@ -82,6 +83,7 @@ Format[Lattice`Private`M2[f_], CForm] :=
 WriteRGECode[
     sarahAbbrs_List, betaFunctions_List, anomDims_List,
     fsMassMatrices_,
+    phases_,
     gaugeCouplingRules_, otherParameterRules_, templateRules_,
     modelName_, templateDir_, outputDir_] :=
 
@@ -109,6 +111,7 @@ Module[{
 	matrixDefs, matrixStmts,
 	eigenVarsDefs, eigenVarsStmts,
 	dependenceNumDecls, dependenceNumDefs,
+	phaseDefs,
 	p
     },
     (UnitaryMatrixQ[#] = True)& /@
@@ -143,7 +146,7 @@ Module[{
     {eigenVarDefs, eigenVarStmts} = CMatricesToCCode[
 	FSMassMatrixToC /@
 	ParametrizeMasses[massMatrices, parameterRules]];
-
+    phaseDefs = Phases`CreatePhasesDefinition[phases];
     replacementFiles = {
 	{FileNameJoin[{templateDir, "lattice_info.hpp.in"}],
 	 FileNameJoin[{outputDir, modelName <> "_lattice_info.hpp"}]},
@@ -164,6 +167,7 @@ Module[{
 	"@enumParameters@"  -> WrapText@IndentText[enumParameters, 2],
 	"@matrixDefs@"	    -> IndentText[matrixDefs, 4],
 	"@matrixStmts@"	    -> WrapText[matrixStmts],
+	"@phaseDefs@"	    -> IndentText[phaseDefs, 4],
 	"@vertexDecls@"	    -> "",
 	"@vertexDefs@"	    -> ""
     }]];

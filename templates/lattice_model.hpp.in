@@ -61,6 +61,7 @@ public:
 
 @matrixDefs@
 @eigenVarDefs@
+@phaseDefs@
 @dependenceNumDecls@
   } interactions;
 
