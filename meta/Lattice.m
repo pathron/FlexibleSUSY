@@ -976,6 +976,9 @@ toCExpDispatch = Dispatch[{
     Re[z_] :> Lattice`Private`Re[z],
     Im[z_] :> Lattice`Private`Im[z],
     Conjugate[z_] z_ :> AbsSqr[z],
+    (* SARAH`Delta[0, _] := 0
+       following the principle of greatest astonishment *)
+    SARAH`Delta[i__] :> KroneckerDelta[i],
     HoldPattern[SARAH`Mass [f_ /; FieldMassDimension[f] === 3/2]] :>
 	Lattice`Private`M[f],
     HoldPattern[SARAH`Mass [f_ /; FieldMassDimension[f] === 1  ]] :>
@@ -986,7 +989,19 @@ toCExpDispatch = Dispatch[{
 	Lattice`Private`M[f]^2
 }];
 
-ToCExp[parametrization_] := Expand[parametrization] //. toCExpDispatch;
+replaceIndicesDispatch = Dispatch[{
+    m:(_KroneckerDelta|_SARAH`ThetaStep|_[__]?HasIndicesQ) :>
+	(DecInt /@ m),
+    Lattice`Private`SUM[i_, a_, b_, x_] :> Lattice`Private`SUM[
+	i, DecInt[a], DecInt[b], x /. replaceIndicesDispatch]
+}];
+
+DecInt[index_Integer] := index - 1;
+
+DecInt[index_] := index;
+
+ToCExp[parametrization_] := Expand[parametrization] //. toCExpDispatch /.
+    replaceIndicesDispatch;
 
 ToCExp[parametrization_, array_Symbol] := ToCExp[parametrization] /.
     d:drv[(Lattice`Private`Re|Lattice`Private`Im)[_],
@@ -1015,7 +1030,7 @@ CRealTypeQ[_AbsSqr] := True;
 CRealTypeQ[Lattice`Private`SUM[_, _, _, z_] |
 	   HoldPattern@SARAH`sum[_, _, _, z_]] := CRealTypeQ[z];
 
-CRealTypeQ[_SARAH`Delta|_SARAH`ThetaStep] := True;
+CRealTypeQ[_SARAH`Delta|_KroneckerDelta|_SARAH`ThetaStep] := True;
 
 CRealTypeQ[_SARAH`Mass|_SARAH`Mass2|
 	   _Lattice`Private`M|_Lattice`Private`M2] := True;

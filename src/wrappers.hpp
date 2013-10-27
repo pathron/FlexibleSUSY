@@ -93,6 +93,10 @@ inline int Delta(int i, int j)
    return i == j;
 }
 
+#define KroneckerDelta(i, j) ((i) == (j))
+
+#define ThetaStep(i, j) ((i) <= (j))
+
 Eigen::Matrix3d Diag(const Eigen::Matrix3d&);
 
 void Diagonalize(const DoubleMatrix&, DoubleMatrix& , DoubleVector&);
