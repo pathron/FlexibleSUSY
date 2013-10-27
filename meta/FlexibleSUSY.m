@@ -1128,10 +1128,10 @@ MakeFlexibleSUSY[OptionsPattern[]] :=
 	   (* simplify model for quick tests *)
 	   Lat$allParameterRules = Parametrization`KillSmallYukawas @ Parametrization`KillFlavorMixing @ Lat$allParameterRules;
 
-	   Lattice`WriteRGECode[
+	   Lattice`WriteLatticeCode[
 	       SARAH`TraceAbbr /. traceRules,
 	       Join[susyBetaFunctions, susyBreakingBetaFunctions], anomDim,
-	       Lat$massMatrices,
+	       Lat$massMatrices, nPointFunctions,
 	       phases,
 	       Lat$gaugeCouplingRules, Complement[Lat$allParameterRules, Lat$gaugeCouplingRules],
 	       GeneralReplacementRules[],

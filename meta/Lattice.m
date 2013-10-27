@@ -32,7 +32,7 @@ BeginPackage["Lattice`", {
     "WriteOut`",
     "Makefile`"}]
 
-WriteRGECode::usage;
+WriteLatticeCode::usage;
 ParametrizeBetaFunctions::usage;
 
 Begin["`Private`"]
@@ -80,9 +80,11 @@ Format[Lattice`Private`M[f_], CForm] :=
 Format[Lattice`Private`M2[f_], CForm] :=
     Format["M2" <> ToValidCSymbolString[f], OutputForm];
 
-WriteRGECode[
+Format[Lattice`Private`SUM, CForm] := Format["SUM", OutputForm];
+
+WriteLatticeCode[
     sarahAbbrs_List, betaFunctions_List, anomDims_List,
-    fsMassMatrices_,
+    fsMassMatrices_, nPointFunctions_,
     phases_,
     gaugeCouplingRules_, otherParameterRules_, templateRules_,
     modelName_, templateDir_, outputDir_] :=
@@ -90,7 +92,8 @@ WriteRGECode[
 Block[{
 	drv,
 	ToEnumSymbol,
-	DeclaredRealQ
+	DeclaredRealQ,
+	UnitaryMatrixQ
     },
     Format[d:drv[_, _], CForm] := Format[DrvToCFormString[d], OutputForm];
 
@@ -111,6 +114,7 @@ Module[{
 	matrixDefs, matrixStmts,
 	eigenVarsDefs, eigenVarsStmts,
 	dependenceNumDecls, dependenceNumDefs,
+	vertexDecls, vertexDefs,
 	phaseDefs,
 	p
     },
@@ -146,6 +150,10 @@ Module[{
     {eigenVarDefs, eigenVarStmts} = CMatricesToCCode[
 	FSMassMatrixToC /@
 	ParametrizeMasses[massMatrices, parameterRules]];
+    {vertexDecls, vertexDefs} = CFxnsToCCode[
+	VertexRuleToC /@
+	ParametrizeVertexRules[VertexRules[nPointFunctions, massMatrices],
+			       parameterRules]];
     phaseDefs = Phases`CreatePhasesDefinition[phases];
     replacementFiles = {
 	{FileNameJoin[{templateDir, "lattice_info.hpp.in"}],
@@ -168,8 +176,8 @@ Module[{
 	"@matrixDefs@"	    -> IndentText[matrixDefs, 4],
 	"@matrixStmts@"	    -> WrapText[matrixStmts],
 	"@phaseDefs@"	    -> IndentText[phaseDefs, 4],
-	"@vertexDecls@"	    -> "",
-	"@vertexDefs@"	    -> ""
+	"@vertexDecls@"	    -> IndentText[vertexDecls, 4],
+	"@vertexDefs@"	    -> WrapText[StringJoin@vertexDefs]
     }]];
     defChunks = Join[abbrDefs, betaDefs];
     nDefChunks = Length[defChunks];
@@ -192,11 +200,19 @@ Module[{
     WriteMakefile[templateDir, outputDir, cFiles, templateRules]
 ]];
 
-NPointFunctionsToC[nPointFunctions_] := Module[{
-	vertexRules = VertexRules[nPointFunctions]
+NPointFunctionsToC[nPointFunctions_, massMatrices_, parameterRules_] :=
+    {};
+
+ParametrizeVertexRules[vertexRules_, parameterRules_] := Module[{
+	scalarParameterRules =
+	    DeleteCases[parameterRules, HoldPattern[_ -> _?MatrixQ]]
     },
-    vertexRules
+    ParametrizeVertexRule[#, scalarParameterRules]& /@ vertexRules
 ];
+
+ParametrizeVertexRule[lhs_ -> rhs_, parameterRules_] :=
+    (lhs /. sarahOperatorReplacementRules) ->
+    (rhs /. sarahOperatorReplacementRules /. parameterRules //. matrixOpRules);
 
 VertexRules[nPointFunctions_, massMatrices_] := Module[{
 	cpPatterns = Union[
@@ -842,6 +858,44 @@ StringGroup[strings_List, chunkSize_] := Module[{
 	flattened]
 ];
 
+VertexRuleToC[lhs_ -> rhs_] := Module[{
+	cType, re
+    },
+    {cType, re} = If[RealQ[rhs], {"double", ReCExp},
+				 {"std::complex<double>", Identity}];
+    CFxn[
+	ReturnType -> cType,
+	Scope -> "CLASSNAME::Interactions::",
+	Name -> CVertexFunctionName[lhs],
+	Args -> CVertexFunctionArgs[lhs],
+	Attributes -> "pure",
+	Body -> "{\n" <>
+	"  return " <> CExpToCFormString @ re @ ToCExp[rhs, x] <> ";\n" <>
+	"}\n"
+    ]
+];
+
+CVertexFunctionName[cpPattern_] := Module[{
+	fields = SelfEnergies`Private`GetParticleList[cpPattern]
+    },
+    ToValidCSymbolString[
+	cpPattern /. Thread[
+	    fields -> (
+		(# /. h_[l_List] :> h @@ (Cases[l, _Integer] - 1) /.
+		 h_[] :> h)& /@ fields)]]
+];
+
+CVertexFunctionArgs[cpPattern_] := "(" <>
+    Riffle[
+	Flatten[
+	    (Replace[#, {
+		index_Pattern :> "size_t " <> ToString@First[index],
+		unused_	      :> "size_t"
+		}]& /@ FieldIndexList[#])& /@
+	    SelfEnergies`Private`GetParticleList[cpPattern]],
+	", "] <>
+    ") const";
+
 DepNumRuleToC[lhs_ -> rhs_] :=
 CFxn[
     ReturnType -> If[RealQ[rhs], "double", "std::complex<double>"],
@@ -980,6 +1034,7 @@ toCExpDispatch = Dispatch[{
     Re[z_] :> Lattice`Private`Re[z],
     Im[z_] :> Lattice`Private`Im[z],
     Conjugate[z_] z_ :> AbsSqr[z],
+    SARAH`sum[i_, a_, b_, x_] :> Lattice`Private`SUM[i, a, b, x],
     (* SARAH`Delta[0, _] := 0
        following the principle of greatest astonishment *)
     SARAH`Delta[i__] :> KroneckerDelta[i],
