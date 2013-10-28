@@ -40,7 +40,7 @@ Begin["`Private`"]
 Unprotect[Real];
 
 Real /: Format[x_Real, CForm] :=
-    Format[ToString@NumberForm[x, Ceiling[$MachinePrecision],
+    Format[ToString@NumberForm[x, Ceiling[MachinePrecision],
 			       NumberFormat -> CDoubleFormat],
 	   OutputForm];
 
