@@ -118,6 +118,7 @@ Module[{
 	phaseDefs,
 	p
     },
+    DeclaredRealQ[_] := False;
     (UnitaryMatrixQ[#] = True)& /@
         Flatten@DeleteCases[massMatrices[[All,3]], Null];
     UnitaryMatrixQ[_] := False;
@@ -606,6 +607,7 @@ MatrixToC[m_, symbol_, scalarType_] := Module[{
 	d1, d2, name = CExpToCFormString@ToCExp[symbol]
     },
     {d1, d2} = Dimensions[m];
+    If[scalarType === "double", DeclaredRealQ[symbol[_,_]] := True];
     CMatrix[
 	EigenDef ->
 	    CEigenMatrixType[scalarType, d1, d2] <> " " <> name <> ";",
@@ -617,6 +619,7 @@ MatrixToC[m_, symbol_, scalarType_] := Module[{
 MassToC[m_, f_, cType_] := Module[{
 	ev = ToCMassName[f]
     },
+    (* DeclaredRealQ[ev] := True by pattern matching *)
     CMatrix[
 	EigenDef -> cType <> " " <> ev <> ";",
 	SetStmt -> "  " <> ev <> " = " <> CExpToCFormString@ToCExp[m, x] <> ";"
@@ -648,6 +651,7 @@ SVDToC[m_, f_, u_, v_, scalarType_] := Module[{
     },
     ds = Min[{d1, d2} = Dimensions[m]];
     ev = ToCMassName[f];
+    If[scalarType === "double", DeclaredRealQ[(u|v)[_,_]] := True];
     CMatrix[
 	EigenDef ->
 	    CEigenArrayType[ds] <> " " <> ev <> ";\n" <>
@@ -671,6 +675,7 @@ HermitianToC[m_, f_, z_, scalarType_] := Module[{
     },
     {d, d} = Dimensions[m];
     ev = ToCMassName[f];
+    If[scalarType === "double", DeclaredRealQ[z[_,_]] := True];
     CMatrix[
 	EigenDef ->
 	    CEigenArrayType[d] <> " " <> ev <> ";\n" <>
@@ -1033,6 +1038,7 @@ Module[{
 toCExpDispatch = Dispatch[{
     Re[z_] :> Lattice`Private`Re[z],
     Im[z_] :> Lattice`Private`Im[z],
+    Conjugate[z_?CRealTypeQ] :> z,
     Conjugate[z_] z_ :> AbsSqr[z],
     SARAH`sum[i_, a_, b_, x_] :> Lattice`Private`SUM[i, a, b, x],
     (* SARAH`Delta[0, _] := 0
