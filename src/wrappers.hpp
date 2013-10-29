@@ -97,6 +97,8 @@ inline int Delta(int i, int j)
 
 #define ThetaStep(i, j) ((i) <= (j))
 
+#define LispAnd(cond, expr) ((cond) ? (expr) : false)
+
 Eigen::Matrix3d Diag(const Eigen::Matrix3d&);
 
 void Diagonalize(const DoubleMatrix&, DoubleMatrix& , DoubleVector&);

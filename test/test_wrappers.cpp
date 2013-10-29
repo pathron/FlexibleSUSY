@@ -21,6 +21,7 @@
 
 #include <random>
 #include <complex>
+#include <cmath>
 #include <boost/test/unit_test.hpp>
 #include "wrappers.hpp"
 
@@ -49,6 +50,33 @@ BOOST_AUTO_TEST_CASE( test_Delta )
 }
 
 using namespace std;
+
+BOOST_AUTO_TEST_CASE(test_LispAnd)
+{
+    BOOST_CHECK_EQUAL(LispAnd(true , true ), true );
+    BOOST_CHECK_EQUAL(LispAnd(true , false), false);
+    BOOST_CHECK_EQUAL(LispAnd(false, true ), false);
+    BOOST_CHECK_EQUAL(LispAnd(false, false), false);
+
+    BOOST_CHECK_EQUAL(LispAnd(true , 5), 5);
+    BOOST_CHECK_EQUAL(LispAnd(true , 0), 0);
+    BOOST_CHECK_EQUAL(LispAnd(false, 5), 0);
+    BOOST_CHECK_EQUAL(LispAnd(false, 0), 0);
+
+    BOOST_CHECK_CLOSE_FRACTION(LispAnd(true , exp(1.0)), 2.71828, 1e-6);
+    BOOST_CHECK_CLOSE	      (LispAnd(false, exp(1.0)), 0      , 1e-6);
+
+    // check short-circuiting property
+    int thrown = -1;
+    try {
+	LispAnd(false, throw 0);
+	LispAnd(true , throw 1);
+    }
+    catch(int i) {
+	thrown = i;
+    }
+    BOOST_CHECK_EQUAL(thrown, 1);
+}
 
 DoubleMatrix random_real_matrix(int n, int m)
 {
