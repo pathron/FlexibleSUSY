@@ -16,6 +16,7 @@
 // <http://www.gnu.org/licenses/>.
 // ====================================================================
 
+#include <iostream>
 #include <cmath>
 #include "sum.hpp"
 
@@ -36,6 +37,9 @@ BOOST_AUTO_TEST_CASE(test_sum)
     double c = 6;
     BOOST_CHECK_CLOSE_FRACTION(sqrt(SUM(i, 1, 1000, c/i/i)), 3.14, 1e-3);
     BOOST_CHECK_EQUAL(SUM(char, i, -10, 0, i), -55);
+
+    // monitor evaluation order
+    BOOST_CHECK_EQUAL(SUM(i,1,100, (cout << "i=" << i << "\n", pow(-1,i))), 0);
 
     // intended to fail
     BOOST_WARN_EQUAL((sum<unsigned char, -10, 0>([](char i){return i;})), -55);

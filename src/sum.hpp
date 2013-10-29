@@ -54,8 +54,8 @@ template<class Function, class Idx, Idx ini, Idx fin>
 struct unroll_sum<true, Function, Idx, ini, fin> {
     static const Idx mid = (ini+fin)/2;
     static auto eval(Function f) -> decltype(f(mid)) {
-	return f(mid) +
-	       unroll_sum<(mid > ini), Function, Idx, ini, mid-1>::eval(f) +
+	return unroll_sum<(mid > ini), Function, Idx, ini, mid-1>::eval(f) +
+	       f(mid) +
 	       unroll_sum<(fin > mid), Function, Idx, mid+1, fin>::eval(f);
     }
 };
