@@ -40,10 +40,6 @@ BOOST_AUTO_TEST_CASE(test_sum)
 
     // monitor evaluation order
     BOOST_CHECK_EQUAL(SUM(i,1,100, (cout << "i=" << i << "\n", pow(-1,i))), 0);
-
-    // intended to fail
-    BOOST_WARN_EQUAL((sum<unsigned char, -10, 0>([](char i){return i;})), -55);
-    BOOST_WARN_EQUAL(SUM(unsigned char, i, -10, 0, i), -55);
 }
 
 BOOST_AUTO_TEST_CASE(test_multi_sum)
