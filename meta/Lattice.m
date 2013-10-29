@@ -82,6 +82,8 @@ Format[Lattice`Private`M2[f_], CForm] :=
 
 Format[Lattice`Private`SUM, CForm] := Format["SUM", OutputForm];
 
+Format[Lattice`Private`LispAnd, CForm] := Format["LispAnd", OutputForm];
+
 WriteLatticeCode[
     sarahAbbrs_List, betaFunctions_List, anomDims_List,
     fsMassMatrices_, nPointFunctions_,
@@ -1044,6 +1046,8 @@ toCExpDispatch = Dispatch[{
     (* SARAH`Delta[0, _] := 0
        following the principle of greatest astonishment *)
     SARAH`Delta[i__] :> KroneckerDelta[i],
+    HoldPattern@Times[a___, SARAH`ThetaStep[i_, j_], b___] :>
+	Lattice`Private`ThetaStep[i, j, Times[a, b]],
     HoldPattern[SARAH`Mass [f_ /; FieldMassDimension[f] === 3/2]] :>
 	Lattice`Private`M[f],
     HoldPattern[SARAH`Mass [f_ /; FieldMassDimension[f] === 1  ]] :>
@@ -1058,7 +1062,9 @@ replaceIndicesDispatch = Dispatch[{
     m:(_KroneckerDelta|_SARAH`ThetaStep|_[__]?HasIndicesQ) :>
 	(DecInt /@ m),
     Lattice`Private`SUM[i_, a_, b_, x_] :> Lattice`Private`SUM[
-	i, DecInt[a], DecInt[b], x /. replaceIndicesDispatch]
+	i, DecInt[a], DecInt[b], x /. replaceIndicesDispatch],
+    Lattice`Private`ThetaStep[a_, b_, x_] :> Lattice`Private`ThetaStep[
+	DecInt[a], DecInt[b], x /. replaceIndicesDispatch]
 }];
 
 DecInt[index_Integer] := index - 1;
@@ -1093,6 +1099,7 @@ CRealTypeQ[z_Plus|z_Times|
 CRealTypeQ[_AbsSqr] := True;
 
 CRealTypeQ[Lattice`Private`SUM[_, _, _, z_] |
+	   Lattice`Private`ThetaStep[_, _, z_] |
 	   HoldPattern@SARAH`sum[_, _, _, z_]] := CRealTypeQ[z];
 
 CRealTypeQ[_SARAH`Delta|_KroneckerDelta|_SARAH`ThetaStep] := True;
@@ -1351,7 +1358,9 @@ cExpToCFormStringDispatch = Dispatch[{
     p:Power[_?NumericQ, _?NumericQ] :> N[p],
 *)
     Power[a_,2]			    :> Global`Sqr[a],
-    Power[a_,-2]		    :> 1/Global`Sqr[a]
+    Power[a_,-2]		    :> 1/Global`Sqr[a],
+    Lattice`Private`ThetaStep[a_, b_, x_] :>
+	Lattice`Private`LispAnd[HoldForm[a <= b], x]
 }];
 
 CExpToCFormString[expr_] :=
