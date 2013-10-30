@@ -20,7 +20,7 @@
 
 *)
 
-BeginPackage["Parametrization`", {"SARAH`"}]
+BeginPackage["Parametrization`", {"SARAH`", "LatticeUtils`"}]
 
 SuperpotentialParameterRules::usage;
 SusyBreakingParameterRules::usage;
@@ -44,8 +44,6 @@ CouplingPattern::usage;
 trp::usage;
 cnj::usage;
 adj::usage;
-
-SingleCase::usage;
 
 Begin["`Private`"]
 
@@ -287,13 +285,6 @@ IndexedCoupling[pattern_, term_] := SingleCase[term, pattern, {0, Infinity}];
 
 HasBlankQ[pattern_] :=
     !FreeQ[pattern, _Blank | _BlankSequence | _BlankNullSequence];
-
-SingleCase[args__] := Module[{
-	cases = Cases[args]
-    },
-    Assert[Length[cases] === 1];
-    First[cases]
-];
 
 KillIm[parameterRules_] := Module[{
 	matrices = Union@Cases[

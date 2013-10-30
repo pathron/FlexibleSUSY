@@ -741,6 +741,7 @@ MakeFlexibleSUSY[OptionsPattern[]] :=
             ewsbEquations, massMatrices, phases, vevs,
             diagonalizationPrecision, allParticles, freePhases, ewsbSolution,
             fixedParameters, treeLevelEwsbOutputFile,
+	    vertexRules,
 
 	    Lat$gaugeCouplings,
 	    Lat$vevs,
@@ -944,6 +945,7 @@ MakeFlexibleSUSY[OptionsPattern[]] :=
                           Parameters`ApplyGUTNormalization[] /.
                           { SARAH`sum[j_, start_, end_, expr_] :> (Sum[expr, {j,start,end}]) };
            massMatrices = Lat$massMatrices /. allIndexReplacementRules;
+	   Lat$massMatrices = LatticeUtils`FixDiagonalization[Lat$massMatrices];
 
            allParticles = FlexibleSUSY`M[GetMassEigenstate[#]]& /@ massMatrices;
            allOutputParameters = DeleteCases[DeleteDuplicates[
@@ -1079,6 +1081,8 @@ MakeFlexibleSUSY[OptionsPattern[]] :=
                Flatten[{OptionValue[LowDiagonalizationPrecision]}],
                FSEigenstates];
 
+	   vertexRules = Vertices`VertexRules[nPointFunctions, Lat$massMatrices];
+
            PrintHeadline["Creating model"];
            Print["Creating class for model ..."];
            WriteModelClass[massMatrices, vevs, ewsbEquations,
@@ -1120,6 +1124,7 @@ MakeFlexibleSUSY[OptionsPattern[]] :=
 	       SARAH`TraceAbbr /. traceRules,
 	       Join[susyBetaFunctions, susyBreakingBetaFunctions], anomDim,
 	       Lat$massMatrices, nPointFunctions,
+	       vertexRules,
 	       phases,
 	       Lat$gaugeCouplingRules, Complement[Lat$allParameterRules, Lat$gaugeCouplingRules],
 	       GeneralReplacementRules[],
