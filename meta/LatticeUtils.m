@@ -54,6 +54,16 @@ FixDiagonalization[fsMassMatrices_List] := FixDiagonalization/@fsMassMatrices;
 FixDiagonalization[FSMassMatrix[m_, f_, z_Symbol]?MajoranaMassMatrixQ] :=
     FSMassMatrix[m, f, {z, z}];
 
+FixDiagonalization[
+    FSMassMatrix[{m_}?VectorQ, f_?IsFermion /; GetDimension[f] > 1, Null]] :=
+    FSMassMatrix[DiagonalMatrix[Table[m, {GetDimension[f]}]], f,
+		 {IdentityMatrix, IdentityMatrix}];
+
+FixDiagonalization[
+    FSMassMatrix[{m_}?VectorQ, f_ /; GetDimension[f] > 1, Null]] :=
+    FSMassMatrix[DiagonalMatrix[Table[m, {GetDimension[f]}]], f,
+		 IdentityMatrix];
+
 FixDiagonalization[m_FSMassMatrix] := m;
 
 MajoranaMassMatrixQ[FSMassMatrix[_?MatrixQ, _, _]?MajoranaMassQ] := True;

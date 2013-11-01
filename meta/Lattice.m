@@ -284,6 +284,17 @@ MassToC[m_, f_, cType_] := Module[{
     ]
 ];
 
+SVDToC[m_, f_, IdentityMatrix, IdentityMatrix, scalarType_] := Module[{
+	d1, d2, ds, ev
+    },
+    ds = Min[{d1, d2} = Dimensions[m]];
+    ev = ToCMassName[f];
+    CMatrix[
+	EigenDef -> CEigenArrayType[ds] <> " " <> ev <> ";",
+	SetStmt  -> "  " <> ev <> " = " <> ToString@Diagonal[m] <> ";"
+    ]
+];
+
 SVDToC[m_, f_, u_, u_, scalarType_] := Module[{
 	d, ev
     },
@@ -325,6 +336,17 @@ SVDToC[m_, f_, u_, v_, scalarType_] := Module[{
 		");\n" <>
 	    "    " <> ToValidCSymbolString[u] <> ".transposeInPlace();\n" <>
 	    "  }"
+    ]
+];
+
+HermitianToC[m_, f_, IdentityMatrix, scalarType_] := Module[{
+	d, ev
+    },
+    {d, d} = Dimensions[m];
+    ev = ToCMassName[f];
+    CMatrix[
+	EigenDef -> CEigenArrayType[ds] <> " " <> ev <> ";",
+	SetStmt  -> "  " <> ev <> " = " <> ToString@Diagonal[m] <> ";"
     ]
 ];
 
