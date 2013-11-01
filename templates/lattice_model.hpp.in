@@ -23,6 +23,7 @@
 
 #include <iosfwd>
 
+#include "cextensions.hpp"
 #include "lattice_model.hpp"
 #include "@ModelName@_model.hpp"
 // Q: needed here? see below

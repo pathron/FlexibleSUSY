@@ -25,8 +25,6 @@
 #include <Eigen/Dense>
 #include "mathdefs.hpp"
 
-#define ATTR(x) __attribute__ ((x))
-
 namespace flexiblesusy {
 
 class Lattice;
