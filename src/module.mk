@@ -12,6 +12,7 @@ LIBFLEXI_SRC := \
 		$(DIR)/lowe.cpp \
 		$(DIR)/numerics.cpp \
 		$(DIR)/program_options.cpp \
+		$(DIR)/pv.cpp \
 		$(DIR)/rge.cpp \
 		$(DIR)/rk.cpp \
 		$(DIR)/scan.cpp \
@@ -66,6 +67,10 @@ $(LIBFLEXI_DEP) $(LIBFLEXI_OBJ): CPPFLAGS += $(EIGENFLAGS)
 
 ifneq ($(findstring lattice,$(ALGORITHMS)),)
 $(LIBFLEXI_DEP) $(LIBFLEXI_OBJ): CPPFLAGS += $(GSLFLAGS) $(BOOSTFLAGS)
+endif
+
+ifeq ($(ENABLE_LOOPTOOLS),yes)
+$(LIBFLEXI_DEP) $(LIBFLEXI_OBJ): CPPFLAGS += $(LOOPTOOLSFLAGS)
 endif
 
 ifeq ($(ENABLE_STATIC_LIBS),yes)
