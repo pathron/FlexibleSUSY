@@ -76,6 +76,12 @@ Format[Lattice`Private`Re[z_], CForm] :=
 Format[Lattice`Private`Im[z_], CForm] :=
     Format["IM" <> ToValidCSymbolString[z], OutputForm];
 
+Format[Lattice`Private`M[f_[{i__}]], CForm] :=
+    Format[Lattice`Private`M[f][i], CForm];
+
+Format[Lattice`Private`M2[f_[{i__}]], CForm] :=
+    Format[Lattice`Private`M2[f][i], CForm];
+
 Format[Lattice`Private`M[f_], CForm] :=
     Format["M" <> ToValidCSymbolString[f], OutputForm];
 
@@ -88,7 +94,7 @@ Format[Lattice`Private`LispAnd, CForm] := Format["LispAnd", OutputForm];
 
 WriteLatticeCode[
     sarahAbbrs_List, betaFunctions_List, anomDims_List,
-    fsMassMatrices_, nPointFunctions_,
+    fsMassMatrices_, fsNPointFunctions_,
     vertexRules_,
     phases_,
     gaugeCouplingRules_, otherParameterRules_, templateRules_,
@@ -118,6 +124,8 @@ Module[{
 	eigenVarsDefs, eigenVarsStmts,
 	dependenceNumDecls, dependenceNumDefs,
 	vertexDecls, vertexDefs,
+	nPointFunctions = fsNPointFunctions //. restoreMassPowerRules /.
+	    FlexibleSUSY`M -> Lattice`Private`M,
 	phaseDefs,
 	p
     },
@@ -202,6 +210,11 @@ Module[{
 
 NPointFunctionsToC[nPointFunctions_, massMatrices_, parameterRules_] :=
     {};
+restoreMassPowerRules = {
+    (f:SARAH`A0|SARAH`B0|SARAH`B1|SARAH`B00|SARAH`B22|
+     SARAH`F0|SARAH`G0|SARAH`H0)[a___,FlexibleSUSY`M[b_],c___] :>
+    f[a,Lattice`Private`M2[b],c]
+};
 
 ParametrizeVertexRules[vertexRules_, parameterRules_] := Module[{
 	scalarParameterRules =
@@ -386,7 +399,13 @@ MassN[field_ /; FieldMassDimension[field] === 3/2] := Lattice`Private`M[field];
 
 MassN[field_ /; FieldMassDimension[field] === 1] := Lattice`Private`M2[field];
 
-FieldMassDimension[_?IsFermion] := 3/2;
+Lattice`Private`M [field_ /; FieldMassDimension[field] === 1  ] :=
+    Sqrt[Lattice`Private`M2[field]];
+
+Lattice`Private`M2[field_ /; FieldMassDimension[field] === 3/2] :=
+    AbsSqr @ Lattice`Private`M[field];
+
+FieldMassDimension[_?IsFermion|_?IsFermion[{__}]] := 3/2;
 
 FieldMassDimension[_] := 1;
 
@@ -693,14 +712,8 @@ toCExpDispatch = Dispatch[{
     SARAH`Delta[i__] :> KroneckerDelta[i],
     HoldPattern@Times[a___, SARAH`ThetaStep[i_, j_], b___] :>
 	Lattice`Private`ThetaStep[i, j, Times[a, b]],
-    HoldPattern[SARAH`Mass [f_ /; FieldMassDimension[f] === 3/2]] :>
-	Lattice`Private`M[f],
-    HoldPattern[SARAH`Mass [f_ /; FieldMassDimension[f] === 1  ]] :>
-	Sqrt[Lattice`Private`M2[f]],
-    HoldPattern[SARAH`Mass2[f_ /; FieldMassDimension[f] === 1  ]] :>
-	Lattice`Private`M2[f],
-    HoldPattern[SARAH`Mass2[f_ /; FieldMassDimension[f] === 3/2]] :>
-	Lattice`Private`M[f]^2
+    HoldPattern[SARAH`Mass [f_]] :> Lattice`Private`M [f],
+    HoldPattern[SARAH`Mass2[f_]] :> Lattice`Private`M2[f]
 }];
 
 replaceIndicesDispatch = Dispatch[{
