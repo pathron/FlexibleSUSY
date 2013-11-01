@@ -24,15 +24,15 @@ EXE@CLASSNAME@_SRC += \
 endif
 
 ifneq ($(findstring lattice,$(ALGORITHMS)),)
-ifneq ($(MAKECMDGOALS),clean)
-ifneq ($(MAKECMDGOALS),distclean)
 ifneq ($(MAKECMDGOALS),showbuild)
 ifneq ($(MAKECMDGOALS),tag)
 ifneq ($(MAKECMDGOALS),release)
 ifneq ($(MAKECMDGOALS),doc)
+-include $(DIR)/lattice.mk
+ifneq ($(MAKECMDGOALS),clean)
+ifneq ($(MAKECMDGOALS),distclean)
 ifeq ($(findstring clean-,$(MAKECMDGOALS)),)
 ifeq ($(findstring distclean-,$(MAKECMDGOALS)),)
--include $(DIR)/lattice.mk
 $(DIR)/lattice.mk: run-metacode-$(MODNAME)
 endif
 endif
