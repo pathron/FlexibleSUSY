@@ -21,7 +21,6 @@
 #include "linalg2.hpp"
 #include "wrappers.hpp"
 #include "sum.hpp"
-#include "pv.hpp"
 #include "@ModelName@_lattice_model.hpp"
 #include "@ModelName@_lattice_info.hpp"
 
@@ -31,14 +30,13 @@ using namespace @ModelName@_lattice_info;
 
 #define CLASSNAME @ModelName@<Lattice>
 
-CLASSNAME::Interactions::Interactions() : x(nullptr, 0)
+CLASSNAME::Interactions::Interactions() : Lattice_model_interactions()
 {
 }
 
 void CLASSNAME::Interactions::set(const Eigen::VectorXd& x_, double scl0_)
 {
-  new (&x) Eigen::Map<const Eigen::VectorXd>(x_.data(), x_.size());
-  scl0 = scl0_;
+  Lattice_model_interactions::set(x_, scl0_);
 
 @matrixStmts@
 @eigenVarStmts@
@@ -47,47 +45,4 @@ void CLASSNAME::Interactions::set(const Eigen::VectorXd& x_, double scl0_)
 @nPointDefs@
 @vertexDefs@
 @dependenceNumDefs@
-
-using namespace passarino_veltman;
-
-double CLASSNAME::Interactions::A0(double m2) const
-{
-  return ReA0(m2, Sqr(get_scale()));
-}
-
-double CLASSNAME::Interactions::B0(double p2, double m21, double m22) const
-{
-  return ReB0(p2, m21, m22, Sqr(get_scale()));
-}
-
-double CLASSNAME::Interactions::B1(double p2, double m21, double m22) const
-{
-  return ReB1(p2, m21, m22, Sqr(get_scale()));
-}
-
-double CLASSNAME::Interactions::B00(double p2, double m21, double m22) const
-{
-  return ReB00(p2, m21, m22, Sqr(get_scale()));
-}
-
-double CLASSNAME::Interactions::B22(double p2, double m21, double m22) const
-{
-  return ReB22(p2, m21, m22, Sqr(get_scale()));
-}
-
-double CLASSNAME::Interactions::H0(double p2, double m21, double m22) const
-{
-  return ReH0(p2, m21, m22, Sqr(get_scale()));
-}
-
-double CLASSNAME::Interactions::F0(double p2, double m21, double m22) const
-{
-  return ReF0(p2, m21, m22, Sqr(get_scale()));
-}
-
-double CLASSNAME::Interactions::G0(double p2, double m21, double m22) const
-{
-  return ReG0(p2, m21, m22, Sqr(get_scale()));
-}
-
 } // namespace flexiblesusy
