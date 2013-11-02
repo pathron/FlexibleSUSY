@@ -230,12 +230,8 @@ ParametrizeVertexRule[lhs_ -> rhs_, parameterRules_] :=
 ParametrizeDependenceNums[depNums_List, parameterRules_] :=
     ParametrizeDependenceNum[#, parameterRules]& /@ depNums;
 
-ParametrizeDependenceNum[lhs_ -> rhs_, parameterRules_] := Module[{
-	expanded = (rhs /. parameterRules)
-    },
-    If[RealQ[expanded], DeclaredRealQ[lhs[]] = True];
-    lhs -> expanded
-];
+ParametrizeDependenceNum[lhs_ -> rhs_, parameterRules_] :=
+    lhs -> (rhs /. parameterRules);
 
 ParametrizeMasses[massMatrices_, parameterRules_] := Module[{
 	matrices = Cases[parameterRules, HoldPattern[_ -> _?MatrixQ]][[All,1]]
@@ -458,7 +454,8 @@ WriteMakefile[templateDir_, outputDir_, cppFiles_, templateRules_] :=
 	cppFiles, templateRules];
 
 EnumRules[parameters_List] := MapIndexed[
-    #1 -> "l" <> ToString@First[#2] <> ToString[ToCExp[#1], CForm]&,
+    #1 -> "l" <> ToString@First[#2] <>
+	  ToString[PrivatizeReIm@ToCExp[#1], CForm]&,
     parameters];
 
 EnumParameters[enumRules_List] :=
@@ -466,7 +463,17 @@ EnumParameters[enumRules_List] :=
 	       "eftWidth };"];
 
 SetToEnumSymbol[parameter_ -> enum_String] :=
-    ToEnumSymbol[ToCExp[parameter]] = Symbol[enum];
+    ToEnumSymbol[PrivatizeReIm@ToCExp[parameter]] = Symbol[enum];
+
+PrivatizeReIm[cexp_] := cexp //. {
+    Re[z_] :> Lattice`Private`Re[z],
+    Im[z_] :> Lattice`Private`Im[z]
+};
+
+PrivatizeParameterReIm[cexp_] := cexp //. {
+    Re[z_] /; ValueQ@ToEnumSymbol@Lattice`Private`Re@z :> Lattice`Private`Re@z,
+    Im[z_] /; ValueQ@ToEnumSymbol@Lattice`Private`Im@z :> Lattice`Private`Im@z
+};
 
 ScaleByA[b:{{(BETA[1, _] -> _)..}, {(BETA[_Integer, _] -> _)...}...},
 	 gaugeCouplings_] :=
@@ -569,7 +576,8 @@ CVertexFunctionArgs[cpPattern_] := "(" <>
 
 DepNumRuleToC[lhs_ -> rhs_] :=
 CFxn[
-    ReturnType -> If[RealQ[rhs], "double", "std::complex<double>"],
+    ReturnType -> If[RealQ[rhs], DeclaredRealQ[lhs[]] := True; "double",
+		     "std::complex<double>"],
     Scope -> "CLASSNAME::Interactions::",
     Name -> CExpToCFormString@ToCExp[lhs],
     Args -> "() const",
@@ -702,8 +710,10 @@ Module[{
 ];
 
 toCExpDispatch = Dispatch[{
-    Re[z_] :> Lattice`Private`Re[z],
-    Im[z_] :> Lattice`Private`Im[z],
+    Re[abbr_Symbol] /; !ValueQ@ToEnumSymbol@Lattice`Private`Re@abbr :>
+	Lattice`Private`Re[abbr],
+    Im[abbr_Symbol] /; !ValueQ@ToEnumSymbol@Lattice`Private`Im@abbr :>
+	Lattice`Private`Im[abbr],
     Conjugate[z_?CRealTypeQ] :> z,
     Conjugate[z_] z_ :> AbsSqr[z],
     SARAH`sum[i_, a_, b_, x_] :> Lattice`Private`SUM[i, a, b, x],
@@ -730,7 +740,7 @@ DecInt[index_Integer] := index - 1;
 DecInt[index_] := index;
 
 ToCExp[parametrization_] := Expand[parametrization] //. toCExpDispatch /.
-    replaceIndicesDispatch;
+    replaceIndicesDispatch // PrivatizeParameterReIm;
 
 ToCExp[parametrization_, array_Symbol] := ToCExp[parametrization] /.
     d:drv[(Lattice`Private`Re|Lattice`Private`Im)[_],
