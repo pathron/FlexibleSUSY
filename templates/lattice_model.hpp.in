@@ -21,6 +21,7 @@
 #ifndef @ModelName@_LATTICE_H
 #define @ModelName@_LATTICE_H
 
+#include <cmath>
 #include <iosfwd>
 
 #include "cextensions.hpp"
@@ -55,15 +56,31 @@ public:
   class Interactions {
   public:
     Interactions();
-    void set(const Eigen::VectorXd& x);
+    void set(const Eigen::VectorXd& x, double scl0);
+
+    // self-energies, tadpoles
+@nPointDecls@
+    // vertices
 @vertexDecls@
   private:
     Eigen::Map<const Eigen::VectorXd> x;
+    double scl0;
 
 @matrixDefs@
 @eigenVarDefs@
 @phaseDefs@
 @dependenceNumDecls@
+
+    double get_scale() const ATTR(pure) { return std::exp(x[0]) * scl0; }
+
+    double A0(double m2) const ATTR(pure);
+    double B0(double p2, double m21, double m22) const ATTR(pure);
+    double B1(double p2, double m21, double m22) const ATTR(pure);
+    double B00(double p2, double m21, double m22) const ATTR(pure);
+    double B22(double p2, double m21, double m22) const ATTR(pure);
+    double H0(double p2, double m21, double m22) const ATTR(pure);
+    double F0(double p2, double m21, double m22) const ATTR(pure);
+    double G0(double p2, double m21, double m22) const ATTR(pure);
   } interactions;
 
   // beta functions

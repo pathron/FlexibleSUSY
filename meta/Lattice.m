@@ -65,6 +65,8 @@ Format[ddx[i_,j_], CForm] := Format["ddx(" <> ToString[CForm[i]] <> "," <>
 
 Format[a, CForm] := Format["a", OutputForm];
 
+Format[Lattice`Private`p2, CForm] := Format["p2", OutputForm];
+
 Format[drv[ap_, p_], CForm] :=
     Format[DrvToCFormString[drv[ap, p]], OutputForm];
 
@@ -126,6 +128,9 @@ Module[{
 	vertexDecls, vertexDefs,
 	nPointFunctions = fsNPointFunctions //. restoreMassPowerRules /.
 	    FlexibleSUSY`M -> Lattice`Private`M,
+	replaceGhosts =
+	    SelfEnergies`Private`ReplaceGhosts[FlexibleSUSY`FSEigenstates],
+	nPointDecls, nPointDefs,
 	phaseDefs,
 	p
     },
@@ -162,6 +167,9 @@ Module[{
     {vertexDecls, vertexDefs} = CFxnsToCCode[
 	VertexRuleToC /@
 	ParametrizeVertexRules[vertexRules, parameterRules]];
+    {nPointDecls, nPointDefs} = CFxnsToCCode[
+	NPointFunctionToC@ParametrizeNPointFunction[#, replaceGhosts]& /@
+	nPointFunctions];
     phaseDefs = Phases`CreatePhasesDefinition[phases];
     replacementFiles = {
 	{FileNameJoin[{templateDir, "lattice_info.hpp.in"}],
@@ -183,6 +191,8 @@ Module[{
 	"@enumParameters@"  -> WrapText@IndentText[enumParameters, 2],
 	"@matrixDefs@"	    -> IndentText[matrixDefs, 4],
 	"@matrixStmts@"	    -> WrapText[matrixStmts],
+	"@nPointDecls@"	    -> IndentText[nPointDecls, 4],
+	"@nPointDefs@"	    -> WrapText[StringJoin@nPointDefs],
 	"@phaseDefs@"	    -> IndentText[phaseDefs, 4],
 	"@vertexDecls@"	    -> IndentText[vertexDecls, 4],
 	"@vertexDefs@"	    -> WrapText[StringJoin@vertexDefs]
@@ -208,13 +218,18 @@ Module[{
     WriteMakefile[templateDir, outputDir, cFiles, templateRules]
 ]];
 
-NPointFunctionsToC[nPointFunctions_, massMatrices_, parameterRules_] :=
-    {};
 restoreMassPowerRules = {
     (f:SARAH`A0|SARAH`B0|SARAH`B1|SARAH`B00|SARAH`B22|
      SARAH`F0|SARAH`G0|SARAH`H0)[a___,FlexibleSUSY`M[b_],c___] :>
     f[a,Lattice`Private`M2[b],c]
 };
+
+ParametrizeNPointFunction[h_[field_, expr_], replaceGhosts_] :=
+    h[field,
+      expr /. p^2 -> Lattice`Private`p2 /. C -> 1 /.
+      sarahOperatorReplacementRules /.
+      cp:_SARAH`Cp|_SARAH`Cp[_] :> CVertexFunction[cp] /. replaceGhosts //.
+      matrixOpRules];
 
 ParametrizeVertexRules[vertexRules_, parameterRules_] := Module[{
 	scalarParameterRules =
@@ -442,6 +457,9 @@ conjugateExpandDispatch = Dispatch[{
 		 _Tan|_ArcTan)] :> Conjugate /@ z,
     Conjugate[SARAH`sum[a_, b_, c_, z_]] :> SARAH`sum[a, b, c, Conjugate[z]],
     Conjugate[z:(_SARAH`Delta|_SARAH`ThetaStep|_SARAH`Mass|_SARAH`Mass2)] :> z,
+    (* take real part of a loop function *)
+    Conjugate[z:(_SARAH`A0|_SARAH`B0|_SARAH`B1|_SARAH`B00|_SARAH`B22|
+		 _SARAH`F0|_SARAH`G0|_SARAH`H0)] :> z,
     Conjugate[z_?DeclaredRealQ] :> z
 }];
 
@@ -536,11 +554,68 @@ StringGroup[strings_List, chunkSize_] := Module[{
 	flattened]
 ];
 
-VertexRuleToC[lhs_ -> rhs_] := Module[{
+NPointFunctionToC[nPointFunction:_[_, rhs_]] := Module[{
 	cType, re
     },
     {cType, re} = If[RealQ[rhs], {"double", ReCExp},
 				 {"std::complex<double>", Identity}];
+    CFxn[
+	ReturnType -> cType,
+	Scope -> "CLASSNAME::Interactions::",
+	Name -> CNPointFunctionName[nPointFunction],
+	Args -> CNPointFunctionArgs[nPointFunction],
+	Attributes -> "pure",
+	Body -> "{\n" <>
+	"  return " <> CExpToCFormString[
+	    CConversion`oneOver16PiSqr re[ToCExp[rhs, x]]] <> ";\n" <>
+	"}\n"
+    ]
+];
+
+CNPointFunctionName[
+    (head:SelfEnergies`FSSelfEnergy|SelfEnergies`FSHeavySelfEnergy|
+     SelfEnergies`FSHeavyRotatedSelfEnergy|SelfEnergies`Tadpole)
+    [fieldSpec_[lorentzTag:SARAH`PL|SARAH`PR|_Integer], expr_]] :=
+    CNPointFunctionName[head[fieldSpec, expr]] <>
+    ToValidCSymbolString[lorentzTag];
+
+CNPointFunctionName[
+    (head:SelfEnergies`FSSelfEnergy|SelfEnergies`FSHeavySelfEnergy|
+     SelfEnergies`FSHeavyRotatedSelfEnergy|SelfEnergies`Tadpole)
+    [field_[indices__]|field_Symbol, expr_]] :=
+    ToValidCSymbolString[head[field]];
+
+CNPointFunctionArgs[
+    (head:SelfEnergies`FSSelfEnergy|SelfEnergies`FSHeavySelfEnergy|
+     SelfEnergies`FSHeavyRotatedSelfEnergy|SelfEnergies`Tadpole)
+    [fieldSpec_[lorentzTag:SARAH`PL|SARAH`PR|_Integer], expr_]] :=
+    CNPointFunctionArgs[head[fieldSpec, expr]];
+
+CNPointFunctionArgs[
+    (head:SelfEnergies`FSSelfEnergy|SelfEnergies`FSHeavySelfEnergy|
+     SelfEnergies`FSHeavyRotatedSelfEnergy|SelfEnergies`Tadpole)
+    [field_Symbol, expr_]] := CNPointFunctionArgs[head[field[], expr]];
+
+CNPointFunctionArgs[
+    (head:SelfEnergies`FSSelfEnergy|SelfEnergies`FSHeavySelfEnergy|
+     SelfEnergies`FSHeavyRotatedSelfEnergy)
+    [field_[indices___], expr_]] := "(" <>
+    Riffle[Prepend[("size_t " <> ToString[#])& /@ {indices}, "double p2"],
+	   ", "] <> ") const";
+
+CNPointFunctionArgs[
+    SelfEnergies`Tadpole
+    [field_[indices___], expr_]] := "(" <>
+    Riffle[("size_t " <> ToString[#])& /@ {indices},
+	   ", "] <> ") const";
+
+VertexRuleToC[lhs_ -> rhs_] := Module[{
+	cType, re
+    },
+    {cType, re} = If[RealQ[rhs],
+		     DeclaredRealQ[CVertexFunction[lhs]] := True;
+		     {"double", ReCExp},
+		     {"std::complex<double>", Identity}];
     CFxn[
 	ReturnType -> cType,
 	Scope -> "CLASSNAME::Interactions::",
@@ -552,6 +627,11 @@ VertexRuleToC[lhs_ -> rhs_] := Module[{
 	"}\n"
     ]
 ];
+
+CVertexFunction[cp_] :=
+    Symbol[CVertexFunctionName[cp]] @@
+    (DecInt /@ Flatten[
+	FieldIndexList/@SelfEnergies`Private`GetParticleList[cp]]);
 
 CVertexFunctionName[cpPattern_] := Module[{
 	fields = SelfEnergies`Private`GetParticleList[cpPattern]
@@ -774,6 +854,9 @@ CRealTypeQ[_SARAH`Delta|_KroneckerDelta|_SARAH`ThetaStep] := True;
 
 CRealTypeQ[_SARAH`Mass|_SARAH`Mass2|
 	   _Lattice`Private`M|_Lattice`Private`M2] := True;
+
+CRealTypeQ[_SARAH`A0|_SARAH`B0|_SARAH`B1|_SARAH`B00|_SARAH`B22|
+	   _SARAH`F0|_SARAH`G0|_SARAH`H0] := True;
 
 CRealTypeQ[_Re|_Im|_Lattice`Private`Re|_Lattice`Private`Im] := True;
 
