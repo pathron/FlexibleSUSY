@@ -537,12 +537,28 @@ SeparateTrivialRules[rules_] := Flatten /@
 CFxnsToCCode[cfxns_, chunkSize_:Infinity] := Module[{
 	decls, defs
     },
-    {decls, defs} = Transpose[
-	({{ReturnType, " ", Name, Args, {" ATTR(",Attributes,")"}, ";\n"},
-	  {ReturnType, " ", Scope, Name, Args, "\n", Body, "\n"}} /.
-	 List@@# /. {Scope -> "CLASSNAME::", {___, Attributes, ___} -> {}})& /@
-	Flatten[cfxns]];
+    {decls, defs} = Transpose[CFxnToCCode /@ Flatten[cfxns]];
     {StringJoin[decls], StringGroup[defs, chunkSize]}
+];
+
+CFxnToCCode[cfxn_] := Module[{
+	returnType, scope, name, args, qualifier, attributes, body,
+	argList,
+	argsInDecl, argsInDef
+    },
+    {returnType, scope, name, args, qualifier, attributes, body} =
+	{ReturnType, Scope, Name, Args,
+	 {" ",Qualifier}, {" ATTR(",Attributes,")"}, Body} /.
+	List@@cfxn /. {Scope -> "CLASSNAME::", {___, Qualifier} -> {},
+		       {___, Attributes, ___} -> {}};
+    argsInDecl = "(" <> Riffle[Riffle[#, " "]& /@ args, ", "] <> ")";
+    argsInDef = "(" <> Riffle[
+	Riffle[If[Length[#] > 1 &&
+	    StringFreeQ[body, RegularExpression["\\b" <> Last[#] <> "\\b"]],
+	    Most[#], #], " "]& /@ args,
+	", "] <> ")";
+    {{returnType, " ", name, argsInDecl, qualifier, attributes, ";\n"},
+     {returnType, " ", scope, name, argsInDef, qualifier, "\n", body, "\n"}}
 ];
 
 StringGroup[strings_List, chunkSize_] := Module[{
@@ -564,6 +580,7 @@ NPointFunctionToC[nPointFunction:_[_, rhs_]] := Module[{
 	Scope -> "CLASSNAME::Interactions::",
 	Name -> CNPointFunctionName[nPointFunction],
 	Args -> CNPointFunctionArgs[nPointFunction],
+	Qualifier -> "const",
 	Attributes -> "pure",
 	Body -> "{\n" <>
 	"  return " <> CExpToCFormString[
@@ -599,15 +616,13 @@ CNPointFunctionArgs[
 CNPointFunctionArgs[
     (head:SelfEnergies`FSSelfEnergy|SelfEnergies`FSHeavySelfEnergy|
      SelfEnergies`FSHeavyRotatedSelfEnergy)
-    [field_[indices___], expr_]] := "(" <>
-    Riffle[Prepend[("size_t " <> ToString[#])& /@ {indices}, "double p2"],
-	   ", "] <> ") const";
+    [field_[indices___], expr_]] :=
+    Prepend[{"size_t", ToString[#]}& /@ {indices}, {"double", "p2"}];
 
 CNPointFunctionArgs[
     SelfEnergies`Tadpole
-    [field_[indices___], expr_]] := "(" <>
-    Riffle[("size_t " <> ToString[#])& /@ {indices},
-	   ", "] <> ") const";
+    [field_[indices___], expr_]] :=
+    {"size_t", ToString[#]}& /@ {indices};
 
 VertexRuleToC[lhs_ -> rhs_] := Module[{
 	cType, re
@@ -621,6 +636,7 @@ VertexRuleToC[lhs_ -> rhs_] := Module[{
 	Scope -> "CLASSNAME::Interactions::",
 	Name -> CVertexFunctionName[lhs],
 	Args -> CVertexFunctionArgs[lhs],
+	Qualifier -> "const",
 	Attributes -> "pure",
 	Body -> "{\n" <>
 	"  return " <> CExpToCFormString @ re @ ToCExp[rhs, x] <> ";\n" <>
@@ -643,16 +659,12 @@ CVertexFunctionName[cpPattern_] := Module[{
 		 h_[] :> h)& /@ fields)]]
 ];
 
-CVertexFunctionArgs[cpPattern_] := "(" <>
-    Riffle[
-	Flatten[
-	    (Replace[#, {
-		index_Pattern :> "size_t " <> ToString@First[index],
-		unused_	      :> "size_t"
-		}]& /@ FieldIndexList[#])& /@
-	    SelfEnergies`Private`GetParticleList[cpPattern]],
-	", "] <>
-    ") const";
+CVertexFunctionArgs[cpPattern_] :=
+    Replace[#, {
+		index_Pattern :> {"size_t", ToString@First[index]},
+		unused_	      :> {"size_t"}
+	       }]& /@
+    Flatten[FieldIndexList /@ SelfEnergies`Private`GetParticleList[cpPattern]];
 
 DepNumRuleToC[lhs_ -> rhs_] :=
 CFxn[
@@ -660,7 +672,8 @@ CFxn[
 		     "std::complex<double>"],
     Scope -> "CLASSNAME::Interactions::",
     Name -> CExpToCFormString@ToCExp[lhs],
-    Args -> "() const",
+    Args -> {},
+    Qualifier -> "const",
     Attributes -> "pure",
     Body -> "{\n" <>
     "  return " <> CExpToCFormString@ToCExp[rhs, x] <> ";\n" <>
@@ -671,7 +684,8 @@ AbbrRuleToC[lhs_ -> rhs_] :=
 CFxn[
     ReturnType -> "double",
     Name -> CExpToCFormString@ToCExp[lhs],
-    Args -> "(const Eigen::VectorXd& x) const",
+    Args -> {{"const Eigen::VectorXd&", "x"}},
+    Qualifier -> "const",
     Attributes -> "pure",
     Body -> "{\n" <>
     "  return " <> CExpToCFormString@ToCExp[rhs, x] <> ";\n" <>
@@ -683,7 +697,9 @@ Reap[
     CFxn[
 	ReturnType -> "void",
 	Name -> "dx",
-	Args -> "(double a, const Eigen::VectorXd& x, Eigen::VectorXd& dx, size_t nloops) const",
+	Args -> {{"double", "a"}, {"const Eigen::VectorXd&", "x"},
+		 {"Eigen::VectorXd&", "dx"}, {"size_t", "nloops"}},
+	Qualifier -> "const",
 	Body -> StringJoin["{\n",
 	"  dx.setZero();\n",
 	"  dx[l0t] = 1;\n",
@@ -699,7 +715,9 @@ Reap[
 	Sow[CFxn[
 	    ReturnType -> "void",
 	    Name -> name,
-	    Args -> "(double a, const Eigen::VectorXd& x, Eigen::VectorXd& dx) const",
+	    Args -> {{"double", "a"}, {"const Eigen::VectorXd&", "x"},
+		     {"Eigen::VectorXd&", "dx"}},
+	    Qualifier -> "const",
 	    Body -> StringJoin["{\n",
 	    "  ", BetaFunctionRuleToCStmt[#1],
 	    "}\n"]]
@@ -713,7 +731,9 @@ Reap[
     CFxn[
 	ReturnType -> "void",
 	Name -> "ddx",
-	Args -> "(double a, const Eigen::VectorXd& x, Eigen::MatrixXd& ddx, size_t nloops) const",
+	Args -> {{"double", "a"}, {"const Eigen::VectorXd&", "x"},
+		 {"Eigen::MatrixXd&", "ddx"}, {"size_t", "nloops"}},
+	Qualifier -> "const",
 	Body -> StringJoin["{\n",
 	"  ddx.setZero();\n",
 	MapIndexed[{
@@ -726,7 +746,9 @@ Reap[
 	DoneLn[Sow[CFxn[
 	    ReturnType -> "void",
 	    Name -> name,
-	    Args -> "(double a, const Eigen::VectorXd& x, Eigen::MatrixXd& ddx) const",
+	    Args -> {{"double", "a"}, {"const Eigen::VectorXd&", "x"},
+		     {"Eigen::MatrixXd&", "ddx"}},
+	    Qualifier -> "const",
 	    Body -> StringJoin["{\n",
 	    BetaFunctionRuleToDerivCStmt[#1, enumRules, abbrRules],
 	    "}\n"]]],
