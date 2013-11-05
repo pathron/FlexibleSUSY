@@ -653,10 +653,7 @@ CVertexFunctionName[cpPattern_] := Module[{
 	fields = SelfEnergies`Private`GetParticleList[cpPattern]
     },
     ToValidCSymbolString[
-	cpPattern /. Thread[
-	    fields -> (
-		(# /. h_[l_List] :> h @@ (Cases[l, _Integer] - 1) /.
-		 h_[] :> h)& /@ fields)]]
+	cpPattern /. Thread[fields -> ((# /. h_[_List] :> h)& /@ fields)]]
 ];
 
 CVertexFunctionArgs[cpPattern_] :=
