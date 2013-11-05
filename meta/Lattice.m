@@ -28,6 +28,7 @@ BeginPackage["Lattice`", {
     "TreeMasses`",
     "Phases`",
     "Vertices`",
+    "SelfEnergies`",
     "LatticeUtils`",
     "CConversion`",
     "TextFormatting`",
@@ -647,10 +648,10 @@ VertexRuleToC[lhs_ -> rhs_] := Module[{
 CVertexFunction[cp_] :=
     Symbol[CVertexFunctionName[cp]] @@
     (DecInt /@ Flatten[
-	FieldIndexList/@SelfEnergies`Private`GetParticleList[cp]]);
+	FieldIndexList /@ GetParticleList[cp]]);
 
 CVertexFunctionName[cpPattern_] := Module[{
-	fields = SelfEnergies`Private`GetParticleList[cpPattern]
+	fields = GetParticleList[cpPattern]
     },
     ToValidCSymbolString[
 	cpPattern /. Thread[fields -> ((# /. h_[_List] :> h)& /@ fields)]]
@@ -661,7 +662,7 @@ CVertexFunctionArgs[cpPattern_] :=
 		index_Pattern :> {"size_t", ToString@First[index]},
 		unused_	      :> {"size_t"}
 	       }]& /@
-    Flatten[FieldIndexList /@ SelfEnergies`Private`GetParticleList[cpPattern]];
+    Flatten[FieldIndexList /@ GetParticleList[cpPattern]];
 
 DepNumRuleToC[lhs_ -> rhs_] :=
 CFxn[

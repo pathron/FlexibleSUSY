@@ -1,5 +1,5 @@
 
-BeginPackage["SelfEnergies`", {"SARAH`", "TextFormatting`", "CConversion`", "TreeMasses`", "Parameters`"}];
+BeginPackage["SelfEnergies`", {"SARAH`", "TextFormatting`", "CConversion`", "TreeMasses`", "Parameters`", "Vertices`"}];
 
 FSSelfEnergy::usage="self-energy head";
 Tadpole::usage="tadpole head";
@@ -205,10 +205,6 @@ ConvertSarahSelfEnergies[selfEnergies_List] :=
            Return[result /. SARAH`Mass -> FlexibleSUSY`M];
           ];
 
-GetLorentzStructure[Cp[__]] := 1;
-
-GetLorentzStructure[Cp[__][a_]] := a;
-
 GetParticleIndices[Cp[a__]] := DeleteDuplicates[Flatten[Cases[{a}, List[__], Infinity]]];
 
 GetParticleIndices[Cp[a__][_]] := GetParticleIndices[Cp[a]];
@@ -276,29 +272,6 @@ FindLorentzStructure[list_List, lorentz_] :=
              ];
            Return[-I result[[1,1]]];
           ];
-
-GetParticleList[Cp[a__]] := {a};
-
-GetParticleList[Cp[a__][_]] := {a};
-
-IsUnrotated[bar[field_]] := IsUnrotated[field];
-
-IsUnrotated[Susyno`LieGroups`conj[field_]] := IsUnrotated[field];
-
-IsUnrotated[field_[__]] := IsUnrotated[field];
-
-IsUnrotated[field_Symbol] := StringTake[ToString[field],1] == "U";
-
-ToRotatedField[field_Symbol] :=
-    Symbol[StringReplace[ToString[field], StartOfString ~~ "U" ~~ rest_ :> rest]];
-
-ToRotatedField[SARAH`bar[field_]] := SARAH`bar[ToRotatedField[field]];
-
-ToRotatedField[Susyno`LieGroups`conj[field_]] := Susyno`LieGroups`conj[ToRotatedField[field]];
-
-ToRotatedField[field_List] := ToRotatedField /@ field;
-
-ToRotatedField[field_[indices__]] := ToRotatedField[field][indices];
 
 GetUnrotatedFields[coupling_] := Select[GetParticleList[coupling], IsUnrotated];
 
@@ -442,12 +415,6 @@ ReplaceMixingMatrixByIdentityIn[expr_, coupling_] :=
              ];
            Return[unrotatedExpr];
           ];
-
-ReplaceUnrotatedFields[SARAH`Cp[p__]] :=
-    Cp[Sequence @@ ToRotatedField[{p}]];
-
-ReplaceUnrotatedFields[SARAH`Cp[p__][lorentz_]] :=
-    ReplaceUnrotatedFields[Cp[p]][lorentz];
 
 FindInnerColorIndices[particles_List] :=
     Cases[Flatten[
