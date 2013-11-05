@@ -10,6 +10,7 @@ META_SRC     := \
 		$(DIR)/FlexibleSUSY.m \
 		$(DIR)/Format.m \
 		$(DIR)/Lattice.m \
+		$(DIR)/LatticeUtils.m \
 		$(DIR)/LoopMasses.m \
 		$(DIR)/Makefile.m \
 		$(DIR)/Parameters.m \
@@ -23,6 +24,7 @@ META_SRC     := \
 		$(DIR)/Traces.m \
 		$(DIR)/TreeMasses.m \
 		$(DIR)/TwoLoop.m \
+		$(DIR)/Vertices.m \
 		$(DIR)/WriteOut.m \
 		$(DIR)/writeRGE.m \
 		$(DIR)/writeNRGE.m
