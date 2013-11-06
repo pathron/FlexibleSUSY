@@ -1,5 +1,5 @@
 
-BeginPackage["FlexibleSUSY`", {"SARAH`", "AnomalousDimension`", "BetaFunction`", "TextFormatting`", "CConversion`", "TreeMasses`", "EWSB`", "Traces`", "SelfEnergies`", "Phases`", "LoopMasses`", "WriteOut`", "Constraint`", "ThresholdCorrections`", "ConvergenceTester`", "Lattice`"}];
+BeginPackage["FlexibleSUSY`", {"SARAH`", "AnomalousDimension`", "BetaFunction`", "TextFormatting`", "CConversion`", "TreeMasses`", "EWSB`", "Traces`", "SelfEnergies`", "Vertices`", "Phases`", "LoopMasses`", "WriteOut`", "Constraint`", "ThresholdCorrections`", "ConvergenceTester`", "Lattice`"}];
 
 FS`Version = StringTrim[Import[FileNameJoin[{Global`$flexiblesusyConfigDir,"version"}], "String"]];
 
@@ -359,7 +359,7 @@ CreateVEVsToFieldsAssociation[vevs_List] :=
 
 WriteModelClass[massMatrices_List, vevs_List, ewsbEquations_List,
                 parametersFixedByEWSB_List, ewsbSolution_List, freePhases_List,
-                nPointFunctions_List, phases_List,
+                nPointFunctions_List, vertexRules_List, phases_List,
                 enablePoleMassThreads_,
                 files_List, diagonalizationPrecision_List] :=
     Module[{massGetters = "", k,
@@ -419,7 +419,7 @@ WriteModelClass[massMatrices_List, vevs_List, ewsbEquations_List,
            calculateTreeLevelTadpoles   = EWSB`FillArrayWithEWSBEqs[vevs, parametersFixedByEWSB, freePhases];
            ewsbInitialGuess             = EWSB`FillInitialGuessArray[parametersFixedByEWSB];
            solveEwsbTreeLevel           = EWSB`CreateTreeLevelEwsbSolver[ewsbSolution];
-           {selfEnergyPrototypes, selfEnergyFunctions} = SelfEnergies`CreateNPointFunctions[nPointFunctions];
+           {selfEnergyPrototypes, selfEnergyFunctions} = SelfEnergies`CreateNPointFunctions[nPointFunctions, vertexRules];
            phasesDefinition             = Phases`CreatePhasesDefinition[phases];
            phasesGetterSetters          = Phases`CreatePhasesGetterSetters[phases];
            phasesInit                   = Phases`CreatePhasesInitialization[phases];
@@ -755,7 +755,8 @@ MakeFlexibleSUSY[OptionsPattern[]] :=
 	    Lat$superpotentialParameterRules,
 	    Lat$susyBreakingParameterRules,
 	    Lat$allParameterRules,
-	    Lat$massMatrices},
+	    Lat$massMatrices,
+	    Lat$vertexRules},
            (* check if SARAH`Start[] was called *)
            If[!ValueQ[Model`Name],
               Print["Error: Model`Name is not defined.  Did you call SARAH`Start[\"Model\"]?"];
@@ -941,6 +942,8 @@ MakeFlexibleSUSY[OptionsPattern[]] :=
                                       FileNameJoin[{Global`$flexiblesusyOutputDir, FlexibleSUSY`FSModelName <> "_input_parameters.hpp"}]}}
                                    ];
 
+	   On[Assert];
+
            Lat$massMatrices = ConvertSarahMassMatrices[] /.
                           Parameters`ApplyGUTNormalization[] /.
                           { SARAH`sum[j_, start_, end_, expr_] :> (Sum[expr, {j,start,end}]) };
@@ -1069,8 +1072,6 @@ MakeFlexibleSUSY[OptionsPattern[]] :=
                                     }
                                    ];
 
-           SelfEnergies`SetIndexReplacementRules[allIndexReplacementRules];
-
            phases = ConvertSarahPhases[SARAH`ParticlePhases];
 
            (* determin diagonalization precision for each particle *)
@@ -1081,13 +1082,14 @@ MakeFlexibleSUSY[OptionsPattern[]] :=
                Flatten[{OptionValue[LowDiagonalizationPrecision]}],
                FSEigenstates];
 
-	   vertexRules = Vertices`VertexRules[nPointFunctions, Lat$massMatrices];
+	   Lat$vertexRules = Vertices`VertexRules[nPointFunctions, Lat$massMatrices];
+	   vertexRules = Lat$vertexRules /. allIndexReplacementRules;
 
            PrintHeadline["Creating model"];
            Print["Creating class for model ..."];
            WriteModelClass[massMatrices, vevs, ewsbEquations,
                            FlexibleSUSY`EWSBOutputParameters, ewsbSolution, freePhases,
-                           nPointFunctions, phases, OptionValue[EnablePoleMassThreads],
+                           nPointFunctions, vertexRules, phases, OptionValue[EnablePoleMassThreads],
                            {{FileNameJoin[{Global`$flexiblesusyTemplateDir, "model.hpp.in"}],
                              FileNameJoin[{Global`$flexiblesusyOutputDir, FlexibleSUSY`FSModelName <> "_model.hpp"}]},
                             {FileNameJoin[{Global`$flexiblesusyTemplateDir, "two_scale_model.hpp.in"}],
@@ -1124,7 +1126,7 @@ MakeFlexibleSUSY[OptionsPattern[]] :=
 	       SARAH`TraceAbbr /. traceRules,
 	       Join[susyBetaFunctions, susyBreakingBetaFunctions], anomDim,
 	       Lat$massMatrices, nPointFunctions,
-	       vertexRules,
+	       Lat$vertexRules,
 	       phases,
 	       Lat$gaugeCouplingRules, Complement[Lat$allParameterRules, Lat$gaugeCouplingRules],
 	       GeneralReplacementRules[],
