@@ -6,6 +6,7 @@ TEST_SRC := \
 		$(DIR)/test_betafunction.cpp \
 		$(DIR)/test_minimizer.cpp \
 		$(DIR)/test_problems.cpp \
+		$(DIR)/test_pv.cpp \
 		$(DIR)/test_rk.cpp \
 		$(DIR)/test_root_finder.cpp \
 		$(DIR)/test_sminput.cpp \
@@ -176,6 +177,9 @@ $(DIR)/test_linalg2.x: $(DIR)/test_linalg2.o
 
 $(DIR)/test_minimizer.x: $(DIR)/test_minimizer.o $(LIBFLEXI)
 		$(CXX) -o $@ $^ $(BOOSTTESTLIBS) $(GSLLIBS)
+
+$(DIR)/test_pv.x: $(DIR)/test_pv.o
+		$(CXX) -o $@ $^ $(BOOSTTESTLIBS) $(LIBFLEXI) $(LOOPTOOLSLIBS) $(LIBFFLITE) $(FLIBS)
 
 $(DIR)/test_rk.x: $(DIR)/test_rk.o $(LIBLEGACY) $(LIBFLEXI)
 		$(CXX) -o $@ $^ $(BOOSTTESTLIBS)
