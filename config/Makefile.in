@@ -5,7 +5,7 @@ ABSBASEDIR := @ABSBASEDIR@
 
 # Makefile modules
 MODELS     := @MODELS@
-MODULES    := config src legacy slhaea meta templates $(MODELS) test examples doc
+MODULES    := config src legacy slhaea @FFLITE@ meta templates $(MODELS) test examples doc
 
 # Variables for Mathematica meta code
 MATH       := @MATH@
@@ -98,6 +98,11 @@ clean-dep:
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -MM -MP -MG -o $@ -MT '$*.o' $^
 
 %.d: %.f
+# the sed script ensures that the target contains the full path
+	$(FC) $(CPPFLAGS) -cpp -MM -MP -MG $^ -MT '$*.o' | \
+	sed 's|.*\.o:|$*.o:|' > $@
+
+%.d: %.F
 # the sed script ensures that the target contains the full path
 	$(FC) $(CPPFLAGS) -cpp -MM -MP -MG $^ -MT '$*.o' | \
 	sed 's|.*\.o:|$*.o:|' > $@

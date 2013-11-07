@@ -55,6 +55,7 @@ options="                    \
    enable_colors             \
    enable_compile            \
    enable_debug              \
+   enable_fflite             \
    enable_looptools          \
    enable_meta               \
    enable_silent             \
@@ -64,6 +65,7 @@ options="                    \
 enable_compile="yes"
 enable_colors="no"
 enable_debug=""
+enable_fflite="no"
 enable_looptools="no"
 enable_meta="yes"
 enable_silent="no"
@@ -101,6 +103,7 @@ ALGORITHMS="all"
 available_algorithms="two_scale lattice"
 # models that will be compiled
 MODELS="all"
+FFLITE=""
 
 # required boost version
 required_boost_major="1"
@@ -1254,6 +1257,16 @@ enable_defines() {
         CPPFLAGS="$CPPFLAGS -UDEBUG -DNDEBUG"
     fi
 
+    if test "$enable_fflite" = "yes" -a "$enable_looptools" = "yes"; then
+	message "Error: do not \`--enable-ff' and \`--enable-looptools' at the same time"
+	exit 1
+    fi
+
+    if test "x$enable_fflite" = "xyes" ; then
+        message "Enabling usage of FF -DENABLE_FFLITE"
+        CPPFLAGS="$CPPFLAGS -DENABLE_FFLITE"
+    fi
+
     if test "x$enable_looptools" = "xyes" ; then
         message "Enabling usage of LoopTools -DENABLE_LOOPTOOLS"
         CPPFLAGS="$CPPFLAGS -DENABLE_LOOPTOOLS"
@@ -1297,6 +1310,7 @@ enable/disable options, prefix with either --enable- or --disable-
   colors            Colored output (default: $enable_colors)
   compile           Compile the source code (default: $enable_compile)
   debug             Debug messages and assertions (no default)
+  fflite            Use a subset of FF to compute the loop functions (default: $enable_fflite)
   looptools         Use LoopTools to compute the loop functions (default: $enable_looptools)
   meta              Create model classes (default: $enable_meta)
   silent            Suppress all command line output (default: $enable_silent)
@@ -1439,6 +1453,9 @@ if test "x${enable_compile}" = "xyes"; then
         check_boost_thread_libs
         check_lapack_libs
     fi
+    if test "x$enable_fflite" = "xyes"; then
+	FFLITE="fflite"
+    fi
     if test "x$enable_looptools" = "xyes"; then
         check_looptools_incl
         check_looptools_libs
@@ -1482,6 +1499,7 @@ sed -e "s|@FLEXIBLESUSY_VERSION@|$FLEXIBLESUSY_VERSION|" \
     -e "s|@ENABLE_COMPILE@|$enable_compile|" \
     -e "s|@ENABLE_LOOPTOOLS@|$enable_looptools|" \
     -e "s|@ENABLE_META@|$enable_meta|" \
+    -e "s|@FFLITE@|$FFLITE|"	       \
     -e "s|@LOOPTOOLSLIBS@|$LOOPTOOLSLIBS|"    \
     -e "s|@LOOPTOOLSFLAGS@|$LOOPTOOLSFLAGS|"  \
     -e "s|@MODELS@|$MODELS|"           \
