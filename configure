@@ -1258,7 +1258,7 @@ enable_defines() {
     fi
 
     if test "$enable_fflite" = "yes" -a "$enable_looptools" = "yes"; then
-	message "Error: do not \`--enable-ff' and \`--enable-looptools' at the same time"
+	message "Error: do not \`--enable-fflite' and \`--enable-looptools' at the same time"
 	exit 1
     fi
 
@@ -1453,9 +1453,6 @@ if test "x${enable_compile}" = "xyes"; then
         check_boost_thread_libs
         check_lapack_libs
     fi
-    if test "x$enable_fflite" = "xyes"; then
-	FFLITE="fflite"
-    fi
     if test "x$enable_looptools" = "xyes"; then
         check_looptools_incl
         check_looptools_libs
@@ -1497,9 +1494,9 @@ sed -e "s|@FLEXIBLESUSY_VERSION@|$FLEXIBLESUSY_VERSION|" \
     -e "s|@GSLFLAGS@|$GSLFLAGS|"       \
     -e "s|@LAPACKLIBS@|$LAPACKLIBS|"   \
     -e "s|@ENABLE_COMPILE@|$enable_compile|" \
+    -e "s|@ENABLE_FFLITE@|$enable_fflite|" \
     -e "s|@ENABLE_LOOPTOOLS@|$enable_looptools|" \
     -e "s|@ENABLE_META@|$enable_meta|" \
-    -e "s|@FFLITE@|$FFLITE|"	       \
     -e "s|@LOOPTOOLSLIBS@|$LOOPTOOLSLIBS|"    \
     -e "s|@LOOPTOOLSFLAGS@|$LOOPTOOLSFLAGS|"  \
     -e "s|@MODELS@|$MODELS|"           \
