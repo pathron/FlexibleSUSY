@@ -565,59 +565,168 @@ FileExists[path_String, fileName_String] :=
           ];
 
 FilesExist[path_String, fileNames_List] :=
-    Module[{filesExist},
-           filesExist = FileExists[path,#]& /@ fileNames;
-           And @@ filesExist
+    And @@ (FileExists[path,#]& /@ fileNames);
+
+FilesExist[fileNames_List] :=
+    And @@ (FileExists /@ fileNames);
+
+LatestModificationTimeInSeconds[file_String] :=
+    If[FileExists[file],
+       AbsoluteTime[FileDate[file, "Modification"]], 0];
+
+LatestModificationTimeInSeconds[files_List] :=
+    Max[LatestModificationTimeInSeconds /@ files];
+
+SARAHModelFileModificationTimeInSeconds[] :=
+    Module[{files},
+           files = Join[{SARAH`ModelFile},
+                        FileNameJoin[{$sarahCurrentModelDir, #}]& /@ {"parameters.m", "particles.m"}
+                       ];
+           Return[LatestModificationTimeInSeconds[files]];
           ];
 
-RGEsHaveBeenCalculated[outputDir_String] :=
-    Module[{rgeDir, fileNames, diracGauginoBetaExists = True},
+GetRGEFileNames[outputDir_String] :=
+    Module[{rgeDir, fileNames},
            rgeDir = FileNameJoin[{outputDir, "RGEs"}];
            fileNames = { "BetaYijk.m", "BetaGauge.m", "BetaWijkl.m",
                          "BetaMuij.m", "BetaLi.m", "BetaQijkl.m",
                          "BetaTijk.m", "BetaBij.m", "BetaLSi.m",
                          "Betam2ij.m", "BetaMi.m", "BetaVEV.m" };
            If[SARAH`AddDiracGauginos === True,
-              diracGauginoBetaExists = FileExists[rgeDir, "BetaDGi.m"];
+              AppendTo[fileNames, "BetaDGi.m"];
              ];
-           FilesExist[rgeDir, fileNames] && diracGauginoBetaExists
+           FileNameJoin[{rgeDir, #}]& /@ fileNames
+          ];
+
+RGEFilesExist[outputDir_String] :=
+    FilesExist[GetRGEFileNames[outputDir]];
+
+RGEsModificationTimeInSeconds[outputDir_String] :=
+    LatestModificationTimeInSeconds[GetRGEFileNames[outputDir]];
+
+GetSelfEnergyFileNames[outputDir_String, eigenstates_] :=
+    FileNameJoin[{outputDir, ToString[eigenstates],
+                  "One-Loop", "SelfEnergy.m"}];
+
+SelfEnergyFilesExist[outputDir_String, eigenstates_] :=
+    FileExists[GetSelfEnergyFileNames[outputDir, eigenstates]];
+
+SelfEnergyFilesModificationTimeInSeconds[outputDir_String, eigenstates_] :=
+    LatestModificationTimeInSeconds[GetSelfEnergyFileNames[outputDir, eigenstates]];
+
+NeedToCalculateSelfEnergies[eigenstates_] :=
+    Module[{seFilesExist, seFilesTimeStamp, sarahModelFileTimeStamp,
+            needToCalculateSEs},
+           seFilesExist = SelfEnergyFilesExist[$sarahCurrentOutputMainDir, eigenstates];
+           seFilesTimeStamp = SelfEnergyFilesModificationTimeInSeconds[$sarahCurrentOutputMainDir, eigenstates];
+           sarahModelFileTimeStamp = SARAHModelFileModificationTimeInSeconds[];
+           needToCalculateSEs = Or[!seFilesExist,
+                                    seFilesExist && (sarahModelFileTimeStamp > seFilesTimeStamp)];
+           If[!seFilesExist,
+              Print["Self-energies have not been calculated yet, calculating them ..."];
+             ];
+           If[seFilesExist && (sarahModelFileTimeStamp > seFilesTimeStamp),
+              Print["SARAH model files are newer than self-energy files, recalculating them ..."];
+             ];
+           Return[needToCalculateSEs];
+          ];
+
+GetTadpoleFileName[outputDir_String, eigenstates_] :=
+    FileNameJoin[{outputDir, ToString[eigenstates],
+                  "One-Loop", "Tadpoles1Loop.m"}];
+
+TadpoleFileExists[outputDir_String, eigenstates_] :=
+    FileExists[GetTadpoleFileName[outputDir, eigenstates]];
+
+TadpoleFilesModificationTimeInSeconds[outputDir_String, eigenstates_] :=
+    LatestModificationTimeInSeconds[GetTadpoleFileName[outputDir, eigenstates]];
+
+NeedToCalculateTadpoles[eigenstates_] :=
+    Module[{tadpoleFilesExist, tadpoleFilesTimeStamp, sarahModelFileTimeStamp,
+            needToCalculateTadpoles},
+           tadpoleFilesExist = TadpoleFileExists[$sarahCurrentOutputMainDir, eigenstates];
+           tadpoleFilesTimeStamp = TadpoleFilesModificationTimeInSeconds[$sarahCurrentOutputMainDir, eigenstates];
+           sarahModelFileTimeStamp = SARAHModelFileModificationTimeInSeconds[];
+           needToCalculateTadpoles = Or[!tadpoleFilesExist,
+                                        tadpoleFilesExist && (sarahModelFileTimeStamp > tadpoleFilesTimeStamp)];
+           If[!tadpoleFilesExist,
+              Print["Tadpoles have not been calculated yet, calculating them ..."];
+             ];
+           If[tadpoleFilesExist && (sarahModelFileTimeStamp > tadpoleFilesTimeStamp),
+              Print["SARAH model files are newer than tadpoles file, recalculating them ..."];
+             ];
+           Return[needToCalculateTadpoles];
+          ];
+
+GetUnrotatedParticlesFileName[outputDir_String, eigenstates_] :=
+    FileNameJoin[{outputDir, ToString[eigenstates],
+                  "One-Loop", "UnrotatedParticles.m"}];
+
+UnrotatedParticlesFilesExist[outputDir_String, eigenstates_] :=
+    FileExists[GetUnrotatedParticlesFileName[outputDir, eigenstates]];
+
+UnrotatedParticlesFilesModificationTimeInSeconds[outputDir_String, eigenstates_] :=
+    LatestModificationTimeInSeconds[GetUnrotatedParticlesFileName[outputDir, eigenstates]];
+
+NeedToCalculateUnrotatedParticles[eigenstates_] :=
+    Module[{unrotatedParticlesFilesExist, unrotatedParticlesFilesTimeStamp, sarahModelFileTimeStamp,
+            needToCalculateSEs},
+           unrotatedParticlesFilesExist = UnrotatedParticlesFilesExist[$sarahCurrentOutputMainDir, eigenstates];
+           unrotatedParticlesFilesTimeStamp = UnrotatedParticlesFilesModificationTimeInSeconds[$sarahCurrentOutputMainDir, eigenstates];
+           sarahModelFileTimeStamp = SARAHModelFileModificationTimeInSeconds[];
+           needToCalculateSEs = Or[!unrotatedParticlesFilesExist,
+                                    unrotatedParticlesFilesExist && (sarahModelFileTimeStamp > unrotatedParticlesFilesTimeStamp)];
+           If[!unrotatedParticlesFilesExist,
+              Print["Unrotated particles have not been calculated yet, calculating them ..."];
+             ];
+           If[unrotatedParticlesFilesExist && (sarahModelFileTimeStamp > unrotatedParticlesFilesTimeStamp),
+              Print["SARAH model files are newer than unrotated particles file, recalculating them ..."];
+             ];
+           Return[needToCalculateSEs];
           ];
 
 SearchSelfEnergies[outputDir_String, eigenstates_] :=
-    Module[{seDir, fileName = "SelfEnergy.m"},
-           seDir = FileNameJoin[{outputDir, ToString[eigenstates], "One-Loop"}];
-           If[FileExists[seDir, fileName],
-              Return[FileNameJoin[{seDir,fileName}]];
-             ];
-           Return[""];
+    Module[{fileName},
+           fileName = GetSelfEnergyFileNames[outputDir, eigenstates];
+           If[FileExists[fileName], fileName, ""]
           ];
 
 SearchUnrotatedParticles[outputDir_String, eigenstates_] :=
-    Module[{dir, fileName = "UnrotatedParticles.m"},
-           dir = FileNameJoin[{outputDir, ToString[eigenstates], "One-Loop"}];
-           If[FileExists[dir, fileName],
-              Return[FileNameJoin[{dir,fileName}]];
-             ];
-           Return[""];
+    Module[{fileName},
+           fileName = GetUnrotatedParticlesFileName[outputDir, eigenstates];
+           If[FileExists[fileName], fileName, ""]
           ];
 
 SearchTadpoles[outputDir_String, eigenstates_] :=
-    Module[{tadpoleDir, fileName = "Tadpoles1Loop.m"},
-           tadpoleDir = FileNameJoin[{outputDir, ToString[eigenstates], "One-Loop"}];
-           If[FileExists[tadpoleDir, fileName],
-              Return[FileNameJoin[{tadpoleDir,fileName}]];
+    Module[{fileName},
+           fileName = GetTadpoleFileName[outputDir, eigenstates];
+           If[FileExists[fileName], fileName, ""]
+          ];
+
+NeedToCalculateRGEs[] :=
+    Module[{rgeFilesExist, rgeFilesTimeStamp, sarahModelFileTimeStamp,
+            needToCalculateRGEs},
+           rgeFilesExist = RGEFilesExist[$sarahCurrentOutputMainDir];
+           rgeFilesTimeStamp = RGEsModificationTimeInSeconds[$sarahCurrentOutputMainDir];
+           sarahModelFileTimeStamp = SARAHModelFileModificationTimeInSeconds[];
+           needToCalculateRGEs = Or[!rgeFilesExist,
+                                    rgeFilesExist && (sarahModelFileTimeStamp > rgeFilesTimeStamp)];
+           If[!rgeFilesExist,
+              Print["RGEs have not been calculated yet, calculating them ..."];
              ];
-           Return[""];
+           If[rgeFilesExist && (sarahModelFileTimeStamp > rgeFilesTimeStamp),
+              Print["SARAH model files are newer than RGE files, recalculating them ..."];
+             ];
+           If[!needToCalculateRGEs,
+              Print["Reading RGEs from files."];
+             ];
+           Return[needToCalculateRGEs];
           ];
 
 FSPrepareRGEs[] :=
-    Module[{rgesHaveBeenCalculated, betas},
-           rgesHaveBeenCalculated = RGEsHaveBeenCalculated[$sarahCurrentOutputMainDir];
-           If[rgesHaveBeenCalculated,
-              Print["RGEs have already been calculated, reading them from file ..."];,
-              Print["RGEs have not been calculated yet, calculating them ..."];
-             ];
-           SARAH`CalcRGEs[ReadLists -> rgesHaveBeenCalculated,
+    Module[{needToCalculateRGEs, betas},
+           needToCalculateRGEs = NeedToCalculateRGEs[];
+           SARAH`CalcRGEs[ReadLists -> !needToCalculateRGEs,
                           TwoLoop -> True,
                           NoMatrixMultiplication -> False];
            (* check if the beta functions were calculated correctly *)
@@ -632,18 +741,27 @@ FSPrepareRGEs[] :=
              ];
           ];
 
+FSCheckLoopCorrections[eigenstates_] :=
+    Module[{needToCalculateLoopCorrections},
+           needToCalculateLoopCorrections = Or[
+               NeedToCalculateSelfEnergies[eigenstates],
+               NeedToCalculateTadpoles[eigenstates],
+               NeedToCalculateUnrotatedParticles[eigenstates]
+                                              ];
+           If[needToCalculateLoopCorrections,
+              SARAH`CalcLoopCorrections[eigenstates];
+             ];
+          ];
+
 PrepareSelfEnergies[eigenstates_] :=
     Module[{selfEnergies = {}, selfEnergiesFile},
            selfEnergiesFile = SearchSelfEnergies[$sarahCurrentOutputMainDir, eigenstates];
-           If[selfEnergiesFile != "",
-              Print["Self-energies have already been calculated, reading them from file ", selfEnergiesFile, " ..."];
-              selfEnergies = Get[selfEnergiesFile];
-              ,
-              Print["Self-energies have not been calculated yet, calculating them ..."];
-              SARAH`CalcLoopCorrections[eigenstates];
-              selfEnergiesFile = SearchSelfEnergies[$sarahCurrentOutputMainDir, eigenstates];
-              selfEnergies = Get[selfEnergiesFile];
+           If[selfEnergiesFile == "",
+              Print["Error: self-energy files not found: ", selfEnergiesFile];
+              Quit[1];
              ];
+           Print["Reading self-energies from file ", selfEnergiesFile, " ..."];
+           selfEnergies = Get[selfEnergiesFile];
            Print["Converting self-energies ..."];
            ConvertSarahSelfEnergies[selfEnergies]
           ];
@@ -651,15 +769,12 @@ PrepareSelfEnergies[eigenstates_] :=
 PrepareTadpoles[eigenstates_] :=
     Module[{tadpoles = {}, tadpolesFile},
            tadpolesFile = SearchTadpoles[$sarahCurrentOutputMainDir, eigenstates];
-           If[tadpolesFile != "",
-              Print["Tadpoles have already been calculated, reading them from file ", tadpolesFile, " ..."];
-              tadpoles = Get[tadpolesFile];
-              ,
-              Print["Tadpoles have not been calculated yet, calculating them ..."];
-              SARAH`CalcLoopCorrections[eigenstates];
-              tadpolesFile = SearchTadpoles[$sarahCurrentOutputMainDir, eigenstates];
-              tadpoles = Get[tadpolesFile];
+           If[tadpolesFile == "",
+              Print["Error: tadpole file not found: ", tadpolesFile];
+              Quit[1];
              ];
+           Print["Reading tadpoles from file ", tadpolesFile, " ..."];
+           tadpoles = Get[tadpolesFile];
            Print["Converting tadpoles ..."];
            ConvertSarahTadpoles[tadpoles]
           ];
@@ -667,16 +782,12 @@ PrepareTadpoles[eigenstates_] :=
 PrepareUnrotatedParticles[eigenstates_] :=
     Module[{nonMixedParticles = {}, nonMixedParticlesFile},
            nonMixedParticlesFile = SearchUnrotatedParticles[$sarahCurrentOutputMainDir, eigenstates];
-           If[nonMixedParticlesFile != "",
-              Print["Unrotated particles have already been calculated, reading them from file ",
-                    nonMixedParticlesFile, " ..."];
-              nonMixedParticles = Get[nonMixedParticlesFile];
-              ,
-              Print["Unrotated particles have not been calculated yet, calculating them ..."];
-              SARAH`CalcLoopCorrections[eigenstates];
-              nonMixedParticlesFile = SearchUnrotatedParticles[$sarahCurrentOutputMainDir, eigenstates];
-              nonMixedParticles = Get[nonMixedParticlesFile];
+           If[nonMixedParticlesFile == "",
+              Print["Error: file with unrotated fields not found: ", tadpolesFile];
+              Quit[1];
              ];
+           Print["Reading unrotated particles from file ", nonMixedParticlesFile, " ..."];
+           nonMixedParticles = Get[nonMixedParticlesFile];
            TreeMasses`SetUnrotatedParticles[nonMixedParticles];
           ];
 
@@ -755,8 +866,7 @@ MakeFlexibleSUSY[OptionsPattern[]] :=
 	    Lat$superpotentialParameterRules,
 	    Lat$susyBreakingParameterRules,
 	    Lat$allParameterRules,
-	    Lat$massMatrices,
-	    Lat$vertexRules},
+	    Lat$massMatrices},
            (* check if SARAH`Start[] was called *)
            If[!ValueQ[Model`Name],
               Print["Error: Model`Name is not defined.  Did you call SARAH`Start[\"Model\"]?"];
@@ -775,6 +885,7 @@ MakeFlexibleSUSY[OptionsPattern[]] :=
            PrintHeadline["Reading SARAH output files"];
            (* get RGEs *)
            FSPrepareRGEs[];
+           FSCheckLoopCorrections[FSEigenstates];
            nPointFunctions = Join[PrepareSelfEnergies[FSEigenstates], PrepareTadpoles[FSEigenstates]];
            PrepareUnrotatedParticles[FSEigenstates];
            (* adapt SARAH`Conj to our needs *)
@@ -1082,8 +1193,7 @@ MakeFlexibleSUSY[OptionsPattern[]] :=
                Flatten[{OptionValue[LowDiagonalizationPrecision]}],
                FSEigenstates];
 
-	   Lat$vertexRules = Vertices`VertexRules[nPointFunctions, Lat$massMatrices];
-	   vertexRules = Lat$vertexRules /. allIndexReplacementRules;
+	   vertexRules = Vertices`VertexRules[nPointFunctions, Lat$massMatrices];
 
            PrintHeadline["Creating model"];
            Print["Creating class for model ..."];
@@ -1126,7 +1236,7 @@ MakeFlexibleSUSY[OptionsPattern[]] :=
 	       SARAH`TraceAbbr /. traceRules,
 	       Join[susyBetaFunctions, susyBreakingBetaFunctions], anomDim,
 	       Lat$massMatrices, nPointFunctions,
-	       Lat$vertexRules,
+	       vertexRules,
 	       phases,
 	       Lat$gaugeCouplingRules, Complement[Lat$allParameterRules, Lat$gaugeCouplingRules],
 	       GeneralReplacementRules[],
