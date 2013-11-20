@@ -336,9 +336,8 @@ SVDToC[m_, f_, u_, u_, scalarType_] := Module[{
 	SetStmt ->
 	    "  {\n" <>
 	    CDefTmpMatrix[m, scalarType, "tmpMat"] <> "\n" <>
-	    "    reorder_diagonalize_symmetric(tmpMat, " <> ev <> ", " <>
+	    "    fs_diagonalize_symmetric(tmpMat, " <> ev <> ", " <>
 		ToValidCSymbolString[u] <> ");\n" <>
-	    "    " <> ToValidCSymbolString[u] <> ".transposeInPlace();\n" <>
 	    "  }"
     ]
 ];
@@ -359,10 +358,9 @@ SVDToC[m_, f_, u_, v_, scalarType_] := Module[{
 	SetStmt ->
 	    "  {\n" <>
 	    CDefTmpMatrix[m, scalarType, "tmpMat"] <> "\n" <>
-	    "    reorder_svd(tmpMat, " <> ev <> ", " <>
+	    "    fs_svd(tmpMat, " <> ev <> ", " <>
 		ToValidCSymbolString[u] <> ", " <> ToValidCSymbolString[v] <>
 		");\n" <>
-	    "    " <> ToValidCSymbolString[u] <> ".transposeInPlace();\n" <>
 	    "  }"
     ]
 ];
@@ -392,9 +390,8 @@ HermitianToC[m_, f_, z_, scalarType_] := Module[{
 	SetStmt ->
 	    "  {\n" <>
 	    CDefTmpMatrix[m, scalarType, "tmpMat"] <> "\n" <>
-	    "    diagonalize_hermitian(tmpMat, " <> ev <> ", " <>
+	    "    fs_diagonalize_hermitian(tmpMat, " <> ev <> ", " <>
 		ToValidCSymbolString[z] <> ");\n" <>
-	    "    " <> ToValidCSymbolString[z] <> ".adjointInPlace();\n" <>
 	    "  }"
     ]
 ];
