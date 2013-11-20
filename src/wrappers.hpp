@@ -86,7 +86,7 @@ inline double Conjugate(double a)
    return a;
 }
 
-inline Complex Conjugate(const Complex& a)
+inline std::complex<double> Conjugate(const std::complex<double>& a)
 {
    return std::conj(a);
 }

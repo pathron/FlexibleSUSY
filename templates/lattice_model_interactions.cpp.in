@@ -21,6 +21,7 @@
 #include "linalg2.hpp"
 #include "wrappers.hpp"
 #include "sum.hpp"
+#include "complex_op_int.hpp"
 #include "@ModelName@_lattice_model.hpp"
 #include "@ModelName@_lattice_info.hpp"
 

@@ -95,6 +95,9 @@ Format[Lattice`Private`SUM, CForm] := Format["SUM", OutputForm];
 
 Format[Lattice`Private`LispAnd, CForm] := Format["LispAnd", OutputForm];
 
+Format[Lattice`Private`Complex, CForm] :=
+    Format["std::complex<double>", OutputForm];
+
 WriteLatticeCode[
     sarahAbbrs_List, betaFunctions_List, anomDims_List,
     fsMassMatrices_, fsNPointFunctions_,
@@ -823,7 +826,8 @@ toCExpDispatch = Dispatch[{
     HoldPattern@Times[a___, SARAH`ThetaStep[i_, j_], b___] :>
 	Lattice`Private`ThetaStep[i, j, Times[a, b]],
     HoldPattern[SARAH`Mass [f_]] :> Lattice`Private`M [f],
-    HoldPattern[SARAH`Mass2[f_]] :> Lattice`Private`M2[f]
+    HoldPattern[SARAH`Mass2[f_]] :> Lattice`Private`M2[f],
+    Complex[p__] :> Lattice`Private`Complex[p]
 }];
 
 replaceIndicesDispatch = Dispatch[{
