@@ -515,7 +515,8 @@ WriteUtilitiesClass[massMatrices_List, betaFun_List, minpar_List, extpar_List,
             parameterNames = "", parameterEnum = "", numberOfParameters = 0,
             fillInputParametersFromMINPAR = "", fillInputParametersFromEXTPAR = "",
             writeSLHAMassBlock = "", writeSLHAMixingMatricesBlocks = "",
-            writeSLHAModelParametersBlocks = "", readUnfixedParameters},
+            writeSLHAModelParametersBlocks = "", writeSLHAMinparBlock = "",
+            writeSLHAExtparBlock = "", readUnfixedParameters},
            particles = GetMassEigenstate /@ massMatrices;
            susyParticles = Select[particles, (!SARAH`SMQ[#])&];
            smParticles   = Complement[particles, susyParticles];
@@ -534,6 +535,8 @@ WriteUtilitiesClass[massMatrices_List, betaFun_List, minpar_List, extpar_List,
            writeSLHAMassBlock = WriteOut`WriteSLHAMassBlock[massMatrices];
            writeSLHAMixingMatricesBlocks  = WriteOut`WriteSLHAMixingMatricesBlocks[];
            writeSLHAModelParametersBlocks = WriteOut`WriteSLHAModelParametersBlocks[];
+           writeSLHAMinparBlock = WriteOut`WriteSLHAMinparBlock[minpar];
+           writeSLHAExtparBlock = WriteOut`WriteSLHAExtparBlock[extpar];
            WriteOut`ReplaceInFiles[files,
                           { "@fillSpectrumVectorWithSusyParticles@" -> IndentText[fillSpectrumVectorWithSusyParticles],
                             "@fillSpectrumVectorWithSMParticles@"   -> IndentText[IndentText[fillSpectrumVectorWithSMParticles]],
@@ -549,6 +552,8 @@ WriteUtilitiesClass[massMatrices_List, betaFun_List, minpar_List, extpar_List,
                             "@writeSLHAMassBlock@" -> IndentText[writeSLHAMassBlock],
                             "@writeSLHAMixingMatricesBlocks@"  -> IndentText[writeSLHAMixingMatricesBlocks],
                             "@writeSLHAModelParametersBlocks@" -> IndentText[writeSLHAModelParametersBlocks],
+                            "@writeSLHAMinparBlock@"           -> IndentText[writeSLHAMinparBlock],
+                            "@writeSLHAExtparBlock@"           -> IndentText[writeSLHAExtparBlock],
                             Sequence @@ GeneralReplacementRules[]
                           } ];
           ];
@@ -919,7 +924,9 @@ MakeFlexibleSUSY[OptionsPattern[]] :=
 
            susyBetaFunctions = BetaFunction`ConvertSarahRGEs[susyBetaFunctions];
            susyBetaFunctions = Select[susyBetaFunctions, (BetaFunction`GetAllBetaFunctions[#]!={})&];
-           Parameters`AddRealParameter[(BetaFunction`GetName /@ susyBetaFunctions) /. a_[Susyno`LieGroups`i1,SARAH`i2] :> a];
+           Parameters`AddRealParameter[(BetaFunction`GetName /@ susyBetaFunctions) /.
+                                       a_[Susyno`LieGroups`i1] :> a /.
+                                       a_[Susyno`LieGroups`i1,SARAH`i2] :> a];
 
            numberOfSusyParameters = BetaFunction`CountNumberOfParameters[susyBetaFunctions];
            anomDim = AnomalousDimension`ConvertSarahAnomDim[SARAH`Gij];
@@ -934,7 +941,9 @@ MakeFlexibleSUSY[OptionsPattern[]] :=
 
            susyBreakingBetaFunctions = ConvertSarahRGEs[susyBreakingBetaFunctions];
            susyBreakingBetaFunctions = Select[susyBreakingBetaFunctions, (BetaFunction`GetAllBetaFunctions[#]!={})&];
-           Parameters`AddRealParameter[(BetaFunction`GetName /@ susyBreakingBetaFunctions) /. a_[Susyno`LieGroups`i1,SARAH`i2] :> a];
+           Parameters`AddRealParameter[(BetaFunction`GetName /@ susyBreakingBetaFunctions) /.
+                                       a_[Susyno`LieGroups`i1] :> a /.
+                                       a_[Susyno`LieGroups`i1,SARAH`i2] :> a];
 
            allBetaFunctions = Join[susyBetaFunctions, susyBreakingBetaFunctions];
 
@@ -943,7 +952,9 @@ MakeFlexibleSUSY[OptionsPattern[]] :=
 
            (* store all model parameters *)
            allParameters = Join[BetaFunction`GetName /@ susyBetaFunctions,
-                                BetaFunction`GetName /@ susyBreakingBetaFunctions] /. a_[Susyno`LieGroups`i1,SARAH`i2] :> a;
+                                BetaFunction`GetName /@ susyBreakingBetaFunctions] /.
+                               a_[Susyno`LieGroups`i1] :> a /.
+                               a_[Susyno`LieGroups`i1,SARAH`i2] :> a;
            allIndexReplacementRules = Parameters`CreateIndexReplacementRules[allParameters];
            Parameters`SetModelParameters[allParameters];
            FlexibleSUSY`FSLesHouchesList = SA`LHList;
@@ -962,7 +973,9 @@ MakeFlexibleSUSY[OptionsPattern[]] :=
              ];
            (* adding the types and their input names to the parameters *)
            FlexibleSUSY`FSUnfixedParameters = Select[Join[{BetaFunction`GetName[#], Symbol[ToValidCSymbolString[BetaFunction`GetName[#]] <> "Input"], #[[2]]}& /@ susyBetaFunctions,
-                                                          {BetaFunction`GetName[#], Symbol[ToValidCSymbolString[BetaFunction`GetName[#]] <> "Input"], #[[2]]}& /@ susyBreakingBetaFunctions] /. a_[Susyno`LieGroups`i1,SARAH`i2] :> a,
+                                                          {BetaFunction`GetName[#], Symbol[ToValidCSymbolString[BetaFunction`GetName[#]] <> "Input"], #[[2]]}& /@ susyBreakingBetaFunctions] /.
+                                                     a_[Susyno`LieGroups`i1] :> a /.
+                                                     a_[Susyno`LieGroups`i1,SARAH`i2] :> a,
                                                      MemberQ[FlexibleSUSY`FSUnfixedParameters,#[[1]]]&];
            (* add the unfixed parameters to the susy scale constraint *)
            If[FlexibleSUSY`OnlyLowEnergyFlexibleSUSY === True,
