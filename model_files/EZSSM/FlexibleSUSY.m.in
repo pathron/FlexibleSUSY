@@ -17,8 +17,8 @@ EXTPAR = { {61, LambdaInput},
            {66, Lambda1Input},
            {66, Lambda2Input},
            {67, XdInput},
-           {68, XuInput},
-           {65, vIInput}
+           {68, XuInput} (*,
+   {69, vIInput} *)
 };
 
 DefaultParameterPoint = {
@@ -34,8 +34,8 @@ DefaultParameterPoint = {
     {Lambda1Input, 0.1},
     {Lambda2Input, 0.1},
     {XdInput, 0.1},
-    {XuInput, 0.1},
-    {vIInput, 0}
+    {XuInput, 0.1} (* ,
+   {vIInput, 0} *)
     
 };
 
@@ -104,10 +104,10 @@ LowScaleInput={
    {Yu, Automatic},
    {Yd, Automatic},
    {Ye, Automatic},
-   {vI11, vIInput},
+   (* {vI11, vIInput},
    {vI12, vIInput},
    {vI21, vIInput},
-   {vI22, vIInput},
+   {vI22, vIInput},*)
    {vd, 2 MZDRbar / Sqrt[GUTNormalization[g1]^2 g1^2 + g2^2] Cos[ArcTan[TanBeta]]},
    {vu, 2 MZDRbar / Sqrt[GUTNormalization[g1]^2 g1^2 + g2^2] Sin[ArcTan[TanBeta]]}
 };
@@ -119,10 +119,10 @@ InitialGuessAtLowScale = {
    {Yu, Automatic},
    {Yd, Automatic},
    {Ye, Automatic},
-   {vI11, vIInput},
+   (*{vI11, vIInput},
    {vI12, vIInput},
    {vI21, vIInput},
-   {vI22, vIInput},
+   {vI22, vIInput},*)
    {mHd2, SM[MZ]^2},
    {mHu2, SM[MZ]^2},
    {ms2, SM[MZ]^2},
