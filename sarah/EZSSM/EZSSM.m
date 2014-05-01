@@ -132,7 +132,7 @@ DEFINITION[EWSB][GaugeSector] =
    
 }; *)
 
-DEFINITION[EWSB][VEVs]= 
+(*DEFINITION[EWSB][VEVs]= 
   { {SHd0, {vd, 1/Sqrt[2]}, {sigmad, \[ImaginaryI]/Sqrt[2]},{phid,1/Sqrt[2]}},
     {SHu0, {vu, 1/Sqrt[2]}, {sigmau, \[ImaginaryI]/Sqrt[2]},{phiu,1/Sqrt[2]}},
     {SsR,  {vs, 1/Sqrt[2]}, {sigmaS, \[ImaginaryI]/Sqrt[2]},{phiS,1/Sqrt[2]}},
@@ -140,6 +140,18 @@ DEFINITION[EWSB][VEVs]=
     {SH12I0, {vI12, 1/Sqrt[2]}, {sigmaI12, \[ImaginaryI]/Sqrt[2]},{phiI12,1/Sqrt[2]}},
     {SH21I0, {vI21, 1/Sqrt[2]}, {sigmaI21, \[ImaginaryI]/Sqrt[2]},{phiI21,1/Sqrt[2]}},
     {SH22I0, {vI22, 1/Sqrt[2]}, {sigmaI22, \[ImaginaryI]/Sqrt[2]},{phiI22,1/Sqrt[2]}}         
+}; *)
+
+
+
+DEFINITION[EWSB][VEVs]= 
+  { {SHd0, {vd, 1/Sqrt[2]}, {sigmad, \[ImaginaryI]/Sqrt[2]},{phid,1/Sqrt[2]}},
+    {SHu0, {vu, 1/Sqrt[2]}, {sigmau, \[ImaginaryI]/Sqrt[2]},{phiu,1/Sqrt[2]}},
+    {SsR,  {vs, 1/Sqrt[2]}, {sigmaS, \[ImaginaryI]/Sqrt[2]},{phiS,1/Sqrt[2]}},
+    {SH11I0, {0}, {sigmaI11, \[ImaginaryI]/Sqrt[2]},{phiI11,1/Sqrt[2]}},
+    {SH12I0, {0}, {sigmaI12, \[ImaginaryI]/Sqrt[2]},{phiI12,1/Sqrt[2]}},
+    {SH21I0, {0}, {sigmaI21, \[ImaginaryI]/Sqrt[2]},{phiI21,1/Sqrt[2]}},
+    {SH22I0, {0}, {sigmaI22, \[ImaginaryI]/Sqrt[2]},{phiI22,1/Sqrt[2]}}         
 };
 
 (*DEFINITION[EWSB][VEVs]= 
