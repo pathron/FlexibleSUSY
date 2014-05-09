@@ -467,6 +467,7 @@ WriteModelClass[massMatrices_List, ewsbEquations_List,
             higgsToEWSBEqAssociation,
             twoLoopHiggsHeaders = "",
             lspGetters = "", lspFunctions = "",
+            genericParameterReturns = "",
             enablePoleMassThreads = True
            },
            For[k = 1, k <= Length[massMatrices], k++,
@@ -544,6 +545,7 @@ WriteModelClass[massMatrices_List, ewsbEquations_List,
            saveSoftHiggsMasses          = Parameters`SaveParameterLocally[softHiggsMasses, "old_", ""];
            restoreSoftHiggsMasses       = Parameters`RestoreParameter[softHiggsMasses, "old_", ""];
            solveTreeLevelEWSBviaSoftHiggsMasses = EWSB`SolveTreeLevelEwsbVia[ewsbEquations, softHiggsMasses];
+           genericParameterReturns      = Parameters`CreateGenericParameterReturns[];
            WriteOut`ReplaceInFiles[files,
                           { "@lspGetters@"           -> IndentText[lspGetters],
                             "@lspFunctions@"         -> lspFunctions,
@@ -594,6 +596,7 @@ WriteModelClass[massMatrices_List, ewsbEquations_List,
                             "@saveSoftHiggsMasses@"          -> IndentText[saveSoftHiggsMasses],
                             "@restoreSoftHiggsMasses@"       -> IndentText[restoreSoftHiggsMasses],
                             "@solveTreeLevelEWSBviaSoftHiggsMasses@" -> IndentText[WrapLines[solveTreeLevelEWSBviaSoftHiggsMasses]],
+                            "@genericParameterReturns@"      -> IndentText[genericParameterReturns],
                             Sequence @@ GeneralReplacementRules[]
                           } ];
           ];

@@ -25,6 +25,7 @@
 #include "@ModelName@_two_scale_soft_parameters.hpp"
 #include "@ModelName@_physical.hpp"
 #include "@ModelName@_info.hpp"
+#include "model.hpp"
 #include "two_scale_model.hpp"
 #include "problems.hpp"
 #include "config.h"
@@ -45,7 +46,10 @@ namespace flexiblesusy {
 class Two_scale;
 
 template<>
-class @ModelName@<Two_scale> : public Two_scale_model, public @ModelName@_soft_parameters {
+class @ModelName@<Two_scale>
+   : public Model
+   , public Two_scale_model
+   , public @ModelName@_soft_parameters {
 public:
    explicit @ModelName@(const @ModelName@_input_parameters& input_ = @ModelName@_input_parameters());
    virtual ~@ModelName@();
@@ -76,6 +80,9 @@ public:
    virtual void run_to(double scale, double eps = -1.0);
    virtual void print(std::ostream&) const;
    virtual void set_precision(double);
+
+   // Model interface
+   double get_parameter(unsigned) const;
 
 @lspGetters@
 @massGetters@

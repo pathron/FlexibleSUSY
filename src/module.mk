@@ -16,6 +16,7 @@ LIBFLEXI_SRC := \
 		$(DIR)/lowe.cpp \
 		$(DIR)/sfermions.cpp \
 		$(DIR)/mssm_twoloophiggs.f \
+		$(DIR)/model.cpp \
 		$(DIR)/nmssm2loop.f \
 		$(DIR)/numerics.cpp \
 		$(DIR)/spectrum_generator_settings.cpp \
@@ -51,6 +52,7 @@ LIBFLEXI_HDR := \
 		$(DIR)/matching.hpp \
 		$(DIR)/mathdefs.hpp \
 		$(DIR)/minimizer.hpp \
+		$(DIR)/model.hpp \
 		$(DIR)/mssm_twoloophiggs.h \
 		$(DIR)/mycomplex.h \
 		$(DIR)/nmssm2loop.h \

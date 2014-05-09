@@ -68,6 +68,8 @@ given description string.";
 NumberOfIndependentEntriesOfSymmetricMatrix::usage="Returns number of
 independent parameters of a real symmetric nxn matrix";
 
+CreateGenericParameterReturns::usage="";
+
 Begin["`Private`"];
 
 allInputParameters = {};
@@ -680,6 +682,59 @@ GetParameterFromDescription[description_String] :=
           ];
 
 NumberOfIndependentEntriesOfSymmetricMatrix[n_] := (n^2 + n) / 2;
+
+CreateCase[p_, info_String, {}] :=
+    Module[{pStr},
+           pStr = CConversion`ToValidCSymbolString[p];
+"\
+case " <> info <> "::" <> pStr <> ":
+   return " <> pStr <> ";
+"
+          ];
+
+CreateCase[p_, info_String, {length_ /; (length === 1 || length === 0)}] :=
+    CreateCase[p, info, {}];
+
+CreateCase[p_, info_String, {length_Integer}] :=
+    Module[{pStr, pEnum, pAccess, i, case = ""},
+           pStr = CConversion`ToValidCSymbolString[p];
+           For[i = 0, i < length, i++,
+               pEnum = CConversion`ToValidCSymbolString[p[i]];
+               pAccess = CConversion`RValueToCFormString[p[i]];
+               case = case <>
+"\
+case " <> info <> "::" <> pEnum <> ":
+   return " <> pAccess <> ";
+";
+              ];
+           Return[case];
+          ];
+
+CreateCase[p_, info_String, {dim1_Integer, dim2_Integer}] :=
+    Module[{pStr, pEnum, pAccess, i, j, case = ""},
+           pStr = CConversion`ToValidCSymbolString[p];
+           For[i = 0, i < dim1, i++,
+               For[j = 0, j < dim2, j++,
+                   pEnum = CConversion`ToValidCSymbolString[p[i,j]];
+                   pAccess = CConversion`RValueToCFormString[p[i,j]];
+                   case = case <>
+"\
+case " <> info <> "::" <> pEnum <> ":
+   return " <> pAccess <> ";
+";
+                  ];
+              ];
+           Return[case];
+          ];
+
+CreateCase[p_, info_String] :=
+    CreateCase[p, info, SARAH`getDimParameters[p]];
+
+CreateGenericParameterReturns[] :=
+    Module[{info},
+           info = FlexibleSUSY`FSModelName <> "_info";
+           StringJoin[CreateCase[#,info]& /@ allModelParameters]
+          ];
 
 End[];
 
