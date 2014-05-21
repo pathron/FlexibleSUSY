@@ -6,6 +6,7 @@ ABSBASEDIR      := @ABSBASEDIR@
 # Switches
 ENABLE_FFLITE    := @ENABLE_FFLITE@
 ENABLE_LOOPTOOLS := @ENABLE_LOOPTOOLS@
+ENABLE_RPATH     := @ENABLE_RPATH@
 ENABLE_THREADS   := @ENABLE_THREADS@
 
 LIBEXT          := @LIBEXT@
@@ -59,6 +60,16 @@ LOOPFUNCFLAGS	   :=
 LOOPFUNCLIBS	    = $(LIBFFLITE)
 endif
 
+ifeq ($(ENABLE_RPATH),yes)
+comma		   := ,
+RPATHFLAGS	   := \
+	$(subst -L,-Wl$(comma)-rpath=,$(sort $(filter -L%,\
+		$(BOOSTTESTLIBS) \
+		$(BOOSTTHREADLIBS) \
+		$(LAPACKLIBS) \
+		$(LOOPFUNCLIBS))))
+endif
+
 STANDALONE_SRC := \
 		standalone.cpp
 
@@ -100,7 +111,7 @@ $(STANDALONE_DEP) $(STANDALONE_OBJ): CPPFLAGS += $(LOOPFUNCFLAGS)
 endif
 
 $(STANDALONE_EXE): $(STANDALONE_OBJ) $(LIBMODEL) $(LIBFLEXI) $(LIBLEGACY) $(filter-out -%,$(LOOPFUNCLIBS))
-		$(CXX) -o $@ $(call abspathx,$^) $(filter -%,$(LOOPFUNCLIBS)) $(GSLLIBS) $(BOOSTTHREADLIBS) $(THREADLIBS) $(LAPACKLIBS) $(FLIBS)
+		$(CXX) -o $@ $(call abspathx,$^) $(RPATHFLAGS) $(filter -%,$(LOOPFUNCLIBS)) $(GSLLIBS) $(BOOSTTHREADLIBS) $(THREADLIBS) $(LAPACKLIBS) $(FLIBS)
 
 ifneq ($(MAKECMDGOALS),clean)
 ifneq ($(MAKECMDGOALS),clean-dep)
@@ -159,7 +170,9 @@ showbuild:
 	@echo "LOOPFUNCFLAGS      = $(LOOPFUNCFLAGS)"
 	@echo "LOOPFUNCLIBS       = $(LOOPFUNCLIBS)"
 	@echo "THREADLIBS         = $(THREADLIBS)"
+	@echo "RPATHFLAGS         = $(RPATHFLAGS)"
 	@echo ""
 	@echo "ENABLE_FFLITE      = $(ENABLE_FFLITE)"
 	@echo "ENABLE_LOOPTOOLS   = $(ENABLE_LOOPTOOLS)"
+	@echo "ENABLE_RPATH       = $(ENABLE_RPATH)"
 	@echo "ENABLE_THREADS     = $(ENABLE_THREADS)"

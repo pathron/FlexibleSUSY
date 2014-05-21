@@ -90,6 +90,7 @@ options="                    \
    enable_debug              \
    enable_fflite             \
    enable_looptools          \
+   enable_rpath              \
    enable_silent             \
    enable_static_libs        \
    enable_threads            \
@@ -112,6 +113,7 @@ enable_meta="no"
 # BEGIN: NOT EXPORTED ##########################################
 enable_meta="yes"
 # END:   NOT EXPORTED ##########################################
+enable_rpath="yes"
 enable_silent="no"
 enable_static_libs="yes"
 enable_threads="yes"
@@ -1880,6 +1882,7 @@ cat <<EOF
 EOF
 # END:   NOT EXPORTED ##########################################
 cat <<EOF
+  rpath             Pass -rpath flags to linker (default: $enable_rpath)
   silent            Suppress all command line output (default: $enable_silent)
   static-libs       Create static libraries (default: $enable_static_libs)
   threads           Enable multi-threading (default: $enable_threads)
@@ -2100,6 +2103,7 @@ sed -e "s|@FLEXIBLESUSY_VERSION@|$FLEXIBLESUSY_VERSION|" \
     -e "s|@LOOPTOOLSFLAGS@|$LOOPTOOLSFLAGS|"  \
     -e "s|@MODELS@|$MODELS|"           \
     -e "s|@MAKELIB@|$MAKELIB|"         \
+    -e "s|@ENABLE_RPATH@|$enable_rpath|" \
     -e "s|@ENABLE_STATIC_LIBS@|$enable_static_libs|" \
     -e "s|@MATH@|$MATH|"               \
     -e "s|@LIBEXT@|$LIBEXT|"           \
@@ -2138,6 +2142,7 @@ sed -e "s|@FLEXIBLESUSY_VERSION@|$FLEXIBLESUSY_VERSION|" \
     -e "s|@LOOPTOOLSLIBS@|$LOOPTOOLSLIBS|"    \
     -e "s|@LOOPTOOLSFLAGS@|$LOOPTOOLSFLAGS|"  \
     -e "s|@MAKELIB@|$MAKELIB|"         \
+    -e "s|@ENABLE_RPATH@|$enable_rpath|" \
     -e "s|@ENABLE_STATIC_LIBS@|$enable_static_libs|" \
     -e "s|@LIBEXT@|$LIBEXT|"           \
     < $STANDALONE_MAKEFILE_TMPL | tee $STANDALONE_MAKEFILES > /dev/null
@@ -2173,6 +2178,7 @@ sed -e "s|@FLEXIBLESUSY_VERSION@|$FLEXIBLESUSY_VERSION|" \
     -e "s|@LOOPTOOLSLIBS@|$LOOPTOOLSLIBS|"    \
     -e "s|@LOOPTOOLSFLAGS@|$LOOPTOOLSFLAGS|"  \
     -e "s|@MAKELIB@|$MAKELIB|"         \
+    -e "s|@ENABLE_RPATH@|$enable_rpath|" \
     -e "s|@ENABLE_STATIC_LIBS@|$enable_static_libs|" \
     -e "s|@LIBEXT@|$LIBEXT|"           \
     < $TOWER_MAKEFILE_TMPL | tee $TOWER_MAKEFILES > /dev/null

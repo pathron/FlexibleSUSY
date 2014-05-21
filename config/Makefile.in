@@ -15,6 +15,7 @@ ENABLE_COMPILE     := @ENABLE_COMPILE@
 ENABLE_FFLITE      := @ENABLE_FFLITE@
 ENABLE_LOOPTOOLS   := @ENABLE_LOOPTOOLS@
 ENABLE_META        := @ENABLE_META@
+ENABLE_RPATH       := @ENABLE_RPATH@
 ENABLE_STATIC_LIBS := @ENABLE_STATIC_LIBS@
 ENABLE_THREADS     := @ENABLE_THREADS@
 
@@ -63,6 +64,16 @@ endif
 ifeq ($(ENABLE_FFLITE),yes)
 LOOPFUNCFLAGS	   :=
 LOOPFUNCLIBS	    = $(LIBFFLITE)
+endif
+
+ifeq ($(ENABLE_RPATH),yes)
+comma		   := ,
+RPATHFLAGS	   := \
+	$(subst -L,-Wl$(comma)-rpath=,$(sort $(filter -L%,\
+		$(BOOSTTESTLIBS) \
+		$(BOOSTTHREADLIBS) \
+		$(LAPACKLIBS) \
+		$(LOOPFUNCLIBS))))
 endif
 
 # the modules add their dependency files to this variable
@@ -204,11 +215,13 @@ showbuild:
 	@echo "LOOPFUNCFLAGS      = $(LOOPFUNCFLAGS)"
 	@echo "LOOPFUNCLIBS       = $(LOOPFUNCLIBS)"
 	@echo "THREADLIBS         = $(THREADLIBS)"
+	@echo "RPATHFLAGS         = $(RPATHFLAGS)"
 	@echo ""
 	@echo "ENABLE_COMPILE     = $(ENABLE_COMPILE)"
 	@echo "ENABLE_FFLITE      = $(ENABLE_FFLITE)"
 	@echo "ENABLE_LOOPTOOLS   = $(ENABLE_LOOPTOOLS)"
 	@echo "ENABLE_META        = $(ENABLE_META)"
+	@echo "ENABLE_RPATH       = $(ENABLE_RPATH)"
 	@echo "ENABLE_STATIC_LIBS = $(ENABLE_STATIC_LIBS)"
 	@echo "ENABLE_THREADS     = $(ENABLE_THREADS)"
 	@echo ""
