@@ -63,7 +63,7 @@ endif
 ifeq ($(ENABLE_RPATH),yes)
 comma		   := ,
 RPATHFLAGS	   := \
-	$(subst -L,-Wl$(comma)-rpath=,$(sort $(filter -L%,\
+	$(patsubst -L%,-Wl$(comma)-rpath=%,$(sort $(filter -L%,\
 		$(BOOSTTESTLIBS) \
 		$(BOOSTTHREADLIBS) \
 		$(GSLLIBS) \
