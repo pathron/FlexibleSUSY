@@ -72,6 +72,7 @@ RPATHFLAGS	   := \
 	$(subst -L,-Wl$(comma)-rpath=,$(sort $(filter -L%,\
 		$(BOOSTTESTLIBS) \
 		$(BOOSTTHREADLIBS) \
+		$(GSLLIBS) \
 		$(LAPACKLIBS) \
 		$(LOOPFUNCLIBS))))
 endif
