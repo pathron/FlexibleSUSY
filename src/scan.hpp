@@ -16,10 +16,14 @@
 // <http://www.gnu.org/licenses/>.
 // ====================================================================
 
-#ifndef SCAN_H
-#define SCAN_H
+#ifndef SCAN_HPP
+#define SCAN_HPP
 
+#include "config.h"
 #include <vector>
+
+#ifdef ENABLE_RANDOM
+
 #include <random>
 
 namespace flexiblesusy {
@@ -56,6 +60,12 @@ Generator Uniform<Generator>::generator = Generator();
 template <class Generator>
 std::uniform_real_distribution<double> Uniform<Generator>::distribution
    = std::uniform_real_distribution<double>(0., 1.);
+
+} // namespace flexiblesusy
+
+#endif
+
+namespace flexiblesusy {
 
 std::vector<double> float_range(double start, double stop,
                                 unsigned long number_of_steps);

@@ -38,7 +38,7 @@ void svd_eigen
  Eigen::Matrix<Scalar, M, M>& u,
  Eigen::Matrix<Scalar, N, N>& v)
 {
-    Eigen::JacobiSVD<Eigen::Matrix<Scalar, M, N>>
+    Eigen::JacobiSVD<Eigen::Matrix<Scalar, M, N> >
 	svd(m, Eigen::ComputeFullU | Eigen::ComputeFullV);
     s = svd.singularValues();
     u = svd.matrixU();
@@ -51,7 +51,7 @@ void svd_eigen
  Eigen::Array<double, MIN_(M, N), 1>& s,
  Eigen::Matrix<Scalar, M, M>& u)
 {
-    Eigen::JacobiSVD<Eigen::Matrix<Scalar, M, N>> svd(m, Eigen::ComputeFullU);
+    Eigen::JacobiSVD<Eigen::Matrix<Scalar, M, N> > svd(m, Eigen::ComputeFullU);
     s = svd.singularValues();
     u = svd.matrixU();
 }
@@ -62,7 +62,7 @@ void hermitian_eigen
  Eigen::Array<double, N, 1>& w,
  Eigen::Matrix<Scalar, N, N>& z)
 {
-    Eigen::SelfAdjointEigenSolver<Eigen::Matrix<Scalar,N,N>> es(m);
+    Eigen::SelfAdjointEigenSolver<Eigen::Matrix<Scalar,N,N> > es(m);
     w = es.eigenvalues();
     z = es.eigenvectors();
 }
@@ -106,17 +106,17 @@ void svd_lapack								\
  Eigen::Array<double, MIN_(M, N), 1>& s,				\
  Eigen::Matrix<t, M, M>& u)						\
 {									\
-    call_lapack_svd(t, f, 'N', nullptr, __VA_ARGS__);			\
+    call_lapack_svd(t, f, 'N', 0, __VA_ARGS__);				\
 }
 
 #define call_lapack_svd(t, f, jobvt, vt, ...)				\
-    constexpr char JOBU  = 'A';						\
-    constexpr char JOBVT = (jobvt);					\
+    const     char JOBU  = 'A';						\
+    const     char JOBVT = (jobvt);					\
     Eigen::Matrix<t, M, N> A = m;					\
-    constexpr int LDA   = M;						\
-    constexpr int LDU   = M;						\
-    constexpr int LDVT  = N;						\
-    constexpr int LWORK = get_lwork(__VA_ARGS__,);			\
+    const     int LDA   = M;						\
+    const     int LDU   = M;						\
+    const     int LDVT  = N;						\
+    const     int LWORK = get_lwork(__VA_ARGS__,);			\
     Eigen::Array<t, LWORK, 1> WORK;					\
     decl_rwork(__VA_ARGS__);						\
     int INFO;								\
@@ -130,11 +130,11 @@ void hermitian_lapack							\
  Eigen::Array<double, N, 1>& w,						\
  Eigen::Matrix<s, N, N>& z)						\
 {									\
-    constexpr char JOBZ = 'V';						\
-    constexpr char UPLO = 'L';						\
+    const     char JOBZ = 'V';						\
+    const     char UPLO = 'L';						\
     Eigen::Matrix<s, N, N> A = m;					\
-    constexpr int LDA   = N;						\
-    constexpr int LWORK = get_lwork(__VA_ARGS__,);			\
+    const     int LDA   = N;						\
+    const     int LWORK = get_lwork(__VA_ARGS__,);			\
     Eigen::Array<s, LWORK, 1> WORK;					\
     decl_rwork(__VA_ARGS__);						\
     int INFO;								\
@@ -243,6 +243,11 @@ void diagonalize_hermitian
     hermitian_eigen(m, w, z);
 }
 
+struct RephaseOp {
+    std::complex<double> operator() (const std::complex<double>& z) const
+    { return std::polar(1.0, std::arg(z)/2); }
+};
+
 // m == u * s.matrix().asDiagonal() * u.transpose()
 // (s >= 0).all()
 // s in descending order
@@ -255,11 +260,15 @@ void diagonalize_symmetric
     svd(m, s, u);
     Eigen::Array<std::complex<double>, N, 1> diag =
 	(u.adjoint() * m * u.conjugate()).diagonal();
-    u *= diag.unaryExpr(
-    	[](std::complex<double> z) {
-    	    return std::polar(1.0, std::arg(z)/2);
-    	}).matrix().asDiagonal();
+    u *= diag.unaryExpr(RephaseOp()).matrix().asDiagonal();
 }
+
+struct FlipSignOp {
+    std::complex<double> operator() (const std::complex<double>& z) const {
+	return z.real() < 0 ? std::complex<double>(0.0,1.0) :
+			      std::complex<double>(1.0,0.0);
+    }
+};
 
 // m == u * s.matrix().asDiagonal() * u.transpose()
 // (s >= 0).all()
@@ -274,11 +283,8 @@ void diagonalize_symmetric
     Eigen::Matrix<double, N, N> z;
     diagonalize_hermitian(m, s, z);
     // see http://forum.kde.org/viewtopic.php?f=74&t=62606
-    u = z * s.template cast<std::complex<double>>().unaryExpr(
-	[](std::complex<double> z) {
-    	    return z.real() < 0 ? std::complex<double>(0.0,1.0) :
-				  std::complex<double>(1.0,0.0);
-	}).matrix().asDiagonal();
+    u = z * s.template cast<std::complex<double> >().
+	unaryExpr(FlipSignOp()).matrix().asDiagonal();
     s = s.abs();
 }
 
@@ -312,6 +318,13 @@ void reorder_diagonalize_symmetric
     u = u.rowwise().reverse().eval();
 }
 
+template<int N>
+struct Compare {
+    Compare(Eigen::Array<double, N, 1>& s_) : s(s_) {}
+    bool operator() (int i, int j) { return s[i] < s[j]; }
+    Eigen::Array<double, N, 1>& s;
+};
+
 // m == u * s.matrix().asDiagonal() * u.transpose()
 // (s >= 0).all()
 // s in ascending order
@@ -326,11 +339,11 @@ void reorder_diagonalize_symmetric
     Eigen::PermutationMatrix<N> p;
     p.setIdentity();
     std::sort(p.indices().data(), p.indices().data() + p.indices().size(),
-	      [&s](int i, int j){ return s[i] < s[j]; });
+	      Compare<N>(s));
 #if EIGEN_VERSION_AT_LEAST(3,1,4)
     s.matrix().transpose() *= p;
 #else
-    Eigen::Map<Eigen::Matrix<double, N, 1>>(s.data()).transpose() *= p;
+    Eigen::Map<Eigen::Matrix<double, N, 1> >(s.data()).transpose() *= p;
 #endif
     u *= p;
 }
@@ -361,7 +374,7 @@ void fs_svd
  Eigen::Matrix<std::complex<double>, M, M>& u,
  Eigen::Matrix<std::complex<double>, N, N>& v)
 {
-    fs_svd(m.template cast<std::complex<double>>().eval(), s, u, v);
+    fs_svd(m.template cast<std::complex<double> >().eval(), s, u, v);
 }
 
 // m == u.transpose() * s.matrix().asDiagonal() * u
@@ -378,6 +391,13 @@ void fs_diagonalize_symmetric
     u.transposeInPlace();
 }
 
+template<int N>
+struct CompareAbs {
+    CompareAbs(Eigen::Array<double, N, 1>& w_) : w(w_) {}
+    bool operator() (int i, int j) { return std::abs(w[i]) < std::abs(w[j]); }
+    Eigen::Array<double, N, 1>& w;
+};
+
 // m == z.adjoint() * w.matrix().asDiagonal() * z
 // (convention of SARAH)
 // abs(w[i]) in ascending order
@@ -391,11 +411,11 @@ void fs_diagonalize_hermitian
     Eigen::PermutationMatrix<N> p;
     p.setIdentity();
     std::sort(p.indices().data(), p.indices().data() + p.indices().size(),
-	      [&w](int i, int j){ return std::abs(w[i]) < std::abs(w[j]); });
+	      CompareAbs<N>(w));
 #if EIGEN_VERSION_AT_LEAST(3,1,4)
     w.matrix().transpose() *= p;
 #else
-    Eigen::Map<Eigen::Matrix<double, N, 1>>(w.data()).transpose() *= p;
+    Eigen::Map<Eigen::Matrix<double, N, 1> >(w.data()).transpose() *= p;
 #endif
     z = (z * p).adjoint().eval();
 }

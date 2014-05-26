@@ -47,6 +47,16 @@ namespace flexiblesusy {
    , model(model_)
    , input_pars(input_pars_)
    , oneset(oneset_)
+   , mu_guess(0.)
+   , mc_guess(0.)
+   , mt_guess(0.)
+   , md_guess(0.)
+   , ms_guess(0.)
+   , mb_guess(0.)
+   , me_guess(0.)
+   , mm_guess(0.)
+   , mtau_guess(0.)
+   , running_precision(1.0e-3)
    , low_constraint(low_constraint_)
    , susy_constraint(susy_constraint_)
    , high_constraint(high_constraint_)
@@ -61,7 +71,6 @@ namespace flexiblesusy {
 
 void @ModelName@_initial_guesser<Two_scale>::guess()
 {
-   model->clear();
    guess_susy_parameters();
    guess_soft_parameters();
 }
@@ -74,6 +83,16 @@ void @ModelName@_initial_guesser<Two_scale>::guess_susy_parameters()
    const double sinThetaW2 = 1.0 - Sqr(MW / MZ);
    const double mtpole = leAtMt.displayPoleMt();
 
+   mu_guess = leAtMt.displayMass(mUp);
+   mc_guess = leAtMt.displayMass(mCharm);
+   mt_guess = leAtMt.displayMass(mTop) - 30.0;
+   md_guess = leAtMt.displayMass(mDown);
+   ms_guess = leAtMt.displayMass(mStrange);
+   mb_guess = leAtMt.displayMass(mBottom);
+   me_guess = leAtMt.displayMass(mElectron);
+   mm_guess = leAtMt.displayMass(mMuon);
+   mtau_guess = leAtMt.displayMass(mTau);
+
    // guess gauge couplings at mt
    const DoubleVector alpha_sm(leAtMt.getGaugeMu(mtpole, sinThetaW2));
 
@@ -81,31 +100,46 @@ void @ModelName@_initial_guesser<Two_scale>::guess_susy_parameters()
    model->set_@leftCoupling@(sqrt(4.0 * M_PI * alpha_sm(2)));
    model->set_@strongCoupling@(sqrt(4.0 * M_PI * alpha_sm(3)));
    model->set_scale(mtpole);
-   model->set_loops(2);
 
    // apply user-defined initial guess at the low scale
 @initialGuessAtLowScale@
+}
 
-   Eigen::Matrix<double,3,3> topDRbar(Eigen::Matrix<double,3,3>::Zero()),
-      bottomDRbar(Eigen::Matrix<double,3,3>::Zero()),
-      electronDRbar(Eigen::Matrix<double,3,3>::Zero());
-   topDRbar(0,0)      = leAtMt.displayMass(mUp);
-   topDRbar(1,1)      = leAtMt.displayMass(mCharm);
-   topDRbar(2,2)      = leAtMt.displayMass(mTop) - 30.0;
-   bottomDRbar(0,0)   = leAtMt.displayMass(mDown);
-   bottomDRbar(1,1)   = leAtMt.displayMass(mStrange);
-   bottomDRbar(2,2)   = leAtMt.displayMass(mBottom);
-   electronDRbar(0,0) = leAtMt.displayMass(mElectron);
-   electronDRbar(1,1) = leAtMt.displayMass(mMuon);
-   electronDRbar(2,2) = leAtMt.displayMass(mTau);
+void @ModelName@_initial_guesser<Two_scale>::calculate_DRbar_yukawa_couplings()
+{
+   calculate_@UpYukawa@_DRbar();
+   calculate_@DownYukawa@_DRbar();
+   calculate_@ElectronYukawa@_DRbar();
+}
 
-   Eigen::Matrix<double,3,3> new_Yu, new_Yd, new_Ye;
+void @ModelName@_initial_guesser<Two_scale>::calculate_@UpYukawa@_DRbar()
+{
+   Eigen::Matrix<double,3,3> topDRbar(Eigen::Matrix<double,3,3>::Zero());
+   topDRbar(0,0) = mu_guess;
+   topDRbar(1,1) = mc_guess;
+   topDRbar(2,2) = mt_guess;
 
-@setDRbarYukawaCouplings@
+@setDRbarUpQuarkYukawaCouplings@
+}
 
-   model->set_@UpYukawa@(new_Yu);
-   model->set_@DownYukawa@(new_Yd);
-   model->set_@ElectronYukawa@(new_Ye);
+void @ModelName@_initial_guesser<Two_scale>::calculate_@DownYukawa@_DRbar()
+{
+   Eigen::Matrix<double,3,3> bottomDRbar(Eigen::Matrix<double,3,3>::Zero());
+   bottomDRbar(0,0) = md_guess;
+   bottomDRbar(1,1) = ms_guess;
+   bottomDRbar(2,2) = mb_guess;
+
+@setDRbarDownQuarkYukawaCouplings@
+}
+
+void @ModelName@_initial_guesser<Two_scale>::calculate_@ElectronYukawa@_DRbar()
+{
+   Eigen::Matrix<double,3,3> electronDRbar(Eigen::Matrix<double,3,3>::Zero());
+   electronDRbar(0,0) = me_guess;
+   electronDRbar(1,1) = mm_guess;
+   electronDRbar(2,2) = mtau_guess;
+
+@setDRbarElectronYukawaCouplings@
 }
 
 void @ModelName@_initial_guesser<Two_scale>::guess_soft_parameters()
@@ -113,7 +147,7 @@ void @ModelName@_initial_guesser<Two_scale>::guess_soft_parameters()
    const double low_scale_guess = low_constraint.get_initial_scale_guess();
    const double high_scale_guess = high_constraint.get_initial_scale_guess();
 
-   model->run_to(high_scale_guess);
+   model->run_to(high_scale_guess, running_precision);
 
    // apply high-scale constraint
    high_constraint.set_model(model);
@@ -122,15 +156,13 @@ void @ModelName@_initial_guesser<Two_scale>::guess_soft_parameters()
    // apply user-defined initial guess at the high scale
 @initialGuessAtHighScale@
 
-   model->run_to(low_scale_guess);
+   model->run_to(low_scale_guess, running_precision);
 
    // apply EWSB constraint
    model->solve_ewsb_tree_level();
 
    // calculate tree-level spectrum
    model->calculate_DRbar_parameters();
-   model->set_thresholds(3);
-   model->set_loops(2);
 }
 
 } // namespace flexiblesusy

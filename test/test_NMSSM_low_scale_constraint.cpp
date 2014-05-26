@@ -46,6 +46,7 @@ BOOST_AUTO_TEST_CASE( test_delta_alpha )
 BOOST_AUTO_TEST_CASE( test_low_energy_constraint )
 {
    NMSSM<Two_scale> m;
+   m.set_thresholds(1);
    NmssmSoftsusy s;
    NMSSM_input_parameters input;
    input.m0 = 250.; // avoids tree-level tachyons
@@ -73,10 +74,10 @@ BOOST_AUTO_TEST_CASE( test_low_energy_constraint )
    const double ss_MZ = Sqrt(Sqr(MZ) + pizzt);
    const double ss_new_vev = s.getVev();
 
-   const double fs_mt = m.calculate_MFu_DRbar_1loop(oneset.displayPoleMt(), 2);
-   const double fs_mb = m.calculate_MFd_DRbar_1loop(oneset.displayMass(mBottom), 2);
-   const double fs_me = m.calculate_MFe_DRbar_1loop(oneset.displayMass(mTau), 2);
-   const double fs_MZ = m.calculate_MVZ_DRbar_1loop(Electroweak_constants::MZ);
+   const double fs_mt = m.calculate_MFu_DRbar(oneset.displayPoleMt(), 2);
+   const double fs_mb = m.calculate_MFd_DRbar(oneset.displayMass(mBottom), 2);
+   const double fs_me = m.calculate_MFe_DRbar(oneset.displayMass(mTau), 2);
+   const double fs_MZ = m.calculate_MVZ_DRbar(Electroweak_constants::MZ);
    const double fs_old_vd = m.get_vd();
    const double fs_old_vu = m.get_vu();
    // const double fs_old_vev = Sqrt(Sqr(fs_old_vu) + Sqr(fs_old_vd));
@@ -86,7 +87,7 @@ BOOST_AUTO_TEST_CASE( test_low_energy_constraint )
 
    BOOST_CHECK_CLOSE_FRACTION(fs_mt, ss_mt, 9.5e-05);
    BOOST_CHECK_CLOSE_FRACTION(fs_mb, ss_mb, 2.6e-14);
-   BOOST_CHECK_CLOSE_FRACTION(fs_me, ss_me, 4.3e-07);
+   BOOST_CHECK_CLOSE_FRACTION(fs_me, ss_me, 6.0e-07);
    BOOST_CHECK_CLOSE_FRACTION(fs_MZ, ss_MZ, 5.0e-10);
    BOOST_CHECK_CLOSE_FRACTION(fs_new_vev, ss_new_vev, 5.0e-10);
    BOOST_CHECK_CLOSE_FRACTION(fs_old_vu / fs_old_vd, s.displayTanb(), 1.0e-10);

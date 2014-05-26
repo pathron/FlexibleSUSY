@@ -35,9 +35,9 @@ void ensure_tree_level_ewsb(NMSSM<Two_scale>& m, NmssmSoftsusy& s,
    const int error = m.solve_ewsb_tree_level();
 
    BOOST_CHECK_EQUAL(error, 0);
-   BOOST_CHECK_SMALL(m.get_ewsb_eq_vd(), precision);
-   BOOST_CHECK_SMALL(m.get_ewsb_eq_vu(), precision);
-   BOOST_CHECK_SMALL(m.get_ewsb_eq_vS(), precision);
+   BOOST_CHECK_SMALL(m.get_ewsb_eq_hh_1(), precision);
+   BOOST_CHECK_SMALL(m.get_ewsb_eq_hh_2(), precision);
+   BOOST_CHECK_SMALL(m.get_ewsb_eq_hh_3(), precision);
 
    softsusy::Z3 = true;
    s.rewsbTreeLevel(1);
@@ -92,8 +92,9 @@ BOOST_AUTO_TEST_CASE( test_NMSSM_pole_masses )
 
    softsusy::numHiggsMassLoops = 1;
    s.physical(1);
+   m.set_pole_mass_loop_order(1);
    m.calculate_DRbar_parameters();
-   m.calculate_1loop_masses();
+   m.calculate_pole_masses();
 
    if (m.get_problems().have_problem()) {
       std::ostringstream ostr;
@@ -154,7 +155,7 @@ BOOST_AUTO_TEST_CASE( test_NMSSM_pole_masses )
    const DoubleVector me(s.displayPhys().me.flatten().sort());
    BOOST_CHECK_CLOSE(Se(1), me(1), 1.0e-12);
    BOOST_CHECK_CLOSE(Se(2), me(2), 1.0e-12);
-   BOOST_CHECK_CLOSE(Se(3), me(3), 1.0e-12);
+   BOOST_CHECK_CLOSE(Se(3), me(3), 4.0e-12);
    BOOST_CHECK_CLOSE(Se(4), me(4), 1.0e-12);
    BOOST_CHECK_CLOSE(Se(5), me(5), 1.0e-12);
    BOOST_CHECK_CLOSE(Se(6), me(6), 1.0e-12);
@@ -191,7 +192,7 @@ BOOST_AUTO_TEST_CASE( test_NMSSM_pole_masses )
    // BOOST_CHECK_CLOSE(MFd(3), s.displayPhys().mb, 1.0e-12);
 
    ensure_one_loop_ewsb(m, s);
-   m.calculate_1loop_masses();
+   m.calculate_pole_masses();
    s.physical(1);
 
    if (m.get_problems().have_problem()) {

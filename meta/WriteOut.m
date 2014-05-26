@@ -8,9 +8,20 @@ WriteSLHAMassBlock::usage="";
 WriteSLHAMixingMatricesBlocks::usage="";
 WriteSLHAModelParametersBlocks::usage="";
 WriteSLHAMinparBlock::usage="";
-ReadUnfixedParameters::usage="";
+ReadLesHouchesInputParameters::usage="";
+ReadLesHouchesOutputParameters::usage="";
+StringJoinWithSeparator::usage="Joins a list of strings with a given separator string";
 
 Begin["`Private`"];
+
+StringJoinWithSeparator[strings_List, separator_String] :=
+    Module[{result = "", i},
+           For[i = 1, i <= Length[strings], i++,
+               If[i > 1, result = result <> separator;];
+               result = result <> ToString[strings[[i]]];
+              ];
+           Return[result];
+          ];
 
 (*
  * @brief Replaces tokens in files.
@@ -39,13 +50,25 @@ ReplaceInFiles[files_List, replacementList_List] :=
              ];
           ];
 
+TransposeIfVector[parameter_, CConversion`ArrayType[__]] :=
+    SARAH`Tp[parameter];
+
+TransposeIfVector[parameter_, CConversion`VectorType[__]] :=
+    SARAH`Tp[parameter];
+
+TransposeIfVector[parameter_, _] := parameter;
+
 PrintParameter[Null, streamName_String] := "";
 
 PrintParameter[parameter_, streamName_String] :=
-    Module[{parameterName},
-           parameterName = CConversion`ToValidCSymbolString[parameter /. a_[Susyno`LieGroups`i1,SARAH`i2] :> a];
+    Module[{parameterName, parameterNameWithoutIndices, expr, type},
+           parameterNameWithoutIndices = parameter /.
+                                         a_[Susyno`LieGroups`i1,SARAH`i2] :> a;
+           parameterName = CConversion`ToValidCSymbolString[parameterNameWithoutIndices];
+           type = Parameters`GetType[parameterNameWithoutIndices];
+           expr = TransposeIfVector[parameterNameWithoutIndices, type];
            Return[streamName <> " << \"" <> parameterName <> " = \" << " <>
-                  parameterName <> " << '\\n';\n"];
+                  CConversion`RValueToCFormString[expr] <> " << '\\n';\n"];
           ];
 
 PrintParameters[parameters_List, streamName_String] :=
@@ -226,6 +249,7 @@ WriteSLHABlock[{blockName_, tuples_List}] :=
                   parVal = "(" <> parVal <> " * " <>
                            CConversion`RValueToCFormString[
                                Parameters`GetGUTNormalization[par]] <> ")";
+                  parStr = "gY";
                  ];
                pdg = ToString[tuples[[t,2]]];
                result = result <> "      << FORMAT_ELEMENT(" <> pdg <> ", " <>
@@ -251,7 +275,7 @@ WriteSLHAModelParametersBlocks[] :=
            Return[result];
           ];
 
-ReadSLHABlock[{parameter_, {blockName_Symbol, pdg_?NumberQ}}] :=
+ReadSLHAInputBlock[{parameter_, {blockName_Symbol, pdg_?NumberQ}}] :=
     Module[{result, blockNameStr, parmStr, pdgStr},
            blockNameStr = ToString[blockName] <> "IN";
            parmStr = CConversion`ToValidCSymbolString[parameter];
@@ -262,7 +286,7 @@ ReadSLHABlock[{parameter_, {blockName_Symbol, pdg_?NumberQ}}] :=
            Return[result];
           ];
 
-ReadSLHABlock[{parameter_, blockName_Symbol}] :=
+ReadSLHAInputBlock[{parameter_, blockName_Symbol}] :=
     Module[{paramStr, blockNameStr},
            paramStr = CConversion`ToValidCSymbolString[parameter];
            blockNameStr = ToString[blockName] <> "IN";
@@ -270,14 +294,48 @@ ReadSLHABlock[{parameter_, blockName_Symbol}] :=
            paramStr <> ");\n"
           ];
 
-ReadUnfixedParameters[unfixedParameters_List] :=
-    Module[{result = "", modelParameters, unfixedNames, rules},
-           unfixedNames = (#[[1]])& /@ unfixedParameters;
-           rules = Rule[#[[1]], #[[2]]]& /@ unfixedParameters;
-           (* get block names of all unfixed parameters (unfixedNames) *)
-           modelParameters = Select[GetSLHAModelParameters[], MemberQ[unfixedNames,#[[1]]]&];
+ReadLesHouchesInputParameters[lesHouchesInputParameters_List] :=
+    Module[{result = "", modelParameters, names, rules},
+           names = (#[[1]])& /@ lesHouchesInputParameters;
+           rules = Rule[#[[1]], #[[2]]]& /@ lesHouchesInputParameters;
+           (* get block names of all les Houches input parameters (names) *)
+           modelParameters = Select[GetSLHAModelParameters[], MemberQ[names,#[[1]]]&];
            modelParameters = {#[[1]] /. rules, #[[2]]}& /@ modelParameters;
-           (result = result <> ReadSLHABlock[#])& /@ modelParameters;
+           (result = result <> ReadSLHAInputBlock[#])& /@ modelParameters;
+           Return[result];
+          ];
+
+ReadSLHAOutputBlock[{parameter_, {blockName_Symbol, pdg_?NumberQ}}] :=
+    Module[{result, blockNameStr, parmStr, pdgStr, gutNorm = ""},
+           blockNameStr = ToString[blockName];
+           parmStr = CConversion`ToValidCSymbolString[parameter];
+           pdgStr = ToString[pdg];
+           If[parameter === SARAH`hyperchargeCoupling,
+              gutNorm = " * " <> CConversion`RValueToCFormString[
+                  1/Parameters`GetGUTNormalization[parameter]];
+             ];
+           result = "model.set_" <> parmStr <>
+                    "(slha_io.read_entry(\"" <> blockNameStr <> "\", " <>
+                    pdgStr <> ")" <> gutNorm <> ");\n";
+           Return[result];
+          ];
+
+ReadSLHAOutputBlock[{parameter_, blockName_Symbol}] :=
+    Module[{paramStr, blockNameStr},
+           paramStr = CConversion`ToValidCSymbolString[parameter];
+           blockNameStr = ToString[blockName];
+           "{\n" <> IndentText[
+               "DEFINE_PARAMETER(" <> paramStr <> ");\n" <>
+               "slha_io.read_block(\"" <> blockNameStr <> "\", " <>
+               paramStr <> ");\n" <>
+               "model.set_" <> paramStr <> "(" <> paramStr <> ");"] <> "\n" <>
+           "}\n"
+          ];
+
+ReadLesHouchesOutputParameters[] :=
+    Module[{result = "", modelParameters},
+           modelParameters = GetSLHAModelParameters[];
+           (result = result <> ReadSLHAOutputBlock[#])& /@ modelParameters;
            Return[result];
           ];
 

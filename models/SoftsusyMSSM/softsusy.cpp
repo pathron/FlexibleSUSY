@@ -1219,7 +1219,7 @@ bool Softsusy<SoftPars>::higgs(int accuracy, double piwwtMS,
   double tanb = displayTanb();
   double beta = atan(tanb);
   double sinb = sin(beta), cosb = cos(beta);
-  double sinb2 = sqr(sinb), cosb2 = sqr(cosb),
+  double sinb2 = sqr(sinb), cosb2 = sqr(cosb), mzPole = displayMz(), 
     mzRun2 = sqr(displayMzRun());
   double mApole = physpars.mA0(1); /// physical value
   ///  double mApole2 = sqr(mApole);
@@ -1402,37 +1402,59 @@ bool Softsusy<SoftPars>::higgs(int accuracy, double piwwtMS,
   temp = temp.apply(zeroSqrt);
   double bigMh = temp.max();
 
-  double piaa = 0.0; 
-  if(accuracy > 0) piaa = piAA(mApole, displayMu()); 
-  //  double piaa = piAA(displayDrBarPars().mA0(1), displayMu());
-  double poleMasq = (displayMh2Squared()-  displayTadpole2Ms() 
-  		     - displayMh1Squared()  + displayTadpole1Ms())
-    / cos(2.0 * beta) -  sqr(displayMz());
 
-  if (accuracy > 0) {
-    poleMasq = 
-      (displayMh2Squared() - displayTadpole2Ms() - 
-       displayMh1Squared() + displayTadpole1Ms()) / 
-      cos(2.0 * beta) - mzRun2 - piaa +
-	sqr(sin(beta)) * t1OV1Ms1loop + sqr(cos(beta)) *
-      t2OV2Ms1loop + dMA;
-  }
+double piaa = piAA(mApole, displayMu()); 
+  //  double piaa = piAA(displayDrBarPars().mA0, displayMu());
+  double poleMasq = (displayMh2Squared() - displayMh1Squared() )
+    / cos(2.0 * beta) - sqr(mzPole);
   
-  double pihphm = 0.0;
-  if(accuracy > 0) pihphm = piHpHm(physpars.mHpm, displayMu()); 
-  // double poleMhcSq = poleMasq + sqr(displayMw()) + piaa + piwwtMS - pihphm;
-  double poleMasq2 = poleMasq;
   if (accuracy > 0) {
-    poleMasq2 = 
-      (displayMh2Squared() - displayTadpole2Ms() - 
-       displayMh1Squared() + displayTadpole1Ms()) / 
-      cos(2.0 * beta) - mzRun2 - piaa +
+      poleMasq = 
+	(displayMh2Squared() - displayTadpole2Ms() - 
+	 displayMh1Squared() + displayTadpole1Ms()) / 
+	cos(2.0 * beta) - mzRun2 - piaa +
 	sqr(sin(beta)) * t1OV1Ms1loop + sqr(cos(beta)) *
-      t2OV2Ms1loop;
-  }
+	t2OV2Ms1loop + dMA;
+    }
 
-  double poleMhcSq = poleMasq2 + sqr(displayMw()) + piaa + piwwtMS - pihphm;
+  double pihphm = piHpHm(physpars.mHpm, displayMu());
 
+  double poleMhcSq = poleMasq + sqr(displayMw()) + piaa + piwwtMS - pihphm;
+
+
+  //PA:  below is the rearranged approach to calculating charged and cpodd Higgs used for comaprisons vs nmssmsoftsusy.cpp.   This leaves the initial accuracy == 0 calculation changed and while the actual calculation for accuarcy > 0 is unchanged this alters the final result for charged Higgs due to the numerical precion of the Higgs iteration. 
+  /* ------------------------------------------------------------------------*/
+  // double piaa = 0.0; 
+  // if(accuracy > 0) piaa = piAA(mApole, displayMu()); 
+  // //  double piaa = piAA(displayDrBarPars().mA0(1), displayMu());
+  // double poleMasq = (displayMh2Squared()-  displayTadpole2Ms() 
+  // 		     - displayMh1Squared()  + displayTadpole1Ms())
+  //   / cos(2.0 * beta) -  sqr(displayMz());
+
+  // if (accuracy > 0) {
+  //   poleMasq = 
+  //     (displayMh2Squared() - displayTadpole2Ms() - 
+  //      displayMh1Squared() + displayTadpole1Ms()) / 
+  //     cos(2.0 * beta) - mzRun2 - piaa +
+  //       sqr(sin(beta)) * t1OV1Ms1loop + sqr(cos(beta)) *
+  //     t2OV2Ms1loop + dMA;
+  // }
+  
+  // double pihphm = 0.0;
+  // if(accuracy > 0) pihphm = piHpHm(physpars.mHpm, displayMu()); 
+  // // double poleMhcSq = poleMasq + sqr(displayMw()) + piaa + piwwtMS - pihphm;
+  // double poleMasq2 = poleMasq;
+  // if (accuracy > 0) {
+  //   poleMasq2 = 
+  //     (displayMh2Squared() - displayTadpole2Ms() - 
+  //      displayMh1Squared() + displayTadpole1Ms()) / 
+  //     cos(2.0 * beta) - mzRun2 - piaa +
+  //       sqr(sin(beta)) * t1OV1Ms1loop + sqr(cos(beta)) *
+  //     t2OV2Ms1loop;
+  // }
+
+  // double poleMhcSq = poleMasq2 + sqr(displayMw()) + piaa + piwwtMS - pihphm;
+  /*-------------------------------------------------------------------------*/
 
   physpars.mh0(1) = littleMh;
   physpars.mA0(1) = zeroSqrt(poleMasq);
@@ -2682,12 +2704,12 @@ double Softsusy<SoftPars>::calcRunningMt() {
 template<class SoftPars>
 double Softsusy<SoftPars>::calcRunMbDrBarConv() const {
    double    g       = displayGaugeCoupling(2);
-   double    g1      = displayGaugeCoupling(1);
+   double    gp      = displayGaugeCoupling(1) * sqrt(0.6);
    double alphasMZ = sqr(displayGaugeCoupling(3)) / (4.0 * PI);
    double conversion = (1.0 - alphasMZ / (3.0 * PI) 
                         - 23.0 / 72.0 * sqr(alphasMZ) / sqr(PI) +
                         3.0 * sqr(g) / (128.0 * sqr(PI)) +
-                        13.0 * sqr(g1) / (1152. * sqr(PI)));
+                        13.0 * sqr(gp) / (1152. * sqr(PI)));
    return conversion;
 }
 
@@ -2909,7 +2931,8 @@ double Softsusy<SoftPars>::calcRunningMb() const {
 }
 template<class SoftPars>
 double Softsusy<SoftPars>::calcRunMtauDrBarConv() const {
- double conv = (1.0 - 3.0 * (sqr(displayGaugeCoupling(1)) - sqr(displayGaugeCoupling(2))) / (128.0 * sqr(PI)));
+ double gp = displayGaugeCoupling(1) * sqrt(0.6);
+ double conv = (1.0 - 3.0 * (sqr(gp) - sqr(displayGaugeCoupling(2))) / (128.0 * sqr(PI)));
  return conv;
 }
 

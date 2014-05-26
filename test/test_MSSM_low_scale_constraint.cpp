@@ -119,10 +119,10 @@ BOOST_AUTO_TEST_CASE( test_low_energy_constraint )
    const double ss_MZ = Sqrt(Sqr(MZ) + pizzt);
    const double ss_new_vev = s.getVev();
 
-   const double fs_mt = m.calculate_MFu_DRbar_1loop(oneset.displayPoleMt(), 2);
-   const double fs_mb = m.calculate_MFd_DRbar_1loop(oneset.displayMass(mBottom), 2);
-   const double fs_me = m.calculate_MFe_DRbar_1loop(oneset.displayMass(mTau), 2);
-   const double fs_MZ = m.calculate_MVZ_DRbar_1loop(Electroweak_constants::MZ);
+   const double fs_mt = m.calculate_MFu_DRbar(oneset.displayPoleMt(), 2);
+   const double fs_mb = m.calculate_MFd_DRbar(oneset.displayMass(mBottom), 2);
+   const double fs_me = m.calculate_MFe_DRbar(oneset.displayMass(mTau), 2);
+   const double fs_MZ = m.calculate_MVZ_DRbar(Electroweak_constants::MZ);
    const double fs_old_vd = m.get_vd();
    const double fs_old_vu = m.get_vu();
    // const double fs_old_vev = Sqrt(Sqr(fs_old_vu) + Sqr(fs_old_vd));
@@ -132,7 +132,7 @@ BOOST_AUTO_TEST_CASE( test_low_energy_constraint )
 
    BOOST_CHECK_CLOSE_FRACTION(fs_mt, ss_mt, 9.5e-5);
    BOOST_CHECK_CLOSE_FRACTION(fs_mb, ss_mb, 3.0e-15);
-   BOOST_CHECK_CLOSE_FRACTION(fs_me, ss_me, 4.3e-7);
+   BOOST_CHECK_CLOSE_FRACTION(fs_me, ss_me, 6.0e-7);
    BOOST_CHECK_CLOSE_FRACTION(fs_MZ, ss_MZ, 4.5e-10);
    BOOST_CHECK_CLOSE_FRACTION(fs_new_vev, ss_new_vev, 4.5e-10);
    BOOST_CHECK_CLOSE_FRACTION(fs_old_vu / fs_old_vd, s.displayTanb(), 1.0e-10);
@@ -142,9 +142,9 @@ BOOST_AUTO_TEST_CASE( test_low_energy_constraint )
    constraint.apply();
    s.sparticleThresholdCorrections(input.TanBeta);
 
-   BOOST_CHECK_CLOSE_FRACTION(m.get_g1(), s.displayGaugeCoupling(1), 0.006);
-   BOOST_CHECK_CLOSE_FRACTION(m.get_g2(), s.displayGaugeCoupling(2), 0.0075);
-   BOOST_CHECK_CLOSE_FRACTION(m.get_g3(), s.displayGaugeCoupling(3), 1.0e-8);
+   BOOST_CHECK_CLOSE_FRACTION(m.get_g1(), s.displayGaugeCoupling(1), 0.0025);
+   BOOST_CHECK_CLOSE_FRACTION(m.get_g2(), s.displayGaugeCoupling(2), 0.0070);
+   BOOST_CHECK_CLOSE_FRACTION(m.get_g3(), s.displayGaugeCoupling(3), 1.0e-10);
 
    // test off-diagonal elements
    BOOST_MESSAGE("testing off-diagonal yukawa elements");

@@ -95,7 +95,7 @@ BOOST_AUTO_TEST_CASE( test_ReG0 )
    BOOST_CHECK_EQUAL(ReG0(0., 0., 0., scale2), 0.);
 }
 
-#if defined(ENABLE_LOOPTOOLS) || defined(ENABLE_FF)
+#if defined(ENABLE_LOOPTOOLS) || defined(ENABLE_FFLITE)
 
 const double eps = numeric_limits<double>::min();
 const complex<double> neg_m2 = complex<double>(-0.1, -eps);

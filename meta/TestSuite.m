@@ -36,8 +36,8 @@ TestMatch[expr_, form_, msg_:""] :=
       ];
 
 TestCPPCode[{preface_String, expr_String}, value_String, type_String, expected_String] :=
-    Module[{code = expr, output, sourceCode},
-           code = code <> "\n" <>
+    Module[{code, output, sourceCode},
+           code = expr <> "\n" <>
                   type <> " result__ = " <> value <> ";\n" <>
                   "std::cout << result__ << std::endl;";
            {output, sourceCode} = RunCPPProgram[{preface, code}];
@@ -51,9 +51,11 @@ PrintTestSummary[] :=
     Block[{},
           Print["Test summary"];
           Print["============"];
-          Print["Number of passed tests: ", numberOfPassedTests];
-          Print["Number of failed tests: ", numberOfFailedTests];
-          Print["Total number of tests: ", numberOfPassedTests + numberOfFailedTests];
+          If[numberOfFailedTests == 0,
+             Print["All tests passed (", numberOfPassedTests, ")."];
+             ,
+             Print["*** ", numberOfFailedTests, " tests failed!"];
+            ];
          ];
 
 RunCPPProgram[{preface_String, expr_String}, fileName_String:"tmp.cpp"] :=
@@ -70,7 +72,7 @@ RunCPPProgram[{preface_String, expr_String}, fileName_String:"tmp.cpp"] :=
               Return[{"", code}];
              ];
            Run["./a.out > a.out.log"];
-           If[errorCode != 0, Return[""]];
+           If[errorCode != 0, Return[{"", code}]];
            If[MemberQ[FileNames[], "a.out.log"],
               output = Import["a.out.log"];,
               Print["Error: output file \"a.out.log\" not found"];

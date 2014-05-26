@@ -20,17 +20,28 @@
 #include "logger.hpp"
 #include "error.hpp"
 #include <cmath>
+#include <boost/bind.hpp>
 
 namespace flexiblesusy {
 
 Beta_function::Beta_function()
-   : numPars(0)
+   : num_pars(0)
    , loops(0)
    , thresholds(0)
    , scale(0.0)
    , tolerance(1.e-4)
    , min_tolerance(1.0e-11)
 {
+}
+
+void Beta_function::reset()
+{
+   num_pars = 0;
+   loops = 0;
+   thresholds = 0;
+   scale = 0.0;
+   tolerance = 1.e-4;
+   min_tolerance = 1.0e-11;
 }
 
 void Beta_function::run_to(double x2, double eps)
@@ -41,8 +52,6 @@ void Beta_function::run_to(double x2, double eps)
 
 void Beta_function::run(double x1, double x2, double eps)
 {
-   using namespace std::placeholders;
-
    const double tol = get_tolerance(eps);
 
    if (std::fabs(x1) < tol)
@@ -50,9 +59,9 @@ void Beta_function::run(double x1, double x2, double eps)
    if (std::fabs(x2) < tol)
       throw NonPerturbativeRunningError(x2);
 
-   Eigen::ArrayXd y(display());
-   runge_kutta::Derivs derivs = std::bind(&Beta_function::derivatives,
-                                          this, _1, _2);
+   Eigen::ArrayXd y(get());
+   runge_kutta::Derivs derivs = boost::bind(&Beta_function::derivatives,
+                                            this, _1, _2);
 
    call_rk(x1, x2, y, derivs, tol);
    set(y);

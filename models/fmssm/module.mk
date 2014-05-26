@@ -1,5 +1,5 @@
 DIR          := models/fmssm
-MODNAME      := libfmssm
+MODNAME      := fmssm
 
 LIBFMSSM_SRC  :=
 LIBFMSSM_GENERATED_SRC :=
@@ -34,20 +34,24 @@ LIBFMSSM_OBJ  := \
 LIBFMSSM_DEP  := \
 		$(LIBFMSSM_OBJ:.o=.d)
 
-LIBFMSSM      := $(DIR)/$(MODNAME)$(LIBEXT)
+LIBFMSSM      := $(DIR)/lib$(MODNAME)$(LIBEXT)
 
 .PHONY:         all-$(MODNAME) clean-$(MODNAME) distclean-$(MODNAME)
 
 all-$(MODNAME): $(LIBFMSSM)
 
-clean-$(MODNAME):
-		rm -rf $(LIBFMSSM_OBJ)
+clean-$(MODNAME)-dep:
+		-rm -f $(LIBFMSSM_DEP)
+
+clean-$(MODNAME)-obj:
+		-rm -f $(LIBFMSSM_OBJ)
+
+clean-$(MODNAME): clean-$(MODNAME)-dep clean-$(MODNAME)-obj
+		-rm -f $(LIBFMSSM)
 
 distclean-$(MODNAME): clean-$(MODNAME)
-		rm -rf $(LIBFMSSM_DEP)
-		rm -rf $(LIBFMSSM)
-		rm -rf $(LIBFMSSM_GENERATED_SRC)
-		rm -rf $(LIBFMSSM_INC)
+		-rm -f $(LIBFMSSM_GENERATED_SRC)
+		-rm -f $(LIBFMSSM_INC)
 
 clean::         clean-$(MODNAME)
 

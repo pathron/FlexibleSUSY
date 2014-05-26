@@ -22,13 +22,14 @@
 #include "@ModelName@_input_parameters.hpp"
 #include "logger.hpp"
 #include "wrappers.hpp"
-#include "program_options.hpp"
+#include "spectrum_generator_settings.hpp"
 #include "lowe.h"
 #include "config.h"
 
 #include <fstream>
 #include <sstream>
 #include <iostream>
+#include <boost/bind.hpp>
 
 using namespace softsusy;
 
@@ -37,6 +38,11 @@ namespace flexiblesusy {
 @ModelName@_slha_io::@ModelName@_slha_io()
    : slha_io()
 {
+}
+
+void @ModelName@_slha_io::clear()
+{
+   slha_io.clear();
 }
 
 void @ModelName@_slha_io::set_extpar(const @ModelName@_input_parameters& input)
@@ -96,23 +102,21 @@ void @ModelName@_slha_io::read_from_file(const std::string& file_name)
 
 void @ModelName@_slha_io::fill(@ModelName@_input_parameters& input) const
 {
-   using namespace std::placeholders;
    SLHA_io::Tuple_processor minpar_processor
-      = std::bind(&@ModelName@_slha_io::fill_minpar_tuple, std::ref(input), _1, _2);
+      = boost::bind(&@ModelName@_slha_io::fill_minpar_tuple, boost::ref(input), _1, _2);
    SLHA_io::Tuple_processor extpar_processor
-      = std::bind(&@ModelName@_slha_io::fill_extpar_tuple, std::ref(input), _1, _2);
+      = boost::bind(&@ModelName@_slha_io::fill_extpar_tuple, boost::ref(input), _1, _2);
 
    slha_io.read_block("MINPAR", minpar_processor);
    slha_io.read_block("EXTPAR", extpar_processor);
 
-@readUnfixedParameters@
+@readLesHouchesInputParameters@
 }
 
-void @ModelName@_slha_io::fill(Program_options& options) const
+void @ModelName@_slha_io::fill(Spectrum_generator_settings& settings) const
 {
-   using namespace std::placeholders;
    SLHA_io::Tuple_processor flexiblesusy_processor
-      = std::bind(&@ModelName@_slha_io::fill_flexiblesusy_tuple, std::ref(options), _1, _2);
+      = boost::bind(&@ModelName@_slha_io::fill_flexiblesusy_tuple, boost::ref(settings), _1, _2);
 
    slha_io.read_block("FlexibleSUSY", flexiblesusy_processor);
 }
@@ -134,11 +138,11 @@ void @ModelName@_slha_io::fill_extpar_tuple(@ModelName@_input_parameters& input,
 @fillInputParametersFromEXTPAR@
 }
 
-void @ModelName@_slha_io::fill_flexiblesusy_tuple(Program_options& options,
+void @ModelName@_slha_io::fill_flexiblesusy_tuple(Spectrum_generator_settings& settings,
                                                   int key, double value)
 {
-   if (0 <= key && key < static_cast<int>(Program_options::NUMBER_OF_OPTIONS)) {
-      options.set((Program_options::Options)key, value);
+   if (0 <= key && key < static_cast<int>(Spectrum_generator_settings::NUMBER_OF_OPTIONS)) {
+      settings.set((Spectrum_generator_settings::Settings)key, value);
    } else {
       WARNING("Unrecognized key in block FlexibleSUSY: " << key);
    }

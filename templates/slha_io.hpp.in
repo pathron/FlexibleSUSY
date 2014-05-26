@@ -31,20 +31,25 @@
 
 #define PHYSICAL(p) model.get_physical().p
 #define MODELPARAMETER(p) model.get_##p()
+#define DEFINE_PARAMETER(p)                                            \
+   typename std::remove_const<typename std::remove_reference<decltype(MODELPARAMETER(p))>::type>::type p;
 
 namespace flexiblesusy {
 
 struct @ModelName@_input_parameters;
-class Program_options;
+class Spectrum_generator_settings;
 
 class @ModelName@_slha_io {
 public:
    @ModelName@_slha_io();
    ~@ModelName@_slha_io() {}
 
+   void clear();
+
    void fill(QedQcd& qedqcd) const { slha_io.fill(qedqcd); }
    void fill(@ModelName@_input_parameters&) const;
-   void fill(Program_options&) const;
+   template <class T> void fill(@ModelName@<T>&) const;
+   void fill(Spectrum_generator_settings&) const;
    double get_input_scale() const;
    double get_parameter_output_scale() const;
    void read_from_file(const std::string&);
@@ -58,7 +63,7 @@ public:
 
    static void fill_minpar_tuple(@ModelName@_input_parameters&, int, double);
    static void fill_extpar_tuple(@ModelName@_input_parameters&, int, double);
-   static void fill_flexiblesusy_tuple(Program_options&, int, double);
+   static void fill_flexiblesusy_tuple(Spectrum_generator_settings&, int, double);
 
 private:
    SLHA_io slha_io; ///< SLHA io class
@@ -67,6 +72,15 @@ private:
    template <class T> void set_mixing_matrices(const @ModelName@<T>&);
    template <class T> void set_model_parameters(const @ModelName@<T>&);
 };
+
+/**
+ * Reads all model parameters from a SLHA output file.
+ */
+template <class T>
+void @ModelName@_slha_io::fill(@ModelName@<T>& model) const
+{
+@readLesHouchesOutputParameters@
+}
 
 template <class T>
 void @ModelName@_slha_io::set_mass(const @ModelName@<T>& model)

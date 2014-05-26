@@ -3,15 +3,6 @@ MODNAME  := examples
 
 EXAMPLES_SRC :=
 
-ifeq ($(shell $(FSCONFIG) --with-SoftsusyMSSM),yes)
-EXAMPLES_SRC += \
-		$(DIR)/run_softsusy.cpp
-ifeq ($(shell $(FSCONFIG) --with-SoftsusyNMSSM),yes)
-EXAMPLES_SRC += \
-		$(DIR)/run_softpoint.cpp
-endif
-endif
-
 ifneq ($(findstring lattice,$(ALGORITHMS)),)
 ifeq ($(shell $(FSCONFIG) --with-fmssm),yes)
 LATTICE_EXAMPLES_SRC := \
@@ -61,16 +52,27 @@ EXAMPLES_DEP := \
 EXAMPLES_EXE := \
 		$(EXAMPLES_OBJ:.o=.x)
 
+STANDALONE_DIR := \
+		$(DIR)/standalone-model \
+		$(DIR)/standalone-rge
+
 .PHONY:         all-$(MODNAME) clean-$(MODNAME) distclean-$(MODNAME)
 
 all-$(MODNAME): $(EXAMPLES_EXE)
 
-clean-$(MODNAME):
-		rm -rf $(EXAMPLES_OBJ)
+clean-$(MODNAME)-dep:
+		-rm -f $(EXAMPLES_DEP)
+
+clean-$(MODNAME)-obj:
+		-rm -f $(EXAMPLES_OBJ)
+
+clean-$(MODNAME): clean-$(MODNAME)-dep clean-$(MODNAME)-obj
+		-rm -f $(EXAMPLES_EXE)
 
 distclean-$(MODNAME): clean-$(MODNAME)
-		rm -rf $(EXAMPLES_DEP)
-		rm -rf $(EXAMPLES_EXE)
+		-@for d in $(STANDALONE_DIR); do \
+			(cd $$d && make distclean); \
+		 done
 
 clean::         clean-$(MODNAME)
 
@@ -99,18 +101,12 @@ ifneq ($(findstring lattice,$(ALGORITHMS)),)
 ifeq ($(shell $(FSCONFIG) --with-fmssm --with-MSSM),yes yes)
 $(SWITCH_EXAMPLES_DEP) $(SWITCH_EXAMPLES_OBJ): CPPFLAGS += $(EIGENFLAGS) $(GSLFLAGS) $(BOOSTFLAGS)
 
-$(DIR)/switch_MSSM.x: $(DIR)/switch_MSSM.o $(LIBMSSM) $(LIBFMSSM) $(LIBFLEXI) $(LIBLEGACY)
-		$(CXX) -o $@ $(call abspathx,$^) $(GSLLIBS) $(BOOSTTHREADLIBS) $(THREADLIBS) $(LAPACKLIBS) $(LOOPTOOLSLIBS) $(LIBFFLITE) $(FLIBS)
+$(DIR)/switch_MSSM.x: $(DIR)/switch_MSSM.o $(LIBMSSM) $(LIBFMSSM) $(LIBFLEXI) $(LIBLEGACY) $(filter-out -%,$(LOOPFUNCLIBS))
+		$(CXX) -o $@ $(call abspathx,$^) $(filter -%,$(LOOPFUNCLIBS)) $(GSLLIBS) $(BOOSTTHREADLIBS) $(THREADLIBS) $(LAPACKLIBS) $(FLIBS)
 endif
 endif
 endif
 endif
-
-$(DIR)/run_softsusy.x: $(DIR)/run_softsusy.o $(LIBSoftsusyMSSM) $(LIBFLEXI) $(LIBLEGACY)
-		$(CXX) -o $@ $(call abspathx,$^) $(FLIBS)
-
-$(DIR)/run_softpoint.x: $(DIR)/run_softpoint.o $(LIBSoftsusyNMSSM) $(LIBSoftsusyMSSM) $(LIBFLEXI) $(LIBLEGACY)
-		$(CXX) -o $@ $(call abspathx,$^) $(FLIBS)
 
 ALLDEP += $(EXAMPLES_DEP)
 ALLEXE += $(EXAMPLES_EXE)

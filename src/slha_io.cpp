@@ -23,6 +23,7 @@
 #include "ew_input.hpp"
 
 #include <fstream>
+#include <boost/bind.hpp>
 
 namespace flexiblesusy {
 
@@ -31,6 +32,13 @@ SLHA_io::SLHA_io()
    , extpar()
    , modsel()
 {
+}
+
+void SLHA_io::clear()
+{
+   data.clear();
+   extpar.clear();
+   modsel.clear();
 }
 
 /**
@@ -52,27 +60,24 @@ void SLHA_io::read_from_file(const std::string& file_name)
 
 void SLHA_io::read_extpar()
 {
-   using namespace std::placeholders;
    SLHA_io::Tuple_processor extpar_processor
-      = std::bind(&SLHA_io::process_extpar_tuple, std::ref(extpar), _1, _2);
+      = boost::bind(&SLHA_io::process_extpar_tuple, boost::ref(extpar), _1, _2);
 
    read_block("EXTPAR", extpar_processor);
 }
 
 void SLHA_io::read_modsel()
 {
-   using namespace std::placeholders;
    SLHA_io::Tuple_processor modsel_processor
-      = std::bind(&SLHA_io::process_modsel_tuple, std::ref(modsel), _1, _2);
+      = boost::bind(&SLHA_io::process_modsel_tuple, boost::ref(modsel), _1, _2);
 
    read_block("MODSEL", modsel_processor);
 }
 
 void SLHA_io::fill(QedQcd& oneset) const
 {
-   using namespace std::placeholders;
    SLHA_io::Tuple_processor sminputs_processor
-      = std::bind(&SLHA_io::process_sminputs_tuple, std::ref(oneset), _1, _2);
+      = boost::bind(&SLHA_io::process_sminputs_tuple, boost::ref(oneset), _1, _2);
 
    read_block("SMINPUTS", sminputs_processor);
 }
@@ -88,29 +93,9 @@ void SLHA_io::read_block(const std::string& block_name, const Tuple_processor& p
          continue;
 
       if (line->size() >= 2) {
-         const std::string key_str((*line)[0]), value_str((*line)[1]);
-         int key;
-         double value;
-
-         try {
-            key = SLHAea::to<int>(key_str);
-         } catch (const boost::bad_lexical_cast& error) {
-            const std::string msg("cannot convert " + block_name
-                                  + " key to int: " + key_str);
-            throw ReadError(msg);
-         }
-
-         try {
-            value = SLHAea::to<double>((*line)[1]);
-         } catch (const boost::bad_lexical_cast& error) {
-            const std::string msg("cannot convert " + block_name + " entry "
-                                  + key_str + " to double: " + value_str);
-            throw ReadError(msg);
-         }
-
+         const int key = convert_to<int>((*line)[0]);
+         const double value = convert_to<double>((*line)[1]);
          processor(key, value);
-      } else {
-         WARNING(block_name << " entry has less than 2 columns");
       }
    }
 }
@@ -124,7 +109,7 @@ double SLHA_io::read_entry(const std::string& block_name, int key) const
       return 0.;
    }
 
-   const SLHAea::Block::key_type keys(1, std::to_string(key));
+   const SLHAea::Block::key_type keys(1, ToString(key));
    const SLHAea::Block::const_iterator line = block->find(keys);
 
    if (line == block->end() || !line->is_data_line() || line->size() < 2) {
@@ -133,16 +118,7 @@ double SLHA_io::read_entry(const std::string& block_name, int key) const
       return 0.;
    }
 
-   double entry;
-
-   try {
-      entry = SLHAea::to<double>(line->at(1));
-   } catch (const boost::bad_lexical_cast& error) {
-      std::ostringstream msg;
-      msg << "cannot convert " << block_name << " entry " << key
-          << " to double";
-      throw ReadError(msg.str());
-   }
+   const double entry = convert_to<double>(line->at(1));
 
    return entry;
 }
@@ -176,7 +152,7 @@ void SLHA_io::set_block(const std::string& name, double value,
    set_block(ss);
 }
 
-void SLHA_io::set_block(const std::string& name, const DoubleMatrix& matrix,
+void SLHA_io::set_block(const std::string& name, const softsusy::DoubleMatrix& matrix,
                         const std::string& symbol, double scale)
 {
    std::ostringstream ss;
@@ -188,13 +164,13 @@ void SLHA_io::set_block(const std::string& name, const DoubleMatrix& matrix,
    for (int i = 1; i <= matrix.displayRows(); ++i)
       for (int k = 1; k <= matrix.displayCols(); ++k) {
          ss << boost::format(mixing_matrix_formatter) % i % k % matrix(i,k)
-            % (symbol + "(" + std::to_string(i) + "," + std::to_string(k) + ")");
+            % (symbol + "(" + ToString(i) + "," + ToString(k) + ")");
       }
 
    set_block(ss);
 }
 
-void SLHA_io::set_block(const std::string& name, const ComplexMatrix& matrix,
+void SLHA_io::set_block(const std::string& name, const softsusy::ComplexMatrix& matrix,
                         const std::string& symbol, double scale)
 {
    std::ostringstream ss;
@@ -207,7 +183,7 @@ void SLHA_io::set_block(const std::string& name, const ComplexMatrix& matrix,
       for (int k = 1; k <= matrix.displayCols(); ++k) {
          ss << boost::format(mixing_matrix_formatter) % i % k
             % Re(matrix(i,k))
-            % ("Re(" + symbol + "(" + std::to_string(i) + "," + std::to_string(k) + "))");
+            % ("Re(" + symbol + "(" + ToString(i) + "," + ToString(k) + "))");
       }
 
    set_block(ss);

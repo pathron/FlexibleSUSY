@@ -21,7 +21,7 @@
 #ifndef @ModelName@_LATTICE_H
 #define @ModelName@_LATTICE_H
 
-#include <cmath>
+// #include <cmath>
 #include <iosfwd>
 
 #include "cextensions.hpp"

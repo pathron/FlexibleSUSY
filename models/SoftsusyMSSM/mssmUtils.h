@@ -5,11 +5,11 @@
 #include <iosfwd>
 #include <string>
 
-class DoubleVector;
-
 namespace softsusy {
 
-class sBrevity;
+class DoubleVector;
+
+struct sBrevity;
 class MssmSusy;
 
 template<class SoftPars> class Softsusy;

@@ -25,13 +25,17 @@
 #include "error.hpp"
 #include "root_finder.hpp"
 #include "gsl_utils.hpp"
-#ifdef ENABLE_LOOPTOOLS
-#include <clooptools.h>
-#endif
+#include "config.h"
+#include "pv.hpp"
+
+@twoLoopHiggsHeaders@
 
 #include <cmath>
 #include <iostream>
+
+#ifdef ENABLE_THREADS
 #include <thread>
+#endif
 
 namespace flexiblesusy {
 
@@ -43,13 +47,25 @@ using namespace @ModelName@_info;
 #define INPUT(parameter) model->get_input().parameter
 #define LOCALINPUT(parameter) input.parameter
 
+#ifdef ENABLE_THREADS
+std::mutex CLASSNAME::mtx_fortran;
+#endif
+
+#ifdef ENABLE_THREADS
+#define LOCK_MUTEX() mtx_fortran.lock()
+#define UNLOCK_MUTEX() mtx_fortran.unlock()
+#else
+#define LOCK_MUTEX()
+#define UNLOCK_MUTEX()
+#endif
+
 CLASSNAME::@ModelName@(const @ModelName@_input_parameters& input_)
    : Two_scale_model()
    , @ModelName@_soft_parameters(input_)
    , number_of_ewsb_iterations(100)
    , number_of_mass_iterations(20)
-   , ewsb_loop_order(1)
-   , pole_mass_loop_order(1)
+   , ewsb_loop_order(2)
+   , pole_mass_loop_order(2)
    , calculate_sm_pole_masses(false)
    , precision(1.0e-3)
    , ewsb_iteration_precision(1.0e-5)
@@ -112,6 +128,11 @@ double CLASSNAME::get_ewsb_iteration_precision() const
    return ewsb_iteration_precision;
 }
 
+double CLASSNAME::get_ewsb_loop_order() const
+{
+   return ewsb_loop_order;
+}
+
 const @ModelName@_physical& CLASSNAME::get_physical() const
 {
    return physical;
@@ -129,10 +150,10 @@ Problems<@ModelName@_info::NUMBER_OF_PARTICLES>& CLASSNAME::get_problems()
 
 int CLASSNAME::tadpole_equations(const gsl_vector* x, void* params, gsl_vector* f)
 {
-   if (contains_nan(x, @numberOfEWSBEquations@)) {
-      for (std::size_t i = 0; i < @numberOfEWSBEquations@; ++i)
+   if (contains_nan(x, number_of_ewsb_equations)) {
+      for (std::size_t i = 0; i < number_of_ewsb_equations; ++i)
          gsl_vector_set(f, i, std::numeric_limits<double>::max());
-      return 1;
+      return GSL_EDOM;
    }
 
    const CLASSNAME::Ewsb_parameters* ewsb_parameters
@@ -140,15 +161,18 @@ int CLASSNAME::tadpole_equations(const gsl_vector* x, void* params, gsl_vector* 
    @ModelName@* model = ewsb_parameters->model;
    const unsigned ewsb_loop_order = ewsb_parameters->ewsb_loop_order;
 
-   double tadpole[@numberOfEWSBEquations@];
+   double tadpole[number_of_ewsb_equations];
 
 @calculateTreeLevelTadpoles@
    if (ewsb_loop_order > 0) {
       model->calculate_DRbar_parameters();
 @calculateOneLoopTadpoles@
+      if (ewsb_loop_order > 1) {
+@calculateTwoLoopTadpoles@
+      }
    }
 
-   for (std::size_t i = 0; i < @numberOfEWSBEquations@; ++i)
+   for (std::size_t i = 0; i < number_of_ewsb_equations; ++i)
       gsl_vector_set(f, i, tadpole[i]);
 
    return GSL_SUCCESS;
@@ -159,13 +183,13 @@ int CLASSNAME::solve_ewsb_iteratively()
    const gsl_multiroot_fsolver_type* solvers[] =
       {gsl_multiroot_fsolver_hybrid, gsl_multiroot_fsolver_hybrids};
 
-   double x_init[@numberOfEWSBEquations@];
+   double x_init[number_of_ewsb_equations];
    ewsb_initial_guess(x_init);
 
-#ifdef VERBOSE
+#ifdef ENABLE_VERBOSE
    std::cout << "Solving EWSB equations ...\n"
       "\tInitial guess: x_init =";
-   for (std::size_t i = 0; i < @numberOfEWSBEquations@; ++i)
+   for (std::size_t i = 0; i < number_of_ewsb_equations; ++i)
       std::cout << " " << x_init[i];
    std::cout << '\n';
 #endif
@@ -178,7 +202,7 @@ int CLASSNAME::solve_ewsb_iteratively()
          VERBOSE_MSG("\tSolver " << i << " finished successfully!");
          break;
       }
-#ifdef VERBOSE
+#ifdef ENABLE_VERBOSE
       else {
          WARNING("\tSolver " << i << " could not find a solution!"
                  " (requested precision: " << ewsb_iteration_precision << ")");
@@ -188,7 +212,7 @@ int CLASSNAME::solve_ewsb_iteratively()
 
    if (status != GSL_SUCCESS) {
       problems.flag_no_ewsb();
-#ifdef VERBOSE
+#ifdef ENABLE_VERBOSE
       WARNING("\tCould not find a solution to the EWSB equations!"
               " (requested precision: " << ewsb_iteration_precision << ")");
 #endif
@@ -243,16 +267,16 @@ int CLASSNAME::solve_ewsb()
    return solve_ewsb_iteratively(ewsb_loop_order);
 }
 
-void CLASSNAME::ewsb_initial_guess(double x_init[@numberOfEWSBEquations@])
+void CLASSNAME::ewsb_initial_guess(double x_init[number_of_ewsb_equations])
 {
 @ewsbInitialGuess@
 }
 
 int CLASSNAME::solve_ewsb_iteratively_with(const gsl_multiroot_fsolver_type* solver,
-                                             const double x_init[@numberOfEWSBEquations@])
+                                           const double x_init[number_of_ewsb_equations])
 {
    Ewsb_parameters params = {this, ewsb_loop_order};
-   Root_finder<@numberOfEWSBEquations@> root_finder(CLASSNAME::tadpole_equations,
+   Root_finder<number_of_ewsb_equations> root_finder(CLASSNAME::tadpole_equations,
                               &params,
                               number_of_ewsb_iterations,
                               ewsb_iteration_precision);
@@ -281,58 +305,42 @@ void CLASSNAME::print(std::ostream& ostr) const
 
 double CLASSNAME::A0(double m) const
 {
-   return a0(m, get_scale());
+   return passarino_veltman::ReA0(m*m, Sqr(get_scale()));
 }
 
 double CLASSNAME::B0(double p, double m1, double m2) const
 {
-#ifdef ENABLE_LOOPTOOLS
-   setmudim(Sqr(get_scale()));
-   return Re(::B0(p*p, m1*m1, m2*m2));
-#else
-   return b0(p, m1, m2, get_scale());
-#endif
+   return passarino_veltman::ReB0(p*p, m1*m1, m2*m2, Sqr(get_scale()));
 }
 
 double CLASSNAME::B1(double p, double m1, double m2) const
 {
-#ifdef ENABLE_LOOPTOOLS
-   setmudim(Sqr(get_scale()));
-   return Re(::B1(p*p, m1*m1, m2*m2));
-#else
-   return -b1(p, m1, m2, get_scale());
-#endif
+   return passarino_veltman::ReB1(p*p, m1*m1, m2*m2, Sqr(get_scale()));
 }
 
 double CLASSNAME::B00(double p, double m1, double m2) const
 {
-#ifdef ENABLE_LOOPTOOLS
-   setmudim(Sqr(get_scale()));
-   return Re(::B00(p*p, m1*m1, m2*m2));
-#else
-   return b22(p, m1, m2, get_scale());
-#endif
+   return passarino_veltman::ReB00(p*p, m1*m1, m2*m2, Sqr(get_scale()));
 }
 
 double CLASSNAME::B22(double p, double m1, double m2) const
 {
-   return B00(p, m1, m2) - 0.25 * A0(m1) - 0.25 * A0(m2);
+   return passarino_veltman::ReB22(p*p, m1*m1, m2*m2, Sqr(get_scale()));
 }
 
 double CLASSNAME::H0(double p, double m1, double m2) const
 {
-   return 4.0 * B00(p, m1, m2) + G0(p, m1, m2);
+   return passarino_veltman::ReH0(p*p, m1*m1, m2*m2, Sqr(get_scale()));
 }
 
 double CLASSNAME::F0(double p, double m1, double m2) const
 {
-   return A0(m1) - 2.0 * A0(m2) - (2.0 * Sqr(p) + 2.0 * Sqr(m1) - Sqr(m2)) *
-      B0(p, m1, m2);
+   return passarino_veltman::ReF0(p*p, m1*m1, m2*m2, Sqr(get_scale()));
 }
 
 double CLASSNAME::G0(double p, double m1, double m2) const
 {
-   return (Sqr(p) - Sqr(m1) - Sqr(m2)) * B0(p, m1, m2) - A0(m1) - A0(m2);
+   return passarino_veltman::ReG0(p*p, m1*m1, m2*m2, Sqr(get_scale()));
 }
 
 void CLASSNAME::calculate_DRbar_parameters()
@@ -344,9 +352,18 @@ void CLASSNAME::calculate_DRbar_parameters()
 @restoreSoftHiggsMasses@
 }
 
-void CLASSNAME::calculate_1loop_masses()
+void CLASSNAME::calculate_pole_masses()
 {
+#ifdef ENABLE_THREADS
+   thread_exception = 0;
+
+@callAllLoopMassFunctionsInThreads@
+
+   if (thread_exception != 0)
+      std::rethrow_exception(thread_exception);
+#else
 @callAllLoopMassFunctions@
+#endif
 }
 
 void CLASSNAME::copy_DRbar_masses_to_pole_masses()
@@ -358,16 +375,26 @@ void CLASSNAME::calculate_spectrum()
 {
    calculate_DRbar_parameters();
    if (pole_mass_loop_order > 0)
-      calculate_1loop_masses();
+      calculate_pole_masses();
    else
       copy_DRbar_masses_to_pole_masses();
+
+   if (problems.have_serious_problem()) {
+      clear_DRbar_parameters();
+      physical.clear();
+   }
+}
+
+void CLASSNAME::clear_DRbar_parameters()
+{
+@clearOutputParameters@
+@clearPhases@
 }
 
 void CLASSNAME::clear()
 {
    @ModelName@_soft_parameters::clear();
-
-@clearOutputParameters@
+   clear_DRbar_parameters();
    physical.clear();
    problems.clear();
 }
@@ -384,16 +411,30 @@ void CLASSNAME::run_to(double scale, double eps)
    @ModelName@_soft_parameters::run_to(scale, eps);
 }
 
+@lspFunctions@
+
 @massCalculationFunctions@
 
 @tadpoleEqFunctions@
 
 @selfEnergyFunctions@
 
+@thirdGenerationHelperFunctions@
+
+@twoLoopSelfEnergyFunctions@
+
+@twoLoopTadpoleFunctions@
+
 @loopMassesFunctions@
 
 @runningDRbarMassesFunctions@
 
 @dependenceNumFunctions@
+
+std::ostream& operator<<(std::ostream& ostr, const @ModelName@<Two_scale>& model)
+{
+   model.print(ostr);
+   return ostr;
+}
 
 } // namespace flexiblesusy

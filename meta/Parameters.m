@@ -1,6 +1,8 @@
 
 BeginPackage["Parameters`", {"SARAH`", "CConversion`"}];
 
+FindSymbolDef::usage="";
+
 CreateSetAssignment::usage="";
 CreateDisplayAssignment::usage="";
 CreateParameterNamesStr::usage="";
@@ -23,6 +25,8 @@ SaveParameterLocally::usage="Save parameters in local variables";
 RestoreParameter::usage="Restore parameters from local variables";
 
 GetType::usage="";
+GetPhase::usage="";
+HasPhase::usage="";
 
 IsRealParameter::usage="";
 IsComplexParameter::usage="";
@@ -34,6 +38,7 @@ SetInputParameters::usage="";
 SetModelParameters::usage="";
 SetOutputParameters::usage="";
 
+GetInputParameters::usage="";
 GetModelParameters::usage="";
 GetOutputParameters::usage="";
 
@@ -55,6 +60,16 @@ DecreaseIndexLiterals::usage="";
 
 DecreaseSumIdices::usage="";
 
+GetEffectiveMu::usage="";
+
+GetParameterFromDescription::usage="Returns model parameter from a
+given description string.";
+
+NumberOfIndependentEntriesOfSymmetricMatrix::usage="Returns number of
+independent parameters of a real symmetric nxn matrix";
+
+ClearPhases::usage="";
+
 Begin["`Private`"];
 
 allInputParameters = {};
@@ -65,6 +80,7 @@ SetInputParameters[pars_List] := allInputParameters = pars;
 SetModelParameters[pars_List] := allModelParameters = pars;
 SetOutputParameters[pars_List] := allOutputParameters = pars;
 
+GetInputParameters[] := allInputParameters;
 GetModelParameters[] := allModelParameters;
 GetOutputParameters[] := allOutputParameters;
 
@@ -75,6 +91,22 @@ AddRealParameter[parameter_List] :=
 
 AddRealParameter[parameter_] :=
     additionalRealParameters = DeleteDuplicates[Join[additionalRealParameters, {parameter}]];
+
+FindSymbolDef[sym_] :=
+    Module[{symDef},
+           symDef = Cases[SARAH`ParameterDefinitions,
+                          {sym, {___, DependenceNum -> definition_, ___}} :> definition];
+           If[Head[symDef] =!= List || symDef === {},
+              Print["Error: Could not find definition of ",
+                    sym, " in SARAH`ParameterDefinitions"];
+              Return[0];
+             ];
+           If[Length[symDef] > 1,
+              Print["Warning: ", sym, " defined multiple times"];
+             ];
+           symDef = symDef[[1]];
+           Return[symDef];
+          ];
 
 (* Returns all parameters within an expression *)
 FindAllParameters[expr_] :=
@@ -184,6 +216,14 @@ IsRealExpression[sum[index_, start_, stop_, expr_]] :=
 
 IsRealExpression[otherwise_] := False;
 
+HasPhase[particle_] :=
+    MemberQ[#[[1]]& /@ SARAH`ParticlePhases, particle];
+
+GetPhase[particle_ /; HasPhase[particle]] :=
+    Cases[SARAH`ParticlePhases, {particle, phase_} :> phase][[1]];
+
+GetPhase[_] := Null;
+
 GetTypeFromDimension[sym_, {}] :=
     If[True || IsRealParameter[sym],
        CConversion`ScalarType[CConversion`realScalarCType],
@@ -194,16 +234,22 @@ GetTypeFromDimension[sym_, {1}] :=
     GetTypeFromDimension[sym, {}];
 
 GetTypeFromDimension[sym_, {num_?NumberQ}] :=
-    If[True || IsRealParameter[sym],
-       CConversion`VectorType[CConversion`realScalarCType, num],
-       CConversion`VectorType[CConversion`complexScalarCType, num]
-      ];
+    Module[{scalarType},
+           scalarType = If[True || IsRealParameter[sym],
+                           CConversion`realScalarCType,
+                           CConversion`complexScalarCType
+                          ];
+           CConversion`VectorType[scalarType, num]
+          ];
 
 GetTypeFromDimension[sym_, {num1_?NumberQ, num2_?NumberQ}] :=
     If[True || IsRealParameter[sym],
        CConversion`MatrixType[CConversion`realScalarCType, num1, num2],
        CConversion`MatrixType[CConversion`complexScalarCType, num1, num2]
       ];
+
+GetType[FlexibleSUSY`M[sym_]] :=
+    GetTypeFromDimension[sym, {SARAH`getGen[sym, FlexibleSUSY`FSEigenstates]}];
 
 GetType[sym_] :=
     GetTypeFromDimension[sym, SARAH`getDimParameters[sym]];
@@ -429,10 +475,36 @@ CreateParameterEnums[name_, CConversion`MatrixType[CConversion`realScalarCType, 
            Return[ass];
           ];
 
+CheckParameter[parameter_] :=
+    MemberQ[allModelParameters, parameter] || MemberQ[allInputParameters, parameter];
+
 SetParameter[parameter_, value_String, class_String] :=
     Module[{parameterStr},
-           parameterStr = CConversion`ToValidCSymbolString[parameter];
-           class <> "->set_" <> parameterStr <> "(" <> value <> ");\n"
+           If[CheckParameter[parameter],
+              parameterStr = CConversion`ToValidCSymbolString[parameter];
+              class <> "->set_" <> parameterStr <> "(" <> value <> ");\n",
+              ""
+             ]
+          ];
+
+SetParameter[parameter_[idx_Integer], value_String, class_String] :=
+    Module[{parameterStr},
+           If[CheckParameter[parameter],
+              parameterStr = CConversion`ToValidCSymbolString[parameter];
+              class <> "->set_" <> parameterStr <> "(" <> ToString[idx] <> ", " <>
+              value <> ");\n",
+              ""
+             ]
+          ];
+
+SetParameter[parameter_[idx1_Integer, idx2_Integer], value_String, class_String] :=
+    Module[{parameterStr},
+           If[CheckParameter[parameter],
+              parameterStr = CConversion`ToValidCSymbolString[parameter];
+              class <> "->set_" <> parameterStr <> "(" <> ToString[idx1] <> ", " <>
+              ToString[idx2] <> ", " <> value <> ");\n",
+              ""
+             ]
           ];
 
 SetParameter[parameter_, value_, class_String] :=
@@ -478,7 +550,7 @@ DefineLocalConstCopy[parameter_, macro_String, prefix_String:""] :=
     macro <> "(" <> ToValidCSymbolString[parameter] <> ");\n";
 
 PrivateCallLoopMassFunction[FlexibleSUSY`M[particle_Symbol]] :=
-    "calculate_" <> ToValidCSymbolString[FlexibleSUSY`M[particle]] <> "_pole_1loop();\n";
+    "calculate_" <> ToValidCSymbolString[FlexibleSUSY`M[particle]] <> "_pole();\n";
 
 CalculateLocalPoleMasses[parameter_] :=
     "MODEL->" <> PrivateCallLoopMassFunction[parameter];
@@ -562,7 +634,7 @@ DecreaseIndices[a_[{ind__}]] := a[DecreaseIndex /@ {ind}];
 DecreaseIndices[a_[ind__]] := a[Sequence @@ (DecreaseIndex /@ {ind})];
 DecreaseIndices[a_]        := a;
 DecreaseIndices[SARAH`Delta[a_, b_]] :=
-    CConversion`KroneckerDelta[DecreaseIndex[a], DecreaseIndex[b]];
+    CConversion`FSKroneckerDelta[DecreaseIndex[a], DecreaseIndex[b]];
 
 DecreaseIndexLiterals[expr_] :=
     DecreaseIndexLiterals[expr, Join[allInputParameters, allModelParameters,
@@ -579,6 +651,44 @@ DecreaseIndexLiterals[expr_, heads_List] :=
 
 DecreaseSumIdices[expr_] :=
     expr //. SARAH`sum[idx_, start_, stop_, exp_] :> CConversion`IndexSum[idx, start - 1, stop - 1, exp];
+
+GetEffectiveMu[] :=
+    Module[{},
+           If[!ValueQ[FlexibleSUSY`EffectiveMu],
+              Print["Error: effective Mu parameter not defined!"];
+              Print["   Please set EffectiveMu to the expression of the"];
+              Print["   effective Mu parameter."];
+              Quit[1];
+             ];
+           FlexibleSUSY`EffectiveMu
+          ];
+
+GetParameterFromDescription[description_String] :=
+    Module[{parameter},
+           parameter =Cases[SARAH`ParameterDefinitions,
+                            {parameter_,
+                             {___, SARAH`Description -> description, ___}} :>
+                            parameter];
+           If[Length[parameter] == 0,
+              Print["Error: Parameter with description \"", description,
+                    "\" not found."];
+              Return[Null];
+             ];
+           If[Length[parameter] > 1,
+              Print["Warning: Parameter with description \"", description,
+                    "\" not unique."];
+             ];
+           parameter[[1]]
+          ];
+
+NumberOfIndependentEntriesOfSymmetricMatrix[n_] := (n^2 + n) / 2;
+
+ClearPhase[phase_] :=
+    CConversion`ToValidCSymbolString[phase] <> " = " <>
+    CreateCType[CConversion`ScalarType[complexScalarCType]] <> "(1.,0.);\n";
+
+ClearPhases[phases_List] :=
+    StringJoin[ClearPhase /@ phases];
 
 End[];
 

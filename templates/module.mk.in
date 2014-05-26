@@ -1,8 +1,24 @@
 DIR          := @DIR@
-MODNAME      := lib@CLASSNAME@
+MODNAME      := @CLASSNAME@
+SARAH_MODEL  := @MODEL@
+
+@CLASSNAME@_INSTALL_DIR := $(INSTALL_DIR)/$(DIR)
+
+@CLASSNAME@_MK     := \
+		$(DIR)/module.mk
+
+@CLASSNAME@_TWO_SCALE_MK := \
+		$(DIR)/two_scale_susy.mk \
+		$(DIR)/two_scale_soft.mk
+
+@CLASSNAME@_GNUPLOT := \
+		$(DIR)/@CLASSNAME@_plot_rgflow.gnuplot \
+		$(DIR)/@CLASSNAME@_plot_spectrum.gnuplot
 
 LIB@CLASSNAME@_SRC :=
 EXE@CLASSNAME@_SRC :=
+
+LIB@CLASSNAME@_HDR :=
 
 ifneq ($(findstring two_scale,$(ALGORITHMS)),)
 LIB@CLASSNAME@_SRC += \
@@ -21,6 +37,53 @@ LIB@CLASSNAME@_SRC += \
 EXE@CLASSNAME@_SRC += \
 		$(DIR)/run_@CLASSNAME@.cpp \
 		$(DIR)/scan_@CLASSNAME@.cpp
+LIB@CLASSNAME@_HDR += \
+		$(DIR)/@CLASSNAME@_convergence_tester.hpp \
+		$(DIR)/@CLASSNAME@_high_scale_constraint.hpp \
+		$(DIR)/@CLASSNAME@_info.hpp \
+		$(DIR)/@CLASSNAME@_initial_guesser.hpp \
+		$(DIR)/@CLASSNAME@_input_parameters.hpp \
+		$(DIR)/@CLASSNAME@_low_scale_constraint.hpp \
+		$(DIR)/@CLASSNAME@_model.hpp \
+		$(DIR)/@CLASSNAME@_physical.hpp \
+		$(DIR)/@CLASSNAME@_slha_io.hpp \
+		$(DIR)/@CLASSNAME@_spectrum_generator.hpp \
+		$(DIR)/@CLASSNAME@_susy_scale_constraint.hpp \
+		$(DIR)/@CLASSNAME@_utilities.hpp \
+		$(DIR)/@CLASSNAME@_two_scale_convergence_tester.hpp \
+		$(DIR)/@CLASSNAME@_two_scale_high_scale_constraint.hpp \
+		$(DIR)/@CLASSNAME@_two_scale_initial_guesser.hpp \
+		$(DIR)/@CLASSNAME@_two_scale_low_scale_constraint.hpp \
+		$(DIR)/@CLASSNAME@_two_scale_model.hpp \
+		$(DIR)/@CLASSNAME@_two_scale_soft_parameters.hpp \
+		$(DIR)/@CLASSNAME@_two_scale_susy_parameters.hpp \
+		$(DIR)/@CLASSNAME@_two_scale_susy_scale_constraint.hpp
+
+ifneq ($(MAKECMDGOALS),showbuild)
+ifneq ($(MAKECMDGOALS),tag)
+ifneq ($(MAKECMDGOALS),release)
+ifneq ($(MAKECMDGOALS),doc)
+-include $(DIR)/two_scale_susy.mk
+-include $(DIR)/two_scale_soft.mk
+ifneq ($(MAKECMDGOALS),clean)
+ifneq ($(MAKECMDGOALS),distclean)
+ifeq ($(findstring clean-,$(MAKECMDGOALS)),)
+ifeq ($(findstring distclean-,$(MAKECMDGOALS)),)
+ifeq ($(findstring doc-,$(MAKECMDGOALS)),)
+$(DIR)/two_scale_susy.mk: run-metacode-$(MODNAME)
+		@true
+$(DIR)/two_scale_soft.mk: run-metacode-$(MODNAME)
+		@true
+endif
+endif
+endif
+endif
+endif
+endif
+endif
+endif
+endif
+
 endif
 
 ifneq ($(findstring lattice,$(ALGORITHMS)),)
@@ -33,7 +96,10 @@ ifneq ($(MAKECMDGOALS),clean)
 ifneq ($(MAKECMDGOALS),distclean)
 ifeq ($(findstring clean-,$(MAKECMDGOALS)),)
 ifeq ($(findstring distclean-,$(MAKECMDGOALS)),)
+ifeq ($(findstring doc-,$(MAKECMDGOALS)),)
 $(DIR)/lattice.mk: run-metacode-$(MODNAME)
+		@true
+endif
 endif
 endif
 endif
@@ -62,7 +128,7 @@ LIB@CLASSNAME@_DEP := \
 EXE@CLASSNAME@_DEP := \
 		$(EXE@CLASSNAME@_OBJ:.o=.d)
 
-LIB@CLASSNAME@     := $(DIR)/$(MODNAME)$(LIBEXT)
+LIB@CLASSNAME@     := $(DIR)/lib$(MODNAME)$(LIBEXT)
 
 RUN_@CLASSNAME@_OBJ := $(DIR)/run_@CLASSNAME@.o
 RUN_@CLASSNAME@_EXE := $(DIR)/run_@CLASSNAME@.x
@@ -70,61 +136,59 @@ RUN_@CLASSNAME@_EXE := $(DIR)/run_@CLASSNAME@.x
 SCAN_@CLASSNAME@_OBJ := $(DIR)/scan_@CLASSNAME@.o
 SCAN_@CLASSNAME@_EXE := $(DIR)/scan_@CLASSNAME@.x
 
-.PHONY:         all-$(MODNAME) clean-$(MODNAME) distclean-$(MODNAME) run-metacode-$(MODNAME)
+METACODE_STAMP_@CLASSNAME@ := $(DIR)/00_DELETE_ME_TO_RERUN_METACODE
+
+SARAH_MODEL_FILES_@CLASSNAME@ := \
+		$(shell $(SARAH_DEP_GEN) $(SARAH_MODEL))
+
+.PHONY:         all-$(MODNAME) clean-$(MODNAME) clean-$(MODNAME)-src \
+		distclean-$(MODNAME) run-metacode-$(MODNAME)
 
 all-$(MODNAME): $(LIB@CLASSNAME@)
 
-clean-$(MODNAME):
-		rm -rf $(LIB@CLASSNAME@_OBJ)
-		rm -rf $(EXE@CLASSNAME@_OBJ)
+ifneq ($(INSTALL_DIR),)
+install-src::
+		install -d $(@CLASSNAME@_INSTALL_DIR)
+		install -m u=rw,g=r,o=r $(LIB@CLASSNAME@_SRC) $(@CLASSNAME@_INSTALL_DIR)
+		install -m u=rw,g=r,o=r $(LIB@CLASSNAME@_HDR) $(@CLASSNAME@_INSTALL_DIR)
+		install -m u=rw,g=r,o=r $(EXE@CLASSNAME@_SRC) $(@CLASSNAME@_INSTALL_DIR)
+		$(INSTALL_STRIPPED) $(@CLASSNAME@_MK) $(@CLASSNAME@_INSTALL_DIR) -m u=rw,g=r,o=r
+		install -m u=rw,g=r,o=r $(@CLASSNAME@_TWO_SCALE_MK) $(@CLASSNAME@_INSTALL_DIR)
+		install -m u=rw,g=r,o=r $(@CLASSNAME@_GNUPLOT) $(@CLASSNAME@_INSTALL_DIR)
+endif
+
+clean-$(MODNAME)-dep:
+		-rm -f $(LIB@CLASSNAME@_DEP)
+		-rm -f $(EXE@CLASSNAME@_DEP)
+
+clean-$(MODNAME)-obj:
+		-rm -f $(LIB@CLASSNAME@_OBJ)
+		-rm -f $(EXE@CLASSNAME@_OBJ)
+
+# BEGIN: NOT EXPORTED ##########################################
+clean-$(MODNAME)-src:
+		-rm -f $(LIB@CLASSNAME@_SRC)
+		-rm -f $(LIB@CLASSNAME@_HDR)
+		-rm -f $(EXE@CLASSNAME@_SRC)
+		-rm -f $(METACODE_STAMP_@CLASSNAME@)
+		-rm -f $(@CLASSNAME@_TWO_SCALE_MK)
+		-rm -f $(@CLASSNAME@_GNUPLOT)
+
+clean-$(MODNAME): clean-$(MODNAME)-src
+# END:   NOT EXPORTED ##########################################
+
+clean-$(MODNAME): clean-$(MODNAME)-dep clean-$(MODNAME)-obj
+		-rm -f $(LIB@CLASSNAME@)
+		-rm -f $(RUN_@CLASSNAME@_EXE)
+		-rm -f $(SCAN_@CLASSNAME@_EXE)
 
 distclean-$(MODNAME): clean-$(MODNAME)
-		rm -rf $(LIB@CLASSNAME@_DEP)
-		rm -rf $(LIB@CLASSNAME@)
-		rm -rf $(EXE@CLASSNAME@_DEP)
-		rm -rf $(RUN_@CLASSNAME@_EXE)
-		rm -rf $(SCAN_@CLASSNAME@_EXE)
 
 clean::         clean-$(MODNAME)
 
 distclean::     distclean-$(MODNAME)
 
-METACODE_STAMP_@CLASSNAME@ := $(DIR)/@CLASSNAME@_two_scale_susy_parameters.hpp
-
-$(DIR)/@CLASSNAME@_two_scale_susy_parameters.cpp \
-$(DIR)/@CLASSNAME@_two_scale_soft_parameters.hpp \
-$(DIR)/@CLASSNAME@_two_scale_soft_parameters.cpp \
-$(DIR)/scan_@CLASSNAME@.cpp \
-$(DIR)/@CLASSNAME@_slha_io.hpp \
-$(DIR)/@CLASSNAME@_slha_io.cpp \
-$(DIR)/@CLASSNAME@_physical.hpp \
-$(DIR)/@CLASSNAME@_physical.cpp \
-$(DIR)/@CLASSNAME@_model.hpp \
-$(DIR)/@CLASSNAME@_lattice_model.hpp \
-$(DIR)/@CLASSNAME@_lattice_model.cpp \
-$(DIR)/@CLASSNAME@_two_scale_model.hpp \
-$(DIR)/@CLASSNAME@_two_scale_model.cpp \
-$(DIR)/run_@CLASSNAME@.cpp \
-$(DIR)/@CLASSNAME@_high_scale_constraint.cpp \
-$(DIR)/@CLASSNAME@_susy_scale_constraint.cpp \
-$(DIR)/@CLASSNAME@_low_scale_constraint.cpp \
-$(DIR)/@CLASSNAME@_lattice_high_scale_constraint.cpp \
-$(DIR)/@CLASSNAME@_two_scale_high_scale_constraint.cpp \
-$(DIR)/@CLASSNAME@_lattice_susy_scale_constraint.cpp \
-$(DIR)/@CLASSNAME@_two_scale_susy_scale_constraint.cpp \
-$(DIR)/@CLASSNAME@_lattice_low_scale_constraint.cpp \
-$(DIR)/@CLASSNAME@_two_scale_low_scale_constraint.cpp \
-$(DIR)/@CLASSNAME@_convergence_tester.hpp \
-$(DIR)/@CLASSNAME@_lattice_convergence_tester.cpp \
-$(DIR)/@CLASSNAME@_two_scale_convergence_tester.cpp \
-$(DIR)/@CLASSNAME@_initial_guesser.cpp \
-$(DIR)/@CLASSNAME@_lattice_initial_guesser.cpp \
-$(DIR)/@CLASSNAME@_two_scale_initial_guesser.cpp \
-$(DIR)/@CLASSNAME@_info.hpp \
-$(DIR)/@CLASSNAME@_info.cpp \
-$(DIR)/@CLASSNAME@_spectrum_generator.hpp \
-$(DIR)/@CLASSNAME@_utilities.hpp \
-$(DIR)/@CLASSNAME@_utilities.cpp \
+$(LIB@CLASSNAME@_SRC) $(LIB@CLASSNAME@_HDR) $(EXE@CLASSNAME@_SRC) \
 : run-metacode-$(MODNAME)
 		@true
 
@@ -132,8 +196,13 @@ run-metacode-$(MODNAME): $(METACODE_STAMP_@CLASSNAME@)
 		@true
 
 ifeq ($(ENABLE_META),yes)
-$(METACODE_STAMP_@CLASSNAME@): $(DIR)/start.m $(DIR)/FlexibleSUSY.m $(META_SRC) $(TEMPLATES)
+$(METACODE_STAMP_@CLASSNAME@): $(DIR)/start.m $(DIR)/FlexibleSUSY.m $(META_SRC) $(TEMPLATES) $(SARAH_MODEL_FILES_@CLASSNAME@)
 		$(MATH) -run "Get[\"$<\"]; Quit[]"
+		@touch "$(METACODE_STAMP_@CLASSNAME@)"
+		@echo "Note: to regenerate @CLASSNAME@ source files," \
+		      "please remove the file "
+		@echo "\"$(METACODE_STAMP_@CLASSNAME@)\" and run make"
+		@echo "---------------------------------"
 else
 $(METACODE_STAMP_@CLASSNAME@):
 		@true
@@ -141,18 +210,18 @@ endif
 
 $(LIB@CLASSNAME@_DEP) $(EXE@CLASSNAME@_DEP) $(LIB@CLASSNAME@_OBJ) $(EXE@CLASSNAME@_OBJ): CPPFLAGS += $(GSLFLAGS) $(EIGENFLAGS) $(BOOSTFLAGS)
 
-ifeq ($(ENABLE_LOOPTOOLS),yes)
-$(LIB@CLASSNAME@_DEP) $(EXE@CLASSNAME@_DEP) $(LIB@CLASSNAME@_OBJ) $(EXE@CLASSNAME@_OBJ): CPPFLAGS += $(LOOPTOOLSFLAGS)
+ifneq (,$(findstring yes,$(ENABLE_LOOPTOOLS)$(ENABLE_FFLITE)))
+$(LIB@CLASSNAME@_DEP) $(EXE@CLASSNAME@_DEP) $(LIB@CLASSNAME@_OBJ) $(EXE@CLASSNAME@_OBJ): CPPFLAGS += $(LOOPFUNCFLAGS)
 endif
 
 $(LIB@CLASSNAME@): $(LIB@CLASSNAME@_OBJ)
 		$(MAKELIB) $@ $^
 
-$(RUN_@CLASSNAME@_EXE): $(RUN_@CLASSNAME@_OBJ) $(LIB@CLASSNAME@) $(LIBFLEXI) $(LIBLEGACY)
-		$(CXX) -o $@ $(call abspathx,$^) $(GSLLIBS) $(BOOSTTHREADLIBS) $(THREADLIBS) $(LAPACKLIBS) $(LOOPTOOLSLIBS) $(LIBFFLITE) $(FLIBS)
+$(RUN_@CLASSNAME@_EXE): $(RUN_@CLASSNAME@_OBJ) $(LIB@CLASSNAME@) $(LIBFLEXI) $(LIBLEGACY) $(filter-out -%,$(LOOPFUNCLIBS))
+		$(CXX) -o $@ $(call abspathx,$^) $(filter -%,$(LOOPFUNCLIBS)) $(GSLLIBS) $(BOOSTTHREADLIBS) $(THREADLIBS) $(LAPACKLIBS) $(FLIBS)
 
-$(SCAN_@CLASSNAME@_EXE): $(SCAN_@CLASSNAME@_OBJ) $(LIB@CLASSNAME@) $(LIBFLEXI) $(LIBLEGACY)
-		$(CXX) -o $@ $(call abspathx,$^) $(GSLLIBS) $(BOOSTTHREADLIBS) $(THREADLIBS) $(LAPACKLIBS) $(LOOPTOOLSLIBS) $(LIBFFLITE) $(FLIBS)
+$(SCAN_@CLASSNAME@_EXE): $(SCAN_@CLASSNAME@_OBJ) $(LIB@CLASSNAME@) $(LIBFLEXI) $(LIBLEGACY) $(filter-out -%,$(LOOPFUNCLIBS))
+		$(CXX) -o $@ $(call abspathx,$^) $(filter -%,$(LOOPFUNCLIBS)) $(GSLLIBS) $(BOOSTTHREADLIBS) $(THREADLIBS) $(LAPACKLIBS) $(FLIBS)
 
 ALLDEP += $(LIB@CLASSNAME@_DEP) $(EXE@CLASSNAME@_DEP)
 ALLSRC += $(LIB@CLASSNAME@_SRC) $(EXE@CLASSNAME@_SRC)

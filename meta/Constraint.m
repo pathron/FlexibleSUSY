@@ -9,7 +9,13 @@ InitializeInputParameters::usage="";
 FindFixedParametersFromConstraint::usage="Returns a list of all
 parameters which are fixed by the given constraint";
 
+CheckConstraint::usage="Checks a given constraint for syntax errors.";
+
+SanityCheck::usage="Checks general features of the constraints.";
+
 SetBetaFunctions::usage=""
+
+RestrictScale::usage="";
 
 Begin["`Private`"];
 
@@ -50,6 +56,15 @@ GetParameter[parameter_[idx1_,idx2_], macro_String, namePrefix_:""] :=
 
 ApplyConstraint[{parameter_, value_}, modelName_String] :=
     Parameters`SetParameter[parameter, value, modelName];
+
+ApplyConstraint[{parameter_ /; MemberQ[{SARAH`UpYukawa, SARAH`DownYukawa, SARAH`ElectronYukawa}, parameter], value_ /; value === Automatic}, modelName_String] :=
+    "calculate_" <> CConversion`ToValidCSymbolString[parameter] <> "_DRbar();\n";
+
+ApplyConstraint[{parameter_, value_ /; value === Automatic}, modelName_String] :=
+    Block[{},
+          Print["Error: cannot determine ", parameter, " automatically!"];
+          Quit[1];
+         ];
 
 CreateStartPoint[parameters_List, name_String] :=
     Module[{dim, dimStr, startPoint = "", i},
@@ -143,6 +158,19 @@ ApplyConstraint[FlexibleSUSY`FSFindRoot[parameters_List, function_List], modelNa
            Return[callRootFinder];
           ];
 
+ApplyConstraint[Null, _] :=
+    Block[{},
+          Print["Error: Null is not a valid constraint setting!"];
+          Print["   Maybe there is a trailing comma in the constraint list?"];
+          Quit[1];
+         ];
+
+ApplyConstraint[p_, _] :=
+    Block[{},
+          Print["Error: This is not a valid constraint setting: ", p];
+          Quit[1];
+         ];
+
 ApplyConstraints[settings_List] :=
     Module[{result, noMacros},
            noMacros = DeleteCases[settings, FlexibleSUSY`FSMinimize[__] | FlexibleSUSY`FSFindRoot[__]];
@@ -153,11 +181,143 @@ ApplyConstraints[settings_List] :=
           ];
 
 FindFixedParametersFromSetting[{parameter_, value_}] := parameter;
-FindFixedParametersFromSetting[FlexibleSUSY`FSMinimize[parameters_List, _]] := parameters;
-FindFixedParametersFromSetting[FlexibleSUSY`FSFindRoot[parameters_List, _]] := parameters;
+FindFixedParametersFromSetting[FlexibleSUSY`FSMinimize[parameters_List, value_]] := parameters;
+FindFixedParametersFromSetting[FlexibleSUSY`FSFindRoot[parameters_List, value_]] := parameters;
 
 FindFixedParametersFromConstraint[settings_List] :=
     DeleteDuplicates[Flatten[FindFixedParametersFromSetting /@ settings]];
+
+CheckSetting[patt:(FlexibleSUSY`FSMinimize|FlexibleSUSY`FSFindRoot)[parameters_, value_],
+             constraintName_String] :=
+    Module[{modelParameters, unknownParameters},
+           modelParameters = Parameters`GetModelParameters[];
+           If[Head[parameters] =!= List,
+              Print["Error: In constraint ", constraintName, ": ", InputForm[patt]];
+              Print["   First parameter must be a list!"];
+              Return[False];
+             ];
+           If[parameters === {},
+              Print["Error: In constraint ", constraintName, ": ", InputForm[patt]];
+              Print["   List of parameters is empty!"];
+              Return[False];
+             ];
+           If[MatchQ[patt, FlexibleSUSY`FSFindRoot[___]],
+              If[!MatchQ[patt, FlexibleSUSY`FSFindRoot[_List, _List]],
+                 Print["Error: Syntax error in constraint ", constraintName, ": ", InputForm[patt]];
+                 Print["   Correct syntax: FSFindRoot[{a,b}, {f[a],f[b]}]"];
+                 Return[False];
+                 ,
+                 If[Length[parameters] =!= Length[value],
+                    Print["Error: In constraint ", constraintName, ": ", InputForm[patt]];
+                    Print["   Argument lists must have the same length!"];
+                    Return[False];
+                   ];
+                ];
+             ];
+           If[MatchQ[patt, FlexibleSUSY`FSMinimize[_List, _List]],
+              Print["Error: Syntax error in constraint ", constraintName, ": ", InputForm[patt]];
+              Print["   Correct syntax: FSMinimize[{a,b}, f[a,b]]"];
+              Return[False];
+             ];
+           unknownParameters = Complement[parameters, modelParameters];
+           If[unknownParameters =!= {},
+              Print["Error: In constraint ", constraintName, ": ", InputForm[patt]];
+              Print["   Unknown parameters: ", unknownParameters];
+              Return[False];
+             ];
+           True
+          ];
+
+CheckSetting[patt:{parameter_[idx_Integer], value_}, constraintName_String] :=
+    Module[{modelParameters, dim},
+           modelParameters = Parameters`GetModelParameters[];
+           If[!CheckSetting[{parameter, value}],
+              Return[False];
+             ];
+           dim = SARAH`getDimParameters[parameter];
+           If[Length[dim] =!= 1,
+              Print["Error: In constraint ", constraintName, ": ", InputForm[patt]];
+              Print["   ", parameter, " has ", Length[dim],
+                    " dimensions, but one index is accessed!"];
+              Return[False];
+             ];
+           dim = dim[[1]];
+           If[1 > idx || idx > dim,
+              Print["Error: In constraint ", constraintName, ": ", InputForm[patt]];
+              Print["    ", parameter, " index out of range!",
+                    " Allowed range: 1 ... ", dim];
+              Return[False];
+             ];
+           True
+          ];
+
+CheckSetting[patt:{parameter_[idx1_Integer, idx2_Integer], value_}, constraintName_String] :=
+    Module[{modelParameters, dim},
+           modelParameters = Parameters`GetModelParameters[];
+           If[!CheckSetting[{parameter, value}],
+              Return[False];
+             ];
+           dim = SARAH`getDimParameters[parameter];
+           If[Length[dim] =!= 2,
+              Print["Error: In constraint ", constraintName, ": ", InputForm[patt]];
+              Print["   ", parameter, " has ", Length[dim],
+                    " dimensions, but two indices are accessed!"];
+              Return[False];
+             ];
+           If[1 > idx1 || idx1 > dim[[1]],
+              Print["Error: In constraint ", constraintName, ": ", InputForm[patt]];
+              Print["   ", parameter, " first index out of range! ",
+                    "Allowed range: 1 ... ", dim[[1]]];
+              Return[False];
+             ];
+           If[1 > idx2 || idx2 > dim[[2]],
+              Print["Error: In constraint ", constraintName, ": ", InputForm[patt]];
+              Print["   ", parameter, " second index out of range! ",
+                    "Allowed range: 1 ... ", dim[[2]]];
+              Return[False];
+             ];
+           True
+          ];
+
+CheckSetting[patt:{parameter_, value_}, constraintName_String] :=
+    Module[{modelParameters},
+           modelParameters = Parameters`GetModelParameters[];
+           If[!MemberQ[modelParameters, parameter],
+              Print["Error: In constraint ", constraintName, ": ", InputForm[patt]];
+              Print["   ", parameter, " is not a model parameter!"];
+              Return[False];
+             ];
+           True
+          ];
+
+CheckSetting[patt_, constraintName_String] :=
+    Module[{},
+           Print["Error: In constraint ", constraintName, ": ", InputForm[patt]];
+           Print["   This is not a valid constraint setting!"];
+           If[patt === Null,
+              Print["   Maybe there is a trailing comma in the constraint list?"];
+             ];
+           False
+          ];
+
+CheckConstraint[settings_List, constraintName_String] :=
+    CheckSetting[#,constraintName]& /@ settings;
+
+SanityCheck[settings_List, constraintName_String:""] :=
+    Module[{setParameters, y,
+            yukawas = {SARAH`UpYukawa, SARAH`DownYukawa, SARAH`ElectronYukawa}},
+           setParameters = #[[1]]& /@ settings;
+           (* check for unset Yukawa couplings *)
+           For[y = 1, y <= Length[yukawas], y++,
+               If[ValueQ[yukawas[[y]]] &&
+                  FreeQ[setParameters, yukawas[[y]]],
+                  Print["Warning: Yukawa coupling ", yukawas[[y]],
+                        " not set",
+                        If[constraintName != "", " in the " <> constraintName, ""],
+                        "."];
+                 ];
+              ];
+          ];
 
 CalculateScale[Null, _] := "";
 
@@ -289,6 +449,35 @@ InitializeInputParameters[defaultValues_List] :=
                  ];
                result = result <> InitializeInputParameter[defaultValues[[i]]];
               ];
+           Return[result];
+          ];
+
+RestrictScale[{minimumScale_, maximumScale_}, scaleName_String:"scale"] :=
+    Module[{result = "", value},
+           If[NumericQ[minimumScale],
+              value = CConversion`RValueToCFormString[minimumScale];
+              result = result <>
+                       "\
+if (" <> scaleName <> " < " <> value <> ") {
+#ifdef ENABLE_VERBOSE
+" <> IndentText["WARNING(\"" <> scaleName <> " < " <> value <> "\");"] <> "
+#endif
+" <> IndentText[scaleName <> " = " <> value] <> ";
+}
+";
+             ];
+           If[NumericQ[maximumScale],
+              value = CConversion`RValueToCFormString[maximumScale];
+              result = result <>
+                       "\
+if (" <> scaleName <> " > " <> value <> ") {
+#ifdef ENABLE_VERBOSE
+" <> IndentText["WARNING(\"" <> scaleName <> " > " <> value <> "\");"] <> "
+#endif
+" <> IndentText[scaleName <> " = " <> value] <> ";
+}
+";
+             ];
            Return[result];
           ];
 
