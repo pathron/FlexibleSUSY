@@ -49,7 +49,6 @@ LIBFLEXI_HDR := \
 		$(DIR)/logger.hpp \
 		$(DIR)/lowe.h \
 		$(DIR)/matching.hpp \
-		$(DIR)/mathdefs.hpp \
 		$(DIR)/minimizer.hpp \
 		$(DIR)/mssm_twoloophiggs.h \
 		$(DIR)/mycomplex.h \
@@ -66,7 +65,6 @@ LIBFLEXI_HDR := \
 		$(DIR)/scan.hpp \
 		$(DIR)/sfermions.hpp \
 		$(DIR)/slha_io.hpp \
-		$(DIR)/small_matrices.hpp \
 		$(DIR)/spectrum_generator_settings.hpp \
 		$(DIR)/utils.h \
 		$(DIR)/wrappers.hpp \
