@@ -1,7 +1,7 @@
 Off[General::spell]
 
-Model`Name = "NSSM";
-Model`NameLaTeX ="NSSM";
+Model`Name = "NE6SSM";
+Model`NameLaTeX ="NE6SSM";
 Model`Authors = "P.Athron";
 Model`Date = "2013-11-10";
 
