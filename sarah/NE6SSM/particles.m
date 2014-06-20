@@ -259,8 +259,8 @@ ParticleDefinitions[GaugeES] = {
                  PDG -> {25, 35, 45, 55, 65},
                  PDG.IX ->{101000001,101000002,101000003, 101000004, 101000005 }}}, 
       {Ah   ,  {    Description -> "Pseudo-Scalar Higgs",
-                    PDG -> {0, 91191138, 36, 91191137 ,0},
-                    PDG.IX ->{0,1029119113, 102000001,1029119112,0} }},                
+                    PDG -> {0, 0, 91191138, 36, 91191137 },
+                    PDG.IX ->{0,0,1029119113, 102000001,1029119112} }},                
       {Hpm,  { Description -> "Charged Higgs"}},   
       (*
        Removing decoupled inerts from spectrum
