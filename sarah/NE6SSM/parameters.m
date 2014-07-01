@@ -1,3 +1,5 @@
+(* ::Package:: *)
+
 ParameterDefinitions = {
 {g1,        { Description -> "Hypercharge-Coupling"}},
 {g2,        { Description -> "Left-Coupling"}},
@@ -79,13 +81,13 @@ ParameterDefinitions = {
               LaTeX -> "g^D",
               OutputName->gD}},      
 {fu,  { Description -> "SI.H1I.Hu term",
-              LesHouches -> ESIXFDYUK,
+              LesHouches -> ESIXFUYUK,
               LaTeX -> "f^u",
               OutputName->fu}},    
 {fd,  { Description -> "SI.Hd.H2I term",
               LesHouches -> ESIXFDYUK,
               LaTeX -> "f^d",
-              OutputName->fd}},        
+         OutputName->fd}},
  {T[\[Kappa]Pr],{ Description -> "Softbreaking pure singlet-cubic-Interaction",
 	         LaTeX -> "T_{\\kappa^\\prime}",
                  Real -> False,
