@@ -28,7 +28,7 @@ ParticleDefinitions[GaugeES] = {
 	             FeynArtsNr -> 667,
 	             LaTeX -> "\\tilde{Dx}_R",
                      OutputName -> "SDxbR"}},
-      (* Removing decoupled inerts from spectrum 
+     
    {SH1I0,       {Description -> "Neutral Inert-Down-Higgs",
   		     FeynArtsNr -> 101,
   		     LaTeX -> "h^{0Inert}_{1}"}},
@@ -41,11 +41,11 @@ ParticleDefinitions[GaugeES] = {
    {SH2Ip,  { Description -> "Charged Inert-Up-Higgs",
               FeynArtsNr -> 104,
               LaTeX -> "h^{+Inert}_{2}"}},
-   {SsIR,   { Description -> "Inert-Singlet",
+   {SNSR,   { Description -> "New-Singlet",
               FeynArtsNr -> 105,
-              LaTeX -> "s^{Inert}",
-              OutputName -> "SSI"}},
-       *)
+              LaTeX -> "NS",
+              OutputName -> "SNS"}},
+       
       {SHpd0,   { Description -> "Neutral Prime-Higgs",
       		     FeynArtsNr -> 900,
                   LaTeX -> "H^{'0}",
@@ -86,13 +86,7 @@ ParticleDefinitions[GaugeES] = {
       {HC2,         { Description -> "Charged up Higgsinos",
 		      FeynArtsNr -> 125,
 		      LaTeX -> "\\tilde{H}^+_2",
-		      OutputName -> "HC2"}},
-      (* This does not work in the E6SSM because these can only be combined 
-       after the U(1)N symmetry has been broken *) 
-      (* {H0,   { Description -> "Neutral Higgsinos"}},
-   {HC,   { Description -> "Charged Higgsinos"}},*)           
-      (*  {FS,   { Description -> "Singlino" }}, *)
-      (* Removing decoupled inerts from spectrum    
+		      OutputName -> "HC2"}},             
    {H0I1,    { Description -> "Neutral Inert-down-Higgsinos",
                      Width -> 0,
                      FeynArtsNr -> 721,
@@ -113,7 +107,7 @@ ParticleDefinitions[GaugeES] = {
                      FeynArtsNr -> 724,
                      LaTeX -> "\\tilde{h}^{+}_2",
 		    OutputName -> "HCI2"}}, 
-       *) 
+       
    {Hp0,    { Description -> "Neutral Prime-Higgsinos",
                      Width -> 0,
                      FeynArtsNr -> 950,
@@ -144,10 +138,6 @@ ParticleDefinitions[GaugeES] = {
                      FeynArtsNr -> 953,
                      LaTeX -> "\\tilde{\\bar{h}}^{'+}_2",
 		    OutputName -> "HCP2"}},
-      (*  {FDX,        { Description -> "Dirac Exotics",
-        	     LaTeX -> "x_1",
-		     FeynArtsNr -> 660,
-                         OutputName -> "FDx"}}, *)
       {FDx1,        { Description -> "Dirac Left Exotics",
         	     LaTeX -> "Dx_1",
 		     FeynArtsNr -> 660,
@@ -156,6 +146,14 @@ ParticleDefinitions[GaugeES] = {
         	     LaTeX -> "Dx_2",
 		     FeynArtsNr -> 661,
 		     OutputName -> "Dx2"}},
+      {FNS1,        { Description -> "Dirac Left new Singlino",
+		     FeynArtsNr -> 812,
+  		     LaTeX -> "\\tilde{s}_L",
+		     OutputName -> "FSL"}},
+      {FNS2,        { Description -> "Dirac Right new Singlino",
+		     FeynArtsNr -> 813,
+  		     LaTeX -> "\\tilde{s}_R",
+		     OutputName -> "FSR"}},
       {FS1,        { Description -> "Dirac Left Singlino",
 		     FeynArtsNr -> 806,
   		     LaTeX -> "\\tilde{s}_L",

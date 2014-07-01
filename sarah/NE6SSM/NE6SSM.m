@@ -38,7 +38,7 @@ SuperFields[[9]] = {sbar, 1, sbarR,    0, 1,  1, -QS, RpP};
 (* These come from the 2&-plets but the third  gen is at GUT scale *)
  SuperFields[[10]] = {H1I, 2, {H1I0, H1Im},  -1/2, 2, 1, -3, RpP};
  SuperFields[[11]] = {H2I, 2, {H2Ip, H2I0},   1/2, 2, 1, -2, RpP};
- SuperFields[[12]] = {NS, 3, NSIR,    0, 1,  1, 5, RpP}; 
+ SuperFields[[12]] = {NS, 3, NSR,    0, 1,  1, 5, RpP}; 
 
 SuperFields[[13]] = {Dx, 3, DxL,  -1/3, 1, 3, -2, RpP};
 SuperFields[[14]] = {Dxbar, 3, conj[DxbarR],  1/3, 1, -3, -3, RpP};
@@ -95,15 +95,12 @@ DEFINITION[GaugeES][DiracSpinors]={
   Fphi1 -> {FphiR,0},
   Fphi2 -> {0,conj[FphiR]},
   FBp -> {fBp,conj[fBp]},
-  (* 
-   Removing inerts from spectrum
-   H0I1 -> {FH1I0, 0},
-   H0I2 -> {0, conj[FH2I0]},
-   HCI1 -> {FH1Im, 0},
-   HCI2 -> {0, conj[FH2Ip]},
-   FSI1 -> {FsIR, 0},
-   FSI2 -> {0, conj[FsIR]},
-   *)
+  H0I1 -> {FH1I0, 0},
+  H0I2 -> {0, conj[FH2I0]},
+  HCI1 -> {FH1Im, 0},
+  HCI2 -> {0, conj[FH2Ip]},
+  FNS1 -> {FNSR, 0},
+  FNS2 -> {0, conj[FNSR]},
   FDx1 -> {FDxL, 0},
   FDx2 -> {0, FDxbarR},
   Hp01 -> {FHpd0, 0},
