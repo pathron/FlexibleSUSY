@@ -106,7 +106,7 @@ ParameterDefinitions = {
                  Dependence -> None,
 		 Form -> Scalar,
 		 OutputName -> ThE,
-		 LesHouches ->  ESIXTHETRI,
+		 LesHouches ->  ESIXTHETRI}},
 {T[\[Sigma]L],{ Description -> "Softbreaking pure-singlet-Hp-Hpbar term",
 	         LaTeX -> "T_{\\sigma^L}",
                  Real -> False,
