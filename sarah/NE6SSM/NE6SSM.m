@@ -34,19 +34,18 @@ SuperFields[[6]] = {u, 3, conj[uR],   -2/3, 1, -3, 1, RpM};
 SuperFields[[7]] = {e, 3, conj[eR],      1, 1,  1, 1, RpM};
 SuperFields[[8]] = {s, 1, sR,     0, 1,  1, QS, RpP};
 SuperFields[[9]] = {sbar, 1, sbarR,    0, 1,  1, -QS, RpP};
-
-(* 
- Remove decoupled inert sector just now
+ 
+(* These come from the 2&-plets but the third  gen is at GUT scale *)
  SuperFields[[10]] = {H1I, 2, {H1I0, H1Im},  -1/2, 2, 1, -3, RpP};
  SuperFields[[11]] = {H2I, 2, {H2Ip, H2I0},   1/2, 2, 1, -2, RpP};
  SuperFields[[12]] = {NS, 3, NSIR,    0, 1,  1, 5, RpP}; 
-*)
-SuperFields[[10]] = {Dx, 3, DxL,  -1/3, 1, 3, -2, RpP};
-SuperFields[[11]] = {Dxbar, 3, conj[DxbarR],  1/3, 1, -3, -3, RpP};
 
-SuperFields[[12]] = {Hp, 1, {Hpd0, Hpdm},  -1/2, 2,  1, 2, RpP};
-SuperFields[[13]] = {Hpbar, 1, {Hpup, Hpu0}, 1/2, 2,  1, -2, RpP};
-SuperFields[[14]] = {phi, 1, phiR, 0, 1, 1, 0, RpP};
+SuperFields[[13]] = {Dx, 3, DxL,  -1/3, 1, 3, -2, RpP};
+SuperFields[[14]] = {Dxbar, 3, conj[DxbarR],  1/3, 1, -3, -3, RpP};
+
+SuperFields[[15]] = {Hp, 1, {Hpd0, Hpdm},  -1/2, 2,  1, 2, RpP};
+SuperFields[[16]] = {Hpbar, 1, {Hpup, Hpu0}, 1/2, 2,  1, -2, RpP};
+SuperFields[[17]] = {phi, 1, phiR, 0, 1, 1, 0, RpP};
 NoU1Mixing=True;
 AddMixedSofts = False;
 
@@ -54,7 +53,7 @@ AddMixedSofts = False;
 (*Z2H exact Superpotential *)
 (*------------------------------------------------------*)
 
-SuperPotential = Yu u.q.Hu - Yd d.q.Hd - Ye e.l.Hd + \[Lambda] s.Hu.Hd  + \[Kappa] s.Dx.Dxbar + \[Mu]Pr Hpbar.Hp - \[Sigma] phi.s.sbar + \[Kappa]Pr/3 phi.phi.phi + MuPhi/2 phi.phi + \[Xi]F phi;
+SuperPotential = Yu u.q.Hu - Yd d.q.Hd - Ye e.l.Hd + \[Lambda] s.Hu.Hd  + \[Kappa] s.Dx.Dxbar + \[Mu]Pr Hpbar.Hp - \[Sigma] phi.s.sbar + \[Kappa]Pr/3 phi.phi.phi + MuPhi/2 phi.phi + \[Xi]F phi + fu NS.H1I.Hu + fd NS.Hd.H2I + gD q.Hp.Dxbar + hE e.H1I.Hp +  \[Sigma]L phi.Hp.Hpbar;
 
 (*-------------------------------------------*)
 (* Integrate Out or Delete Particles         *)
