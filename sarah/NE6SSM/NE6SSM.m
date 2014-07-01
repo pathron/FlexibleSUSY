@@ -55,7 +55,7 @@ AddMixedSofts = False;
 (*Z2H exact Superpotential *)
 (*------------------------------------------------------*)
 
-SuperPotential = Yu u.q.Hu - Yd d.q.Hd - Ye e.l.Hd + \[Lambda] s.Hu.Hd  + \[Kappa] s.Dx.Dxbar + \[Mu]Pr Hpbar.Hp - \[Sigma] phi.s.sbar + \[Kappa]Pr/3 phi.phi.phi + MuPhi/2 phi.phi + \[Xi]F phi + fu SI.H1I.Hu + fd SI.Hd.H2I + gD q.Hp.Dxbar + hE e.H1I.Hp +  \[Sigma]L phi.Hp.Hpbar;
+SuperPotential = Yu u.q.Hu - Yd d.q.Hd - Ye e.l.Hd + \[Lambda] s.Hu.Hd + \[Lambda]12 s.H2I.H1I + \[Kappa] s.Dx.Dxbar + \[Mu]Pr Hpbar.Hp - \[Sigma] phi.s.sbar + \[Kappa]Pr/3 phi.phi.phi + MuPhi/2 phi.phi + \[Xi]F phi + fu SI.H1I.Hu + fd SI.Hd.H2I + gD q.Hp.Dxbar + hE e.H1I.Hp +  \[Sigma]L phi.Hp.Hpbar;
 
 (*-------------------------------------------*)
 (* Integrate Out or Delete Particles         *)
@@ -156,10 +156,10 @@ DEFINITION[EWSB][MatterSector]=
       {{{FuL},{conj[FuR]}},{{FUL,ZUL},{FUR,ZUR}}},
       {{{FDxL},{conj[FDxbarR]}},{{FDXL,ZDXL},{FDXR,ZDXR}}}, 
       (* Inerts all mix together *)
-      {{SH1I0,conj[SH2I0],SSIR,conj[SSIR]},{SHI0,UHI0}},
-      {{SH1Im,conj[SH2Ip]},{SHIp,UHIp}},
+      {{SH1I0,conj[SH2I0],SSIR},{SHI0,UHI0}},
+      {{SH1Im,conj[SH2Ip]},{SHIPM,UHIPM}},
       {{{FH1Im},{FH2Ip}},{{LmI,ZMI},{LpI,ZPI}}},
-      {{FH1I0,FH2I0,FSI},{L0I,ZNI}},      
+      {{FH1I0,FH2I0,FSIR},{L0I,ZNI}},      
       {{SHpd0,conj[SHpu0]},{SHp0,UHp0}},
       {{SHpdm,conj[SHpup]},{SHpp,UHpp}},
       {{FHpd0,FHpu0},{L0p,ZNp}}
