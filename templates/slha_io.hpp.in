@@ -24,7 +24,6 @@
 #include "@ModelName@_two_scale_model.hpp"
 #include "@ModelName@_info.hpp"
 #include "slha_io.hpp"
-#include "numerics.hpp"
 
 #include <Eigen/Core>
 #include <string>
@@ -34,6 +33,8 @@
 #define MODELPARAMETER(p) model.get_##p()
 #define DEFINE_PARAMETER(p)                                            \
    typename std::remove_const<typename std::remove_reference<decltype(MODELPARAMETER(p))>::type>::type p;
+#define DEFINE_POLE_MASS(p)                                            \
+   typename std::remove_const<typename std::remove_reference<decltype(PHYSICAL(p))>::type>::type p;
 
 namespace flexiblesusy {
 
@@ -68,23 +69,46 @@ public:
 
 private:
    SLHA_io slha_io; ///< SLHA io class
+   static unsigned const NUMBER_OF_DRBAR_BLOCKS = @numberOfDRbarBlocks@;
+   static char const * const drbar_blocks[NUMBER_OF_DRBAR_BLOCKS];
 
    template <class T> void set_mass(const @ModelName@<T>&);
    template <class T> void set_mixing_matrices(const @ModelName@<T>&);
    template <class T> void set_model_parameters(const @ModelName@<T>&);
+   double read_scale() const;
+   template <class T> void fill_drbar_parameters(@ModelName@<T>&) const;
+   template <class T> void fill_physical(@ModelName@<T>&) const;
 };
 
 /**
- * Reads all model parameters from a SLHA output file.
+ * Reads DR-bar parameters, pole masses and mixing matrices from a
+ * SLHA output file.
  */
 template <class T>
 void @ModelName@_slha_io::fill(@ModelName@<T>& model) const
 {
-   double scale = 0.;
+   fill_drbar_parameters(model);
+   fill_physical(model);
+}
 
+/**
+ * Reads DR-bar parameters from a SLHA output file.
+ */
+template <class T>
+void @ModelName@_slha_io::fill_drbar_parameters(@ModelName@<T>& model) const
+{
 @readLesHouchesOutputParameters@
 
-   model.set_scale(scale);
+   model.set_scale(read_scale());
+}
+
+/**
+ * Reads pole masses and mixing matrices from a SLHA output file.
+ */
+template <class T>
+void @ModelName@_slha_io::fill_physical(@ModelName@<T>& model) const
+{
+@readLesHouchesPhyicalParameters@
 }
 
 template <class T>

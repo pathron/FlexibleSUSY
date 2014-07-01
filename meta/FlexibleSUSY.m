@@ -663,7 +663,8 @@ WriteUtilitiesClass[massMatrices_List, betaFun_List, minpar_List, extpar_List,
             writeSLHAMassBlock = "", writeSLHAMixingMatricesBlocks = "",
             writeSLHAModelParametersBlocks = "", writeSLHAMinparBlock = "",
             writeSLHAExtparBlock = "", readLesHouchesInputParameters,
-            readLesHouchesOutputParameters},
+            readLesHouchesOutputParameters, readLesHouchesPhyicalParameters,
+            numberOfDRbarBlocks, drBarBlockNames},
            particles = GetMassEigenstate /@ massMatrices;
            susyParticles = Select[particles, (!SARAH`SMQ[#])&];
            smParticles   = Complement[particles, susyParticles];
@@ -681,11 +682,14 @@ WriteUtilitiesClass[massMatrices_List, betaFun_List, minpar_List, extpar_List,
            fillInputParametersFromEXTPAR = Parameters`FillInputParametersFromTuples[extpar];
            readLesHouchesInputParameters = WriteOut`ReadLesHouchesInputParameters[lesHouchesInputParameters];
            readLesHouchesOutputParameters = WriteOut`ReadLesHouchesOutputParameters[];
+           readLesHouchesPhyicalParameters = WriteOut`ReadLesHouchesPhysicalParameters[];
            writeSLHAMassBlock = WriteOut`WriteSLHAMassBlock[massMatrices];
            writeSLHAMixingMatricesBlocks  = WriteOut`WriteSLHAMixingMatricesBlocks[];
            writeSLHAModelParametersBlocks = WriteOut`WriteSLHAModelParametersBlocks[];
            writeSLHAMinparBlock = WriteOut`WriteSLHAMinparBlock[minpar];
            writeSLHAExtparBlock = WriteOut`WriteSLHAExtparBlock[extpar];
+           numberOfDRbarBlocks  = WriteOut`GetNumberOfDRbarBlocks[];
+           drBarBlockNames      = WriteOut`GetDRbarBlockNames[];
            WriteOut`ReplaceInFiles[files,
                           { "@fillSpectrumVectorWithSusyParticles@" -> IndentText[fillSpectrumVectorWithSusyParticles],
                             "@fillSpectrumVectorWithSMParticles@"   -> IndentText[IndentText[fillSpectrumVectorWithSMParticles]],
@@ -700,11 +704,14 @@ WriteUtilitiesClass[massMatrices_List, betaFun_List, minpar_List, extpar_List,
                             "@fillInputParametersFromEXTPAR@" -> IndentText[fillInputParametersFromEXTPAR],
                             "@readLesHouchesInputParameters@" -> IndentText[readLesHouchesInputParameters],
                             "@readLesHouchesOutputParameters@" -> IndentText[readLesHouchesOutputParameters],
+                            "@readLesHouchesPhyicalParameters@" -> IndentText[readLesHouchesPhyicalParameters],
                             "@writeSLHAMassBlock@" -> IndentText[writeSLHAMassBlock],
                             "@writeSLHAMixingMatricesBlocks@"  -> IndentText[writeSLHAMixingMatricesBlocks],
                             "@writeSLHAModelParametersBlocks@" -> IndentText[writeSLHAModelParametersBlocks],
                             "@writeSLHAMinparBlock@"           -> IndentText[writeSLHAMinparBlock],
                             "@writeSLHAExtparBlock@"           -> IndentText[writeSLHAExtparBlock],
+                            "@numberOfDRbarBlocks@"            -> ToString[numberOfDRbarBlocks],
+                            "@drBarBlockNames@"                -> WrapLines[drBarBlockNames],
                             Sequence @@ GeneralReplacementRules[]
                           } ];
           ];

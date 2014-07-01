@@ -15,7 +15,12 @@
 // along with FlexibleSUSY.  If not, see
 // <http://www.gnu.org/licenses/>.
 // ====================================================================
-
+/**
+ * @file @ModelName@_two_scale_model.hpp
+ * @brief contains class for model with routines needed to solve boundary 
+ *        value problem using the two_scale solver by solvingt EWSB 
+ *        and determine the pole masses and mixings
+ */
 // File generated at @DateAndTime@
 
 #ifndef @ModelName@_TWO_SCALE_H
@@ -43,7 +48,10 @@
 namespace flexiblesusy {
 
 class Two_scale;
-
+/**
+ * @class @ModelName@<Two_scale>
+ * @brief model class with routines for determing masses and mixinga and EWSB
+ */
 template<>
 class @ModelName@<Two_scale> : public Two_scale_model, public @ModelName@_soft_parameters {
 public:
@@ -63,9 +71,11 @@ public:
    void set_number_of_ewsb_iterations(std::size_t);
    void set_number_of_mass_iterations(std::size_t);
    void set_pole_mass_loop_order(unsigned);
+   void set_physical(const @ModelName@_physical&);
    double get_ewsb_iteration_precision() const;
    double get_ewsb_loop_order() const;
    const @ModelName@_physical& get_physical() const;
+   @ModelName@_physical& get_physical();
    const Problems<@ModelName@_info::NUMBER_OF_PARTICLES>& get_problems() const;
    Problems<@ModelName@_info::NUMBER_OF_PARTICLES>& get_problems();
    int solve_ewsb_tree_level();

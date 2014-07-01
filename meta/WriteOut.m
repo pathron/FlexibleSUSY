@@ -10,15 +10,18 @@ WriteSLHAModelParametersBlocks::usage="";
 WriteSLHAMinparBlock::usage="";
 ReadLesHouchesInputParameters::usage="";
 ReadLesHouchesOutputParameters::usage="";
+ReadLesHouchesPhysicalParameters::usage="";
+GetDRbarBlockNames::usage="";
+GetNumberOfDRbarBlocks::usage="";
 StringJoinWithSeparator::usage="Joins a list of strings with a given separator string";
 
 Begin["`Private`"];
 
-StringJoinWithSeparator[strings_List, separator_String] :=
+StringJoinWithSeparator[list_List, separator_String, transformer_:ToString] :=
     Module[{result = "", i},
-           For[i = 1, i <= Length[strings], i++,
+           For[i = 1, i <= Length[list], i++,
                If[i > 1, result = result <> separator;];
-               result = result <> ToString[strings[[i]]];
+               result = result <> transformer[list[[i]]];
               ];
            Return[result];
           ];
@@ -326,13 +329,59 @@ ReadSLHAOutputBlock[{parameter_, blockName_Symbol}] :=
            blockNameStr = ToString[blockName];
            "{\n" <> IndentText[
                "DEFINE_PARAMETER(" <> paramStr <> ");\n" <>
-               "const double tmp_scale = slha_io.read_block(\"" <>
-               blockNameStr <> "\", " <> paramStr <> ");\n" <>
-               "model.set_" <> paramStr <> "(" <> paramStr <> ");\n" <>
-               "if (!is_zero(tmp_scale))\n" <>
-               IndentText["scale = tmp_scale;"] <> "\n"
-               ] <> "\n" <>
+               "slha_io.read_block(\"" <> blockNameStr <> "\", " <>
+               paramStr <> ");\n" <>
+               "model.set_" <> paramStr <> "(" <> paramStr <> ");"] <> "\n" <>
            "}\n"
+          ];
+
+ReadSLHAPhysicalMixingMatrixBlock[{parameter_, blockName_Symbol}] :=
+    Module[{paramStr, blockNameStr},
+           paramStr = CConversion`ToValidCSymbolString[parameter];
+           blockNameStr = ToString[blockName];
+           "{\n" <> IndentText[
+               "DEFINE_PARAMETER(" <> paramStr <> ");\n" <>
+               "slha_io.read_block(\"" <> blockNameStr <> "\", " <>
+               paramStr <> ");\n" <>
+               "PHYSICAL(" <> paramStr <> ") = " <> paramStr <> ";"] <> "\n" <>
+           "}\n"
+          ];
+
+ReadSLHAPhysicalMass[particle_] :=
+    Module[{result = "", mass, massStr, dim, pdgList, pdg, pdgStr, i},
+           mass = FlexibleSUSY`M[particle];
+           massStr = CConversion`ToValidCSymbolString[mass];
+           dim = TreeMasses`GetDimension[particle];
+           pdgList = SARAH`getPDGList[particle];
+           If[Head[pdgList] =!= List || Length[pdgList] < dim,
+              Return[""];
+             ];
+           If[dim == 1,
+              pdg = Abs[pdgList[[1]]];
+              pdgStr = ToString[pdg];
+              If[pdg != 0,
+                 result = "PHYSICAL(" <> massStr <>
+                          ") = slha_io.read_entry(\"MASS\", " <> pdgStr <> ");\n";
+                ];
+              ,
+              For[i = 1, i <= dim, i++,
+                  pdg = Abs[pdgList[[i]]];
+                  pdgStr = ToString[pdg];
+                  If[pdg != 0,
+                     result = result <>
+                              "PHYSICAL(" <> massStr <> ")(" <> ToString[i-1] <>
+                              ") = slha_io.read_entry(\"MASS\", " <> pdgStr <> ");\n";
+                    ];
+                 ];
+             ];
+           Return[result];
+          ];
+
+ReadSLHAPhysicalMassBlock[] :=
+    Module[{result = "", particles},
+           particles = TreeMasses`GetParticles[];
+           (result = result <> ReadSLHAPhysicalMass[#])& /@ particles;
+           Return[result];
           ];
 
 ReadLesHouchesOutputParameters[] :=
@@ -341,6 +390,29 @@ ReadLesHouchesOutputParameters[] :=
            (result = result <> ReadSLHAOutputBlock[#])& /@ modelParameters;
            Return[result];
           ];
+
+ReadLesHouchesPhysicalParameters[] :=
+    Module[{result = "", physicalParameters},
+           physicalParameters = GetSLHAMixinMatrices[];
+           (result = result <> ReadSLHAPhysicalMixingMatrixBlock[#])& /@ physicalParameters;
+           result = result <> "\n" <> ReadSLHAPhysicalMassBlock[];
+           Return[result];
+          ];
+
+GetDRbarBlocks[] :=
+    Module[{modelParameters},
+           modelParameters = GetSLHAModelParameters[];
+           DeleteDuplicates[Cases[modelParameters, {_, blockName_Symbol} | {_, {blockName_Symbol, _?NumberQ}} :> blockName]]
+          ];
+
+GetDRbarBlockNames[] :=
+    Module[{blocks, transformer},
+           blocks = GetDRbarBlocks[];
+           transformer = ("\"" <> ToString[#] <> "\"")&;
+           "{ " <> StringJoinWithSeparator[blocks, ", ", transformer] <> " }"
+          ];
+
+GetNumberOfDRbarBlocks[] := Length[GetDRbarBlocks[]];
 
 End[];
 
