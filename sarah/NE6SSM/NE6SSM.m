@@ -35,10 +35,12 @@ SuperFields[[7]] = {e, 3, conj[eR],      1, 1,  1, 1, RpM};
 SuperFields[[8]] = {s, 1, sR,     0, 1,  1, QS, RpP};
 SuperFields[[9]] = {sbar, 1, sbarR,    0, 1,  1, -QS, RpP};
  
-(* These come from the 2&-plets but the third  gen is at GUT scale *)
+(* These come from the 27-plets but the third  gen is at GUT scale *)
  SuperFields[[10]] = {H1I, 2, {H1I0, H1Im},  -1/2, 2, 1, -3, RpP};
  SuperFields[[11]] = {H2I, 2, {H2Ip, H2I0},   1/2, 2, 1, -2, RpP};
- SuperFields[[12]] = {NS, 3, NSR,    0, 1,  1, 5, RpP}; 
+(* We have all three singlets of 27-plet survive to low energies
+ but they remain inert - ie get no VEV. *)
+SuperFields[[12]] = {SI, 3, SIR,    0, 1,  1, 5, RpP}; 
 
 SuperFields[[13]] = {Dx, 3, DxL,  -1/3, 1, 3, -2, RpP};
 SuperFields[[14]] = {Dxbar, 3, conj[DxbarR],  1/3, 1, -3, -3, RpP};
@@ -53,7 +55,7 @@ AddMixedSofts = False;
 (*Z2H exact Superpotential *)
 (*------------------------------------------------------*)
 
-SuperPotential = Yu u.q.Hu - Yd d.q.Hd - Ye e.l.Hd + \[Lambda] s.Hu.Hd  + \[Kappa] s.Dx.Dxbar + \[Mu]Pr Hpbar.Hp - \[Sigma] phi.s.sbar + \[Kappa]Pr/3 phi.phi.phi + MuPhi/2 phi.phi + \[Xi]F phi + fu NS.H1I.Hu + fd NS.Hd.H2I + gD q.Hp.Dxbar + hE e.H1I.Hp +  \[Sigma]L phi.Hp.Hpbar;
+SuperPotential = Yu u.q.Hu - Yd d.q.Hd - Ye e.l.Hd + \[Lambda] s.Hu.Hd  + \[Kappa] s.Dx.Dxbar + \[Mu]Pr Hpbar.Hp - \[Sigma] phi.s.sbar + \[Kappa]Pr/3 phi.phi.phi + MuPhi/2 phi.phi + \[Xi]F phi + fu SI.H1I.Hu + fd SI.Hd.H2I + gD q.Hp.Dxbar + hE e.H1I.Hp +  \[Sigma]L phi.Hp.Hpbar;
 
 (*-------------------------------------------*)
 (* Integrate Out or Delete Particles         *)
@@ -99,8 +101,8 @@ DEFINITION[GaugeES][DiracSpinors]={
   H0I2 -> {0, conj[FH2I0]},
   HCI1 -> {FH1Im, 0},
   HCI2 -> {0, conj[FH2Ip]},
-  FNS1 -> {FNSR, 0},
-  FNS2 -> {0, conj[FNSR]},
+  FSI1 -> {FSIR, 0},
+  FSI2 -> {0, conj[FSIR]},
   FDx1 -> {FDxL, 0},
   FDx2 -> {0, FDxbarR},
   Hp01 -> {FHpd0, 0},
@@ -153,13 +155,11 @@ DEFINITION[EWSB][MatterSector]=
       {{{FdL},{conj[FdR]}},{{FDL,ZDL},{FDR,ZDR}}},
       {{{FuL},{conj[FuR]}},{{FUL,ZUL},{FUR,ZUR}}},
       {{{FDxL},{conj[FDxbarR]}},{{FDXL,ZDXL},{FDXR,ZDXR}}}, 
-      (* Removing decoupled inerts from spectrum
-   {{SH1I0,conj[SH2I0]},{SHI0,UHI0}},
-   {{SH1Im,conj[SH2Ip]},{SHIp,UHIp}},
-   {{{FH1Im},{FH2Ip}},{{LmI,ZMI},{LpI,ZPI}}},
-   {{FH1I0,FH2I0},{L0I,ZNI}},
-   {{SsIR},{SS0I,ZSSI}},
-       *)
+      (* Inerts all mix together *)
+      {{SH1I0,conj[SH2I0],SSIR,conj[SSIR]},{SHI0,UHI0}},
+      {{SH1Im,conj[SH2Ip]},{SHIp,UHIp}},
+      {{{FH1Im},{FH2Ip}},{{LmI,ZMI},{LpI,ZPI}}},
+      {{FH1I0,FH2I0,FSI},{L0I,ZNI}},      
       {{SHpd0,conj[SHpu0]},{SHp0,UHp0}},
       {{SHpdm,conj[SHpup]},{SHpp,UHpp}},
       {{FHpd0,FHpu0},{L0p,ZNp}}
@@ -179,11 +179,8 @@ DEFINITION[EWSB][DiracSpinors]={
  Chi -> {L0, conj[L0]},
  Cha -> {Lm, conj[Lp]},
  Glu -> {fG, conj[fG]},
- (* 
-  removing decoupled inerts from spectrum
-  ChiI -> {L0I, conj[L0I]},
-  ChaI -> {LmI, conj[LpI]},
-  *)
+ ChiI -> {L0I, conj[L0I]},
+ ChaI -> {LmI, conj[LpI]},
  ChiP -> {L0p, conj[L0p]},
  ChaP -> {FHpdm, conj[FHpup]}, 
  FDX -> {FDXL, conj[FDXR]}
