@@ -16,7 +16,7 @@
 // <http://www.gnu.org/licenses/>.
 // ====================================================================
 
-// File generated at Wed 2 Jul 2014 01:15:52
+// File generated at Wed 2 Jul 2014 02:36:10
 
 #ifndef NE6SSM_SLHA_IO_H
 #define NE6SSM_SLHA_IO_H
@@ -69,7 +69,7 @@ public:
 
 private:
    SLHA_io slha_io; ///< SLHA io class
-   static unsigned const NUMBER_OF_DRBAR_BLOCKS = 28;
+   static unsigned const NUMBER_OF_DRBAR_BLOCKS = 29;
    static char const * const drbar_blocks[NUMBER_OF_DRBAR_BLOCKS];
 
    template <class T> void set_mass(const NE6SSM<T>&);
@@ -148,7 +148,7 @@ void NE6SSM_slha_io::fill_drbar_parameters(NE6SSM<T>& model) const
    }
    {
       DEFINE_PARAMETER(fu);
-      slha_io.read_block("ESIXFDYUK", fu);
+      slha_io.read_block("ESIXFUYUK", fu);
       model.set_fu(fu);
    }
    {
@@ -726,11 +726,8 @@ void NE6SSM_slha_io::set_model_parameters(const NE6SSM<T>& model)
       slha_io.set_block(block);
    }
    slha_io.set_block("ESIXGDYUK", MODELPARAMETER(gD), "gD", model.get_scale());
-   {
-      std::ostringstream block;
-      block << "Block ESIXFDYUK Q= " << FORMAT_NUMBER(model.get_scale()) << '\n'
-      slha_io.set_block(block);
-   }
+   slha_io.set_block("ESIXFUYUK", MODELPARAMETER(fu), "fu", model.get_scale());
+   slha_io.set_block("ESIXFDYUK", MODELPARAMETER(fd), "fd", model.get_scale());
    slha_io.set_block("ESIXTHETRI", MODELPARAMETER(ThE), "ThE", model.get_scale());
    slha_io.set_block("ESIXTGDTRI", MODELPARAMETER(TgD), "TgD", model.get_scale());
    slha_io.set_block("ESIXTFUTRI", MODELPARAMETER(Tfu), "Tfu", model.get_scale());

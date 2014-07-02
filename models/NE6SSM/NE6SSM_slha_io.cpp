@@ -16,7 +16,7 @@
 // <http://www.gnu.org/licenses/>.
 // ====================================================================
 
-// File generated at Wed 2 Jul 2014 01:15:52
+// File generated at Wed 2 Jul 2014 02:36:10
 
 #include "NE6SSM_slha_io.hpp"
 #include "NE6SSM_input_parameters.hpp"
@@ -38,9 +38,10 @@ namespace flexiblesusy {
 
 char const * const NE6SSM_slha_io::drbar_blocks[NUMBER_OF_DRBAR_BLOCKS] =
    { "gauge", "Yu", "Yd", "Ye", "Te", "Td", "Tu", "HMIX", "ESIXHEYUK",
-   "ESIXRUN", "ESIXGDYUK", "ESIXFDYUK", "ESIXTHETRI", "ESIXTGDTRI",
-   "ESIXTFUTRI", "ESIXTFDTRI", "MSQ2", "MSE2", "MSL2", "MSU2", "MSD2", "MSOFT",
-   "mX2", "mXBar2", "ESIXKAPPA", "ESIXTKAPPA", "ESIXLAMBDA", "ESIXTLAMBDA" }
+   "ESIXRUN", "ESIXGDYUK", "ESIXFUYUK", "ESIXFDYUK", "ESIXTHETRI", "ESIXTGDTRI"
+   , "ESIXTFUTRI", "ESIXTFDTRI", "MSQ2", "MSE2", "MSL2", "MSU2", "MSD2",
+   "MSOFT", "mX2", "mXBar2", "ESIXKAPPA", "ESIXTKAPPA", "ESIXLAMBDA",
+   "ESIXTLAMBDA" }
 ;
 
 NE6SSM_slha_io::NE6SSM_slha_io()
@@ -142,7 +143,7 @@ void NE6SSM_slha_io::fill(NE6SSM_input_parameters& input) const
    slha_io.read_block("ESIXHEYUKIN", input.hEInput);
    input.SigmaLInput = slha_io.read_entry("ESIXRUNIN", 42);
    slha_io.read_block("ESIXGDYUKIN", input.gDInput);
-   slha_io.read_block("ESIXFDYUKIN", input.fuInput);
+   slha_io.read_block("ESIXFUYUKIN", input.fuInput);
    slha_io.read_block("ESIXFDYUKIN", input.fdInput);
    input.TKappaPrInput = slha_io.read_entry("ESIXRUNIN", 28);
    input.TSigmaxInput = slha_io.read_entry("ESIXRUNIN", 29);
