@@ -13,14 +13,6 @@ EXTPAR = {
    {72, QS}        
          };
 
-DefaultParameterPoint = {
-   {QS, 5}, 
-   {muPrimeInput, 400},
-   {BmuPrimeInput, 40000},
-   {vSInput, 100},
-   {TanBeta, 10}
-};
-
 EWSBOutputParameters = {mHd2, mHu2, ms2, msbar2, mphi2};
 
 SUSYScale = 1000;
