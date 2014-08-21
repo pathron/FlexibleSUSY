@@ -16,7 +16,7 @@
 // <http://www.gnu.org/licenses/>.
 // ====================================================================
 
-// File generated at Tue 8 Jul 2014 14:47:11
+// File generated at Wed 9 Jul 2014 14:04:40
 
 #ifndef NE6SSM_INFO_H
 #define NE6SSM_INFO_H
@@ -26,9 +26,9 @@
 namespace flexiblesusy {
 
 namespace NE6SSM_info {
-   enum Particles : unsigned {Glu, Fv, ChaP, VZ, VZp, Sd, Sv, Su, Se, SDX, hh,
-      Ah, Hpm, Chi, Cha, Fe, Fd, Fu, FDX, SHI0, SHIPM, ChaI, ChiI, SHp0, SHpp,
-      ChiP, VG, VP, VWm, NUMBER_OF_PARTICLES};
+   enum Particles : unsigned {VG, Glu, Fv, ChaP, VP, VZ, VZp, Sd, Sv, Su, Se,
+      SDX, hh, Ah, Hpm, Chi, Cha, Fe, Fd, Fu, FDX, SHI0, SHIPM, ChaI, ChiI, SHp0,
+      SHpp, ChiP, VWm, NUMBER_OF_PARTICLES};
 
    enum Parameters : unsigned {Yd00, Yd01, Yd02, Yd10, Yd11, Yd12, Yd20, Yd21,
       Yd22, hE00, hE01, hE10, hE11, hE20, hE21, Ye00, Ye01, Ye02, Ye10, Ye11, Ye12

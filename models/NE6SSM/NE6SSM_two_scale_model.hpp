@@ -21,7 +21,7 @@
  *        value problem using the two_scale solver by solvingt EWSB 
  *        and determine the pole masses and mixings
  */
-// File generated at Tue 8 Jul 2014 14:59:35
+// File generated at Wed 9 Jul 2014 14:07:20
 
 #ifndef NE6SSM_TWO_SCALE_H
 #define NE6SSM_TWO_SCALE_H
@@ -90,9 +90,11 @@ public:
    virtual void set_precision(double);
 
 
+   double get_MVG() const { return MVG; }
    double get_MGlu() const { return MGlu; }
    const Eigen::Array<double,3,1>& get_MFv() const { return MFv; }
    double get_MChaP() const { return MChaP; }
+   double get_MVP() const { return MVP; }
    double get_MVZ() const { return MVZ; }
    double get_MVZp() const { return MVZp; }
    const Eigen::Array<double,6,1>& get_MSd() const { return MSd; }
@@ -116,8 +118,6 @@ public:
    const Eigen::Array<double,2,1>& get_MSHp0() const { return MSHp0; }
    const Eigen::Array<double,2,1>& get_MSHpp() const { return MSHpp; }
    const Eigen::Array<double,2,1>& get_MChiP() const { return MChiP; }
-   double get_MVG() const { return MVG; }
-   double get_MVP() const { return MVP; }
    double get_MVWm() const { return MVWm; }
 
    const Eigen::Matrix<double,6,6>& get_ZD() const { return ZD; }
@@ -151,9 +151,11 @@ public:
    void set_PhaseGlu(const std::complex<double>& PhaseGlu_) { PhaseGlu = PhaseGlu_; }
    const std::complex<double>& get_PhaseGlu() const { return PhaseGlu; }
 
+   void calculate_MVG();
    void calculate_MGlu();
    void calculate_MFv();
    void calculate_MChaP();
+   void calculate_MVP();
    void calculate_MVZ();
    void calculate_MVZp();
    Eigen::Matrix<double,6,6> get_mass_matrix_Sd() const;
@@ -198,8 +200,6 @@ public:
    void calculate_MSHpp();
    Eigen::Matrix<double,2,2> get_mass_matrix_ChiP() const;
    void calculate_MChiP();
-   void calculate_MVG();
-   void calculate_MVP();
    void calculate_MVWm();
 
    double get_ewsb_eq_hh_1() const;
@@ -1205,9 +1205,11 @@ public:
 
 
 
+   void calculate_MVG_pole();
    void calculate_MGlu_pole();
    void calculate_MFv_pole();
    void calculate_MChaP_pole();
+   void calculate_MVP_pole();
    void calculate_MVZ_pole();
    void calculate_MVZp_pole();
    void calculate_MSd_pole();
@@ -1231,8 +1233,6 @@ public:
    void calculate_MSHp0_pole();
    void calculate_MSHpp_pole();
    void calculate_MChiP_pole();
-   void calculate_MVG_pole();
-   void calculate_MVP_pole();
    void calculate_MVWm_pole();
 
    double calculate_MFu_DRbar(double, int) const;
@@ -1304,9 +1304,11 @@ private:
    double G0(double, double, double) const;
 
    // DR-bar masses
+   double MVG;
    double MGlu;
    Eigen::Array<double,3,1> MFv;
    double MChaP;
+   double MVP;
    double MVZ;
    double MVZp;
    Eigen::Array<double,6,1> MSd;
@@ -1330,8 +1332,6 @@ private:
    Eigen::Array<double,2,1> MSHp0;
    Eigen::Array<double,2,1> MSHpp;
    Eigen::Array<double,2,1> MChiP;
-   double MVG;
-   double MVP;
    double MVWm;
 
    // DR-bar mixing matrices

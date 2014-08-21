@@ -16,7 +16,7 @@
 // <http://www.gnu.org/licenses/>.
 // ====================================================================
 
-// File generated at Tue 8 Jul 2014 14:47:12
+// File generated at Wed 9 Jul 2014 14:04:41
 
 #include "NE6SSM_two_scale_susy_scale_constraint.hpp"
 #include "NE6SSM_two_scale_model.hpp"
@@ -215,7 +215,9 @@ void NE6SSM_susy_scale_constraint<Two_scale>::initialize()
 
 void NE6SSM_susy_scale_constraint<Two_scale>::update_scale()
 {
-   scale = 1000;
+   const auto MSu = MODELPARAMETER(MSu);
+
+   scale = Sqrt(MSu(0)*MSu(5));
 
 
 }

@@ -16,7 +16,7 @@
 // <http://www.gnu.org/licenses/>.
 // ====================================================================
 
-// File generated at Tue 8 Jul 2014 14:59:35
+// File generated at Wed 9 Jul 2014 14:07:20
 
 #include "NE6SSM_physical.hpp"
 
@@ -26,19 +26,19 @@ namespace flexiblesusy {
 
 NE6SSM_physical::NE6SSM_physical()
    :
-    MGlu(0), MFv(Eigen::Array<double,3,1>::Zero()), MChaP(0), MVZ(0), MVZp(0),
-       MSd(Eigen::Array<double,6,1>::Zero()), MSv(Eigen::Array<double,3,1>::Zero(
-       )), MSu(Eigen::Array<double,6,1>::Zero()), MSe(Eigen::Array<double,6,1>
-       ::Zero()), MSDX(Eigen::Array<double,6,1>::Zero()), Mhh(Eigen::Array<double,
-       5,1>::Zero()), MAh(Eigen::Array<double,5,1>::Zero()), MHpm(Eigen::Array<
-       double,2,1>::Zero()), MChi(Eigen::Array<double,8,1>::Zero()), MCha(
-       Eigen::Array<double,2,1>::Zero()), MFe(Eigen::Array<double,3,1>::Zero()),
-       MFd(Eigen::Array<double,3,1>::Zero()), MFu(Eigen::Array<double,3,1>::Zero()
-       ), MFDX(Eigen::Array<double,3,1>::Zero()), MSHI0(Eigen::Array<double,7,1>
-       ::Zero()), MSHIPM(Eigen::Array<double,4,1>::Zero()), MChaI(Eigen::Array<
-       double,2,1>::Zero()), MChiI(Eigen::Array<double,7,1>::Zero()), MSHp0(
-       Eigen::Array<double,2,1>::Zero()), MSHpp(Eigen::Array<double,2,1>::Zero()),
-       MChiP(Eigen::Array<double,2,1>::Zero()), MVG(0), MVP(0), MVWm(0)
+    MVG(0), MGlu(0), MFv(Eigen::Array<double,3,1>::Zero()), MChaP(0), MVP(0),
+       MVZ(0), MVZp(0), MSd(Eigen::Array<double,6,1>::Zero()), MSv(Eigen::Array<
+       double,3,1>::Zero()), MSu(Eigen::Array<double,6,1>::Zero()), MSe(
+       Eigen::Array<double,6,1>::Zero()), MSDX(Eigen::Array<double,6,1>::Zero()),
+       Mhh(Eigen::Array<double,5,1>::Zero()), MAh(Eigen::Array<double,5,1>::Zero()
+       ), MHpm(Eigen::Array<double,2,1>::Zero()), MChi(Eigen::Array<double,8,1>
+       ::Zero()), MCha(Eigen::Array<double,2,1>::Zero()), MFe(Eigen::Array<double,
+       3,1>::Zero()), MFd(Eigen::Array<double,3,1>::Zero()), MFu(Eigen::Array<
+       double,3,1>::Zero()), MFDX(Eigen::Array<double,3,1>::Zero()), MSHI0(
+       Eigen::Array<double,7,1>::Zero()), MSHIPM(Eigen::Array<double,4,1>::Zero())
+       , MChaI(Eigen::Array<double,2,1>::Zero()), MChiI(Eigen::Array<double,7,1>
+       ::Zero()), MSHp0(Eigen::Array<double,2,1>::Zero()), MSHpp(Eigen::Array<
+       double,2,1>::Zero()), MChiP(Eigen::Array<double,2,1>::Zero()), MVWm(0)
 
    , ZD(Eigen::Matrix<double,6,6>::Zero()), ZV(Eigen::Matrix<double,3,3>::Zero(
       )), ZU(Eigen::Matrix<double,6,6>::Zero()), ZE(Eigen::Matrix<double,6,6>
@@ -64,9 +64,11 @@ NE6SSM_physical::NE6SSM_physical()
 
 void NE6SSM_physical::clear()
 {
+   MVG = 0.0;
    MGlu = 0.0;
    MFv = Eigen::Array<double,3,1>::Zero();
    MChaP = 0.0;
+   MVP = 0.0;
    MVZ = 0.0;
    MVZp = 0.0;
    MSd = Eigen::Array<double,6,1>::Zero();
@@ -117,8 +119,6 @@ void NE6SSM_physical::clear()
    UHpp = Eigen::Matrix<double,2,2>::Zero();
    MChiP = Eigen::Array<double,2,1>::Zero();
    ZNp = Eigen::Matrix<std::complex<double>,2,2>::Zero();
-   MVG = 0.0;
-   MVP = 0.0;
    MVWm = 0.0;
 
 }
@@ -128,9 +128,11 @@ void NE6SSM_physical::print(std::ostream& ostr) const
    ostr << "----------------------------------------\n"
            "one-loop pole masses:\n"
            "----------------------------------------\n";
+   ostr << "MVG = " << MVG << '\n';
    ostr << "MGlu = " << MGlu << '\n';
    ostr << "MFv = " << MFv.transpose() << '\n';
    ostr << "MChaP = " << MChaP << '\n';
+   ostr << "MVP = " << MVP << '\n';
    ostr << "MVZ = " << MVZ << '\n';
    ostr << "MVZp = " << MVZp << '\n';
    ostr << "MSd = " << MSd.transpose() << '\n';
@@ -154,8 +156,6 @@ void NE6SSM_physical::print(std::ostream& ostr) const
    ostr << "MSHp0 = " << MSHp0.transpose() << '\n';
    ostr << "MSHpp = " << MSHpp.transpose() << '\n';
    ostr << "MChiP = " << MChiP.transpose() << '\n';
-   ostr << "MVG = " << MVG << '\n';
-   ostr << "MVP = " << MVP << '\n';
    ostr << "MVWm = " << MVWm << '\n';
 
    ostr << "----------------------------------------\n"

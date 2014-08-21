@@ -16,7 +16,7 @@
 // <http://www.gnu.org/licenses/>.
 // ====================================================================
 
-// File generated at Tue 8 Jul 2014 14:59:35
+// File generated at Wed 9 Jul 2014 14:07:20
 
 #ifndef NE6SSM_PHYSICAL_H
 #define NE6SSM_PHYSICAL_H
@@ -34,9 +34,11 @@ struct NE6SSM_physical {
    void clear();
    void print(std::ostream&) const;
 
+   double MVG;
    double MGlu;
    Eigen::Array<double,3,1> MFv;
    double MChaP;
+   double MVP;
    double MVZ;
    double MVZp;
    Eigen::Array<double,6,1> MSd;
@@ -60,8 +62,6 @@ struct NE6SSM_physical {
    Eigen::Array<double,2,1> MSHp0;
    Eigen::Array<double,2,1> MSHpp;
    Eigen::Array<double,2,1> MChiP;
-   double MVG;
-   double MVP;
    double MVWm;
 
    Eigen::Matrix<double,6,6> ZD;

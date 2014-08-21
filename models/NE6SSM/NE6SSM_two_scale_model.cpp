@@ -20,7 +20,7 @@
  * @brief contains methods to solve EWSB and calculate pole masses and 
  *        mixings from DRbar parameters.
  */
-// File generated at Tue 8 Jul 2014 14:59:35
+// File generated at Wed 9 Jul 2014 14:07:20
 
 #include "NE6SSM_two_scale_model.hpp"
 #include "wrappers.hpp"
@@ -76,19 +76,19 @@ CLASSNAME::NE6SSM(const NE6SSM_input_parameters& input_)
    , physical()
    , problems(NE6SSM_info::particle_names)
    , thread_exception()
-   , MGlu(0), MFv(Eigen::Array<double,3,1>::Zero()), MChaP(0), MVZ(0), MVZp(0),
-      MSd(Eigen::Array<double,6,1>::Zero()), MSv(Eigen::Array<double,3,1>::Zero()
-      ), MSu(Eigen::Array<double,6,1>::Zero()), MSe(Eigen::Array<double,6,1>::Zero
-      ()), MSDX(Eigen::Array<double,6,1>::Zero()), Mhh(Eigen::Array<double,5,1>
-      ::Zero()), MAh(Eigen::Array<double,5,1>::Zero()), MHpm(Eigen::Array<double,2
-      ,1>::Zero()), MChi(Eigen::Array<double,8,1>::Zero()), MCha(Eigen::Array<
-      double,2,1>::Zero()), MFe(Eigen::Array<double,3,1>::Zero()), MFd(
-      Eigen::Array<double,3,1>::Zero()), MFu(Eigen::Array<double,3,1>::Zero()),
-      MFDX(Eigen::Array<double,3,1>::Zero()), MSHI0(Eigen::Array<double,7,1>::Zero
-      ()), MSHIPM(Eigen::Array<double,4,1>::Zero()), MChaI(Eigen::Array<double,2,1
-      >::Zero()), MChiI(Eigen::Array<double,7,1>::Zero()), MSHp0(Eigen::Array<
-      double,2,1>::Zero()), MSHpp(Eigen::Array<double,2,1>::Zero()), MChiP(
-      Eigen::Array<double,2,1>::Zero()), MVG(0), MVP(0), MVWm(0)
+   , MVG(0), MGlu(0), MFv(Eigen::Array<double,3,1>::Zero()), MChaP(0), MVP(0),
+      MVZ(0), MVZp(0), MSd(Eigen::Array<double,6,1>::Zero()), MSv(Eigen::Array<
+      double,3,1>::Zero()), MSu(Eigen::Array<double,6,1>::Zero()), MSe(
+      Eigen::Array<double,6,1>::Zero()), MSDX(Eigen::Array<double,6,1>::Zero()),
+      Mhh(Eigen::Array<double,5,1>::Zero()), MAh(Eigen::Array<double,5,1>::Zero())
+      , MHpm(Eigen::Array<double,2,1>::Zero()), MChi(Eigen::Array<double,8,1>
+      ::Zero()), MCha(Eigen::Array<double,2,1>::Zero()), MFe(Eigen::Array<double,3
+      ,1>::Zero()), MFd(Eigen::Array<double,3,1>::Zero()), MFu(Eigen::Array<double
+      ,3,1>::Zero()), MFDX(Eigen::Array<double,3,1>::Zero()), MSHI0(Eigen::Array<
+      double,7,1>::Zero()), MSHIPM(Eigen::Array<double,4,1>::Zero()), MChaI(
+      Eigen::Array<double,2,1>::Zero()), MChiI(Eigen::Array<double,7,1>::Zero()),
+      MSHp0(Eigen::Array<double,2,1>::Zero()), MSHpp(Eigen::Array<double,2,1>
+      ::Zero()), MChiP(Eigen::Array<double,2,1>::Zero()), MVWm(0)
 
    , ZD(Eigen::Matrix<double,6,6>::Zero()), ZV(Eigen::Matrix<double,3,3>::Zero(
       )), ZU(Eigen::Matrix<double,6,6>::Zero()), ZE(Eigen::Matrix<double,6,6>
@@ -511,9 +511,11 @@ void CLASSNAME::print(std::ostream& ostr) const
    ostr << "----------------------------------------\n"
            "tree-level DRbar masses:\n"
            "----------------------------------------\n";
+   ostr << "MVG = " << MVG << '\n';
    ostr << "MGlu = " << MGlu << '\n';
    ostr << "MFv = " << MFv.transpose() << '\n';
    ostr << "MChaP = " << MChaP << '\n';
+   ostr << "MVP = " << MVP << '\n';
    ostr << "MVZ = " << MVZ << '\n';
    ostr << "MVZp = " << MVZp << '\n';
    ostr << "MSd = " << MSd.transpose() << '\n';
@@ -537,8 +539,6 @@ void CLASSNAME::print(std::ostream& ostr) const
    ostr << "MSHp0 = " << MSHp0.transpose() << '\n';
    ostr << "MSHpp = " << MSHpp.transpose() << '\n';
    ostr << "MChiP = " << MChiP.transpose() << '\n';
-   ostr << "MVG = " << MVG << '\n';
-   ostr << "MVP = " << MVP << '\n';
    ostr << "MVWm = " << MVWm << '\n';
 
    ostr << "----------------------------------------\n"
@@ -631,10 +631,10 @@ void CLASSNAME::calculate_DRbar_parameters()
 
    solve_ewsb_tree_level_via_soft_higgs_masses();
 
-   calculate_MVZ();
-   calculate_MVZp();
    calculate_MVG();
    calculate_MVP();
+   calculate_MVZ();
+   calculate_MVZp();
    calculate_MVWm();
    calculate_MGlu();
    calculate_MFv();
@@ -782,9 +782,11 @@ void CLASSNAME::calculate_pole_masses()
 
 void CLASSNAME::copy_DRbar_masses_to_pole_masses()
 {
+   PHYSICAL(MVG) = MVG;
    PHYSICAL(MGlu) = MGlu;
    PHYSICAL(MFv) = MFv;
    PHYSICAL(MChaP) = MChaP;
+   PHYSICAL(MVP) = MVP;
    PHYSICAL(MVZ) = MVZ;
    PHYSICAL(MVZp) = MVZp;
    PHYSICAL(MSd) = MSd;
@@ -835,8 +837,6 @@ void CLASSNAME::copy_DRbar_masses_to_pole_masses()
    PHYSICAL(UHpp) = UHpp;
    PHYSICAL(MChiP) = MChiP;
    PHYSICAL(ZNp) = ZNp;
-   PHYSICAL(MVG) = MVG;
-   PHYSICAL(MVP) = MVP;
    PHYSICAL(MVWm) = MVWm;
 
 }
@@ -893,9 +893,11 @@ void CLASSNAME::calculate_spectrum()
 
 void CLASSNAME::clear_DRbar_parameters()
 {
+   MVG = 0.0;
    MGlu = 0.0;
    MFv = Eigen::Array<double,3,1>::Zero();
    MChaP = 0.0;
+   MVP = 0.0;
    MVZ = 0.0;
    MVZp = 0.0;
    MSd = Eigen::Array<double,6,1>::Zero();
@@ -946,8 +948,6 @@ void CLASSNAME::clear_DRbar_parameters()
    UHpp = Eigen::Matrix<double,2,2>::Zero();
    MChiP = Eigen::Array<double,2,1>::Zero();
    ZNp = Eigen::Matrix<std::complex<double>,2,2>::Zero();
-   MVG = 0.0;
-   MVP = 0.0;
    MVWm = 0.0;
 
    PhaseGlu = std::complex<double>(1.,0.);
@@ -978,6 +978,11 @@ void CLASSNAME::run_to(double scale, double eps)
  */
 
 
+void CLASSNAME::calculate_MVG()
+{
+   MVG = 0;
+}
+
 void CLASSNAME::calculate_MGlu()
 {
    MGlu = MassG;
@@ -996,6 +1001,11 @@ void CLASSNAME::calculate_MFv()
 void CLASSNAME::calculate_MChaP()
 {
    MChaP = MuPr - 0.7071067811865475*vphi*SigmaL;
+}
+
+void CLASSNAME::calculate_MVP()
+{
+   MVP = 0;
 }
 
 void CLASSNAME::calculate_MVZ()
@@ -2149,16 +2159,6 @@ void CLASSNAME::calculate_MChiP()
 {
    const auto mass_matrix_ChiP(get_mass_matrix_ChiP());
    fs_diagonalize_symmetric(mass_matrix_ChiP, MChiP, ZNp);
-}
-
-void CLASSNAME::calculate_MVG()
-{
-   MVG = 0;
-}
-
-void CLASSNAME::calculate_MVP()
-{
-   MVP = 0;
 }
 
 void CLASSNAME::calculate_MVWm()
@@ -53585,6 +53585,12 @@ std::complex<double> CLASSNAME::tadpole_hh(unsigned gO1) const
 
 
 
+void CLASSNAME::calculate_MVG_pole()
+{
+   // diagonalization with medium precision
+   PHYSICAL(MVG) = 0.;
+}
+
 void CLASSNAME::calculate_MGlu_pole()
 {
    // diagonalization with medium precision
@@ -53611,6 +53617,12 @@ void CLASSNAME::calculate_MChaP_pole()
    const double self_energy_PR = Re(self_energy_ChaP_PR(p));
    PHYSICAL(MChaP) = MChaP - self_energy_1 - MChaP * (self_energy_PL +
       self_energy_PR);
+}
+
+void CLASSNAME::calculate_MVP_pole()
+{
+   // diagonalization with medium precision
+   PHYSICAL(MVP) = 0.;
 }
 
 void CLASSNAME::calculate_MVZ_pole()
@@ -54355,18 +54367,6 @@ void CLASSNAME::calculate_MChiP_pole()
          PHYSICAL(ZNp) = mix_ZNp;
       PHYSICAL(MChiP(es)) = Abs(eigen_values(es));
    }
-}
-
-void CLASSNAME::calculate_MVG_pole()
-{
-   // diagonalization with medium precision
-   PHYSICAL(MVG) = 0.;
-}
-
-void CLASSNAME::calculate_MVP_pole()
-{
-   // diagonalization with medium precision
-   PHYSICAL(MVP) = 0.;
 }
 
 void CLASSNAME::calculate_MVWm_pole()

@@ -16,7 +16,7 @@
 // <http://www.gnu.org/licenses/>.
 // ====================================================================
 
-// File generated at Tue 8 Jul 2014 14:47:11
+// File generated at Wed 9 Jul 2014 14:04:40
 
 #ifndef NE6SSM_SLHA_IO_H
 #define NE6SSM_SLHA_IO_H
@@ -403,11 +403,13 @@ void NE6SSM_slha_io::fill_physical(NE6SSM<T>& model) const
       PHYSICAL(UHIPM) = UHIPM;
    }
 
+   PHYSICAL(MVG) = slha_io.read_entry("MASS", 21);
    PHYSICAL(MGlu) = slha_io.read_entry("MASS", 1000021);
    PHYSICAL(MFv)(0) = slha_io.read_entry("MASS", 12);
    PHYSICAL(MFv)(1) = slha_io.read_entry("MASS", 14);
    PHYSICAL(MFv)(2) = slha_io.read_entry("MASS", 16);
    PHYSICAL(MChaP) = slha_io.read_entry("MASS", 1000091);
+   PHYSICAL(MVP) = slha_io.read_entry("MASS", 22);
    PHYSICAL(MVZ) = slha_io.read_entry("MASS", 23);
    PHYSICAL(MVZp) = slha_io.read_entry("MASS", 31);
    PHYSICAL(MSd)(0) = slha_io.read_entry("MASS", 1000001);
@@ -494,8 +496,6 @@ void NE6SSM_slha_io::fill_physical(NE6SSM<T>& model) const
    PHYSICAL(MSHpp)(1) = slha_io.read_entry("MASS", 93);
    PHYSICAL(MChiP)(0) = slha_io.read_entry("MASS", 1000092);
    PHYSICAL(MChiP)(1) = slha_io.read_entry("MASS", 1000094);
-   PHYSICAL(MVG) = slha_io.read_entry("MASS", 21);
-   PHYSICAL(MVP) = slha_io.read_entry("MASS", 22);
    PHYSICAL(MVWm) = slha_io.read_entry("MASS", 24);
 
 }
@@ -503,9 +503,11 @@ void NE6SSM_slha_io::fill_physical(NE6SSM<T>& model) const
 template <class T>
 void NE6SSM_slha_io::set_mass(const NE6SSM<T>& model)
 {
+   const auto MVG = PHYSICAL(MVG);
    const auto MGlu = PHYSICAL(MGlu);
    const auto MFv = PHYSICAL(MFv);
    const auto MChaP = PHYSICAL(MChaP);
+   const auto MVP = PHYSICAL(MVP);
    const auto MVZ = PHYSICAL(MVZ);
    const auto MVZp = PHYSICAL(MVZp);
    const auto MSd = PHYSICAL(MSd);
@@ -529,8 +531,6 @@ void NE6SSM_slha_io::set_mass(const NE6SSM<T>& model)
    const auto MSHp0 = PHYSICAL(MSHp0);
    const auto MSHpp = PHYSICAL(MSHpp);
    const auto MChiP = PHYSICAL(MChiP);
-   const auto MVG = PHYSICAL(MVG);
-   const auto MVP = PHYSICAL(MVP);
    const auto MVWm = PHYSICAL(MVWm);
 
    std::ostringstream mass;
@@ -618,9 +618,11 @@ void NE6SSM_slha_io::set_mass(const NE6SSM<T>& model)
 
    if (model.do_calculate_sm_pole_masses()) {
       mass
+         << FORMAT_MASS(21, MVG, "VG")
          << FORMAT_MASS(12, MFv(0), "Fv_1")
          << FORMAT_MASS(14, MFv(1), "Fv_2")
          << FORMAT_MASS(16, MFv(2), "Fv_3")
+         << FORMAT_MASS(22, MVP, "VP")
          << FORMAT_MASS(23, MVZ, "VZ")
          << FORMAT_MASS(11, MFe(0), "Fe_1")
          << FORMAT_MASS(13, MFe(1), "Fe_2")
@@ -631,8 +633,6 @@ void NE6SSM_slha_io::set_mass(const NE6SSM<T>& model)
          << FORMAT_MASS(2, MFu(0), "Fu_1")
          << FORMAT_MASS(4, MFu(1), "Fu_2")
          << FORMAT_MASS(6, MFu(2), "Fu_3")
-         << FORMAT_MASS(21, MVG, "VG")
-         << FORMAT_MASS(22, MVP, "VP")
          << FORMAT_MASS(24, MVWm, "VWm")
       ;
    }

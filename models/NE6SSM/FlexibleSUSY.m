@@ -23,7 +23,7 @@ DefaultParameterPoint = {
 
 EWSBOutputParameters = {mHd2, mHu2, ms2, msbar2, mphi2};
 
-SUSYScale = 1000;
+SUSYScale = Sqrt[M[Su[1]]*M[Su[6]]];
 
 SUSYScaleFirstGuess =  1000; 
 
